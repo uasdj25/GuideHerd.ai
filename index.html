@@ -607,7 +607,7 @@ p { margin: 0; }
   line-height: 1.1;
   letter-spacing: -0.01em;
 }
-.pillar-title .amp { font-style: italic; font-weight: 400; opacity: 0.6; }
+.pillar-title .amp { font-family: var(--sans); font-style: normal; font-weight: 400; opacity: 0.6; }
 
 .pillar-lede {
   font-size: var(--fs-md);
@@ -1535,7 +1535,7 @@ window.TWEAKS = /*EDITMODE-BEGIN*/{
     <aside class="hero-aside">
       <div class="hero-aside-row">
         <span class="aside-label">Focus</span>
-        <span class="aside-val">Dental · Medical · Legal · Professional services</span>
+        <span class="aside-val">Legal · Professional services · Operators</span>
       </div>
       <div class="hero-aside-row">
         <span class="aside-label">Engagements</span>
@@ -1550,11 +1550,11 @@ window.TWEAKS = /*EDITMODE-BEGIN*/{
     <figure class="hero-figure" aria-hidden="true">
       <div class="hero-figure-inner doc-placeholder">
         <div class="doc-head">Readiness Assessment · Draft 03</div>
-        <div class="doc-title">Northgate Dental<br><em>Group, PLLC</em></div>
+        <div class="doc-title">Northgate Legal<br><em>Partners, PLLC</em></div>
         <div class="doc-rule"></div>
-        <div class="doc-sec"><span class="doc-sec-label">01 · Intake &amp; Scheduling</span><span class="doc-sec-body">Manual triage, 14 hrs / wk across 3 admins. Recommend: voice intake + insurance pre-check.</span></div>
-        <div class="doc-sec"><span class="doc-sec-label">02 · Insurance &amp; Billing</span><span class="doc-sec-body">Claims rework at 11%. Target: under 4%.</span></div>
-        <div class="doc-sec"><span class="doc-sec-label">03 · Clinical Notes</span><span class="doc-sec-body">Ambient scribe pilot: 2 operatories, 30 days.</span></div>
+        <div class="doc-sec"><span class="doc-sec-label">01 · Matter Intake &amp; Conflicts</span><span class="doc-sec-body">Manual triage and conflict checks, 9 hrs / wk across paralegals. Recommend: AI-assisted intake + auto conflict screening.</span></div>
+        <div class="doc-sec"><span class="doc-sec-label">02 · Time &amp; Billing</span><span class="doc-sec-body">Write-offs at 12% of billable hours. Target: under 5%.</span></div>
+        <div class="doc-sec"><span class="doc-sec-label">03 · Document Review</span><span class="doc-sec-body">AI-assisted contract review pilot: 2 practice areas, 30 days.</span></div>
         <div class="doc-recovery">
           <span class="doc-sec-label">Estimated Annual Recovery</span>
           <span class="doc-figure">$182,000</span>
@@ -1722,19 +1722,6 @@ window.TWEAKS = /*EDITMODE-BEGIN*/{
 
     <div class="vertical-grid">
       <article class="vertical">
-        <div class="vertical-tag">Healthcare</div>
-        <h3 class="vertical-title">Dental &amp; medical practices</h3>
-        <p class="vertical-desc">Group practices and solo operators with 5–50 staff who run on a mix of EHR, a PMS, and human attention.</p>
-        <ul class="vertical-uses">
-          <li>Ambient clinical documentation</li>
-          <li>Voice intake &amp; scheduling</li>
-          <li>Insurance pre-check &amp; claims</li>
-          <li>Recall &amp; reactivation campaigns</li>
-          <li>Patient-flow dashboards</li>
-        </ul>
-      </article>
-
-      <article class="vertical">
         <div class="vertical-tag">Legal</div>
         <h3 class="vertical-title">Law firms &amp; professional services</h3>
         <p class="vertical-desc">Firms of 10–100 with a partnership structure, billable hours, and a backlog of document-heavy work.</p>
@@ -1891,13 +1878,12 @@ window.TWEAKS = /*EDITMODE-BEGIN*/{
           <label>Work email<input type="email" name="email" required placeholder="you@firm.com"></label>
         </div>
         <div class="form-row form-row-two">
-          <label>Company<input type="text" name="company" required placeholder="Northgate Dental Group"></label>
+          <label>Company<input type="text" name="company" required placeholder="Northgate Legal Partners"></label>
           <label>Role<input type="text" name="role" placeholder="Managing Partner"></label>
         </div>
         <div class="form-row">
           <label>Industry
             <select name="industry">
-              <option>Dental / Medical practice</option>
               <option>Law firm / Professional services</option>
               <option>Mid-market services operator</option>
               <option>Other</option>

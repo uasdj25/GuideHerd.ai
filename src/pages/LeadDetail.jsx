@@ -83,7 +83,7 @@ function AnalysisTab({ lead }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
         <div className="card">
           <div className="section-title">Classification</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--navy)', marginBottom: 8 }}>
+          <div style={{ fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 400, color: 'var(--ink)', marginBottom: 8 }}>
             {analysis.label}
           </div>
           <div className="confidence-bar" style={{ marginBottom: 16 }}>
@@ -151,7 +151,7 @@ function AnalysisTab({ lead }) {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="section-title">Conflict-Check Names</div>
-        <p style={{ fontSize: 13, color: 'var(--gray-600)', marginBottom: 10 }}>
+        <p style={{ fontSize: 13, color: 'var(--ink-80)', marginBottom: 10 }}>
           Extracted for conflict screening. <strong>This list may be incomplete.</strong>{' '}
           Attorney must run full conflict check before any substantive discussion.
         </p>
@@ -172,7 +172,7 @@ function AnalysisTab({ lead }) {
               ))}
             </ul>
           ) : (
-            <p style={{ fontSize: 14, color: 'var(--gray-400)' }}>No obvious gaps identified.</p>
+            <p style={{ fontSize: 14, color: 'var(--ink-40)' }}>No obvious gaps identified.</p>
           )}
         </div>
 
@@ -185,7 +185,7 @@ function AnalysisTab({ lead }) {
               ))}
             </div>
           ) : (
-            <p style={{ fontSize: 14, color: 'var(--gray-400)' }}>No flags identified.</p>
+            <p style={{ fontSize: 14, color: 'var(--ink-40)' }}>No flags identified.</p>
           )}
         </div>
       </div>
@@ -193,8 +193,8 @@ function AnalysisTab({ lead }) {
       <div className="card">
         <div className="section-title">Client Description (Verbatim)</div>
         <blockquote style={{
-          borderLeft: '3px solid var(--gold)', paddingLeft: 14,
-          fontStyle: 'italic', color: 'var(--gray-600)',
+          borderLeft: '3px solid var(--warm)', paddingLeft: 14,
+          fontStyle: 'italic', color: 'var(--ink-80)',
           fontSize: 14, lineHeight: 1.7, whiteSpace: 'pre-wrap',
         }}>
           {intake.matterDescription}
@@ -261,7 +261,7 @@ function MarkdownBody({ content }) {
       elements.push(<ol key={`ol${i}`}>{items.map((it, j) => <li key={j} dangerouslySetInnerHTML={{ __html: inl(it) }} />)}</ol>);
       continue;
     } else if (line.startsWith('---')) {
-      elements.push(<hr key={i} style={{ border: 'none', borderTop: '1px solid var(--gray-200)', margin: '12px 0' }} />);
+      elements.push(<hr key={i} style={{ border: 'none', borderTop: '1px solid var(--ink-10)', margin: '12px 0' }} />);
     } else if (line.trim()) {
       elements.push(<p key={i} style={{ marginBottom: 6 }} dangerouslySetInnerHTML={{ __html: inl(line) }} />);
     }
@@ -297,7 +297,7 @@ function DraftsTab({ lead }) {
           <div className="draft-toolbar">
             <div>
               <div style={{ fontWeight: 700, marginBottom: 2 }}>Draft Acknowledgment Email</div>
-              <div style={{ fontSize: 12, color: 'var(--gray-400)' }}>
+              <div style={{ fontSize: 12, color: 'var(--ink-40)' }}>
                 To: {lead.intake.email} — NOT SENT
               </div>
             </div>
@@ -312,7 +312,7 @@ function DraftsTab({ lead }) {
           <div className="draft-toolbar">
             <div>
               <div style={{ fontWeight: 700, marginBottom: 2 }}>Attorney Summary</div>
-              <div style={{ fontSize: 12, color: 'var(--gray-400)' }}>
+              <div style={{ fontSize: 12, color: 'var(--ink-40)' }}>
                 Confidential Work Product — Attorney Eyes Only
               </div>
             </div>
@@ -348,7 +348,7 @@ function JsonTab({ lead }) {
       <div className="draft-toolbar">
         <div>
           <div style={{ fontWeight: 700, marginBottom: 2 }}>Lead JSON Output</div>
-          <div style={{ fontSize: 12, color: 'var(--gray-400)' }}>{lead.id}.json</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-40)' }}>{lead.id}.json</div>
         </div>
         <CopyButton text={json} label="Copy JSON" />
       </div>
@@ -379,7 +379,7 @@ function NotesTab({ lead, onAddNote }) {
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="section-title">Attorney Notes</div>
         {(lead.notes || []).length === 0 ? (
-          <p style={{ color: 'var(--gray-400)', fontSize: 14 }}>No notes yet.</p>
+          <p style={{ color: 'var(--ink-40)', fontSize: 14 }}>No notes yet.</p>
         ) : (
           (lead.notes || []).map(n => (
             <div key={n.id} className="note-item">
@@ -471,22 +471,22 @@ export default function LeadDetail() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>
+              <h1 style={{ fontFamily: 'var(--serif)', fontSize: 26, fontWeight: 400, letterSpacing: '-0.02em', color: 'var(--ink)' }}>
                 {intake.firstName} {intake.lastName}
               </h1>
               {analysis.inScope === false && <span className="badge badge-out-of-scope">Out of Scope</span>}
               {analysis.inScope === true && <span className="badge badge-in-scope">In Scope</span>}
             </div>
-            <div style={{ fontSize: 14, color: 'var(--gray-600)' }}>
+            <div style={{ fontSize: 14, color: 'var(--ink-80)' }}>
               {intake.email} &middot; {intake.phone || 'No phone'} &middot; Submitted{' '}
               {new Date(lead.submittedAt).toLocaleDateString()}
             </div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--navy)', marginTop: 4 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginTop: 4 }}>
               {analysis.label}
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 12, color: 'var(--gray-400)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <div style={{ fontSize: 10.5, color: 'var(--ink-40)', marginBottom: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
               Set Status
             </div>
             <div className="status-selector">

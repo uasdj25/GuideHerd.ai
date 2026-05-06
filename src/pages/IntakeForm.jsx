@@ -183,8 +183,8 @@ export default function IntakeForm() {
         </div>
 
         <div style={{
-          background: 'var(--amber-bg)', border: '1px solid #f0c060',
-          borderRadius: 'var(--radius)', padding: '12px 16px', margin: '16px 0',
+          background: 'var(--warm-bg)', border: '1px solid rgba(200,169,122,0.35)',
+          borderRadius: 'var(--radius-md)', padding: '12px 16px', margin: '16px 0',
           fontSize: 13, color: 'var(--amber)',
         }}>
           <strong>Notice:</strong> Submitting this form does not create an attorney-client
@@ -194,9 +194,9 @@ export default function IntakeForm() {
 
         {error && (
           <div style={{
-            background: 'var(--red-bg)', border: '1px solid #f5c0c0',
-            borderRadius: 'var(--radius)', padding: '10px 14px',
-            color: 'var(--red)', fontSize: 14, marginBottom: 12,
+            background: 'var(--red-bg)', border: '1px solid rgba(166,59,42,0.2)',
+            borderRadius: 'var(--radius-md)', padding: '10px 14px',
+            color: 'var(--red-flag)', fontSize: 14, marginBottom: 12,
           }}>
             {error}
           </div>

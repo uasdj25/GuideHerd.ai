@@ -4,13 +4,14 @@ import IntakeForm from './pages/IntakeForm.jsx';
 import LeadDetail from './pages/LeadDetail.jsx';
 
 function Header() {
-  const location = useLocation();
   return (
     <header className="app-header">
       <div className="app-header-brand">
-        <div className="logo-badge">G</div>
         <div>
-          <div>GuideHerd <span style={{ color: 'var(--gold)', fontWeight: 800 }}>Copilot</span></div>
+          <div className="header-wordmark">
+            GuideHerd
+            <span className="header-copilot-badge">Copilot</span>
+          </div>
           <div className="firm-name">Hargrove &amp; Associates — Demo</div>
         </div>
       </div>

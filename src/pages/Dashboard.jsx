@@ -100,11 +100,11 @@ export default function Dashboard() {
 
       {showReset && (
         <div style={{
-          background: 'var(--red-bg)', border: '1px solid #f5c0c0',
+          background: 'var(--red-bg)', border: '1px solid rgba(166,59,42,0.2)',
           borderRadius: 'var(--radius)', padding: '12px 16px', marginBottom: 16,
           display: 'flex', alignItems: 'center', gap: 12,
         }}>
-          <span style={{ fontSize: 14, color: 'var(--red)', flex: 1 }}>
+          <span style={{ fontSize: 14, color: 'var(--red-flag)', flex: 1 }}>
             This will delete all leads and restore the three sample intakes.
           </span>
           <button className="btn btn-danger btn-sm" onClick={handleReset}>Confirm Reset</button>
@@ -126,7 +126,7 @@ export default function Dashboard() {
           <div className="stat-label">In-Scope Matters</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value" style={{ color: 'var(--red)' }}>{stats.flags}</div>
+          <div className="stat-value" style={{ color: 'var(--red-flag)' }}>{stats.flags}</div>
           <div className="stat-label">Risk Flags</div>
         </div>
       </div>
@@ -193,7 +193,7 @@ export default function Dashboard() {
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <ConfBar pct={lead.confidence} />
-                <div style={{ fontSize: 11, color: 'var(--gray-400)', marginTop: 4 }}>confidence</div>
+                <div style={{ fontSize: 11, color: 'var(--ink-40)', marginTop: 4 }}>confidence</div>
               </div>
               <div className="lead-card-arrow">›</div>
             </div>

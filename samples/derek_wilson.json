@@ -1,0 +1,38 @@
+{
+  "id": "a9685029-ac7c-40a8-a807-ce83c8915a06",
+  "submittedAt": "2026-05-05T20:48:30.382212",
+  "status": "pending",
+  "intake": {
+    "firstName": "Derek",
+    "lastName": "Wilson",
+    "email": "derek.wilson77@example.com",
+    "phone": "(555) 887-0023",
+    "matterDescription": "I was arrested last Saturday night for DUI. The officer said my BAC was 0.12. This is my first offense. I was driving home from a work event. I'm really worried about losing my license and what this means for my job \u2014 I drive for work. The arraignment is scheduled for next Thursday. I don't know if I need a private attorney or if I should use the public defender. I've never been in trouble before and I just want this to go away as quietly as possible.",
+    "partiesInvolved": "State v. Derek Wilson",
+    "estimatedDamages": "N/A",
+    "priorAttorney": "None",
+    "urgency": "High",
+    "referralSource": "Friend recommendation"
+  },
+  "analysis": {
+    "areaKey": "criminal",
+    "label": "Criminal Defense",
+    "inScope": false,
+    "confidence": 81,
+    "referralNote": "Our firm does not handle criminal defense matters. We recommend contacting the State Bar Lawyer Referral Service for a criminal defense attorney.",
+    "needsManualReview": false,
+    "conflictNames": [
+      "Derek Wilson",
+      "State v. Derek Wilson"
+    ],
+    "missingInfo": [],
+    "riskFlags": [
+      "HIGH URGENCY \u2014 client reports time-sensitive matter"
+    ]
+  },
+  "drafts": {
+    "acknowledgmentEmail": "Subject: Your Inquiry to Hargrove & Associates \u2014 Receipt Confirmed\n\nDear Derek,\n\nThank you for reaching out to Hargrove & Associates. We have received your inquiry submitted on May 05, 2026.\n\nAfter a preliminary review, it appears that your matter may fall outside the practice areas our firm currently handles. Specifically, matters involving Criminal Defense are not areas in which our firm currently offers representation.\n\nOur firm does not handle criminal defense matters. We recommend contacting the State Bar Lawyer Referral Service for a criminal defense attorney.\n\nIMPORTANT: This message does not constitute legal advice, and no attorney-client relationship has been formed between you and Hargrove & Associates by virtue of this communication or your submission of this inquiry. Please do not take or refrain from taking any legal action based on this message.\n\nIf you believe your matter has been incorrectly characterized, or if you have additional questions, please contact our office at (555) 400-2200 or intake@hargrovelaw.example.com.\n\nWe wish you the best in finding the representation you need.\n\nSincerely,\n\n[ATTORNEY SIGNATURE REQUIRED]\nHargrove & Associates\n(555) 400-2200 | intake@hargrovelaw.example.com\n\n---\nDRAFT \u2014 NOT YET SENT \u2014 REQUIRES ATTORNEY APPROVAL BEFORE SENDING",
+    "attorneySummary": "# Attorney Intake Summary\n## GuideHerd Legal Intake Copilot \u2014 CONFIDENTIAL WORK PRODUCT\n\n> **This summary is generated for attorney review only. It does not constitute legal advice,\n> establish an attorney-client relationship, or represent a conflict determination.**\n> All items require attorney verification before any action is taken.\n\n---\n\n## Matter Overview\n\n| Field | Value |\n|-------|-------|\n| **Prospective Client** | Derek Wilson |\n| **Submitted** | May 05, 2026 at 08:48 PM |\n| **Contact Email** | derek.wilson77@example.com |\n| **Contact Phone** | (555) 887-0023 |\n| **Urgency (Self-Reported)** | High |\n| **Estimated Value** | N/A |\n| **Prior Attorney** | None |\n| **Referral Source** | Friend recommendation |\n\n---\n\n## Classification \ud83d\udeab OUT OF SCOPE\n\n- **Practice Area:** Criminal Defense\n- **Confidence:** 81%\n- **In-Scope:** No\n\n**Referral Guidance:** Our firm does not handle criminal defense matters. We recommend contacting the State Bar Lawyer Referral Service for a criminal defense attorney.\n\n\n---\n\n## Client Description (Verbatim)\n\n> I was arrested last Saturday night for DUI. The officer said my BAC was 0.12. This is my first offense. I was driving home from a work event. I'm really worried about losing my license and what this means for my job \u2014 I drive for work. The arraignment is scheduled for next Thursday. I don't know if I need a private attorney or if I should use the public defender. I've never been in trouble before and I just want this to go away as quietly as possible.\n\n**Parties Identified by Client:** State v. Derek Wilson\n\n---\n\n## Conflict Check Names\n\n*The following names were extracted from the intake for conflict screening. This list may be incomplete. Attorney must conduct full conflict check before any substantive discussion.*\n\n- Derek Wilson\n- State v. Derek Wilson\n\n---\n\n## Missing Information\n\n*The following items were not addressed in the intake and should be obtained before evaluating the matter:*\n\n- None identified at this stage\n\n---\n\n## Risk Flags\n\n- \u26a0\ufe0f HIGH URGENCY \u2014 client reports time-sensitive matter\n\n---\n\n## Recommended Next Steps\n\n1. **Do not assign an attorney** \u2014 matter is outside firm's practice areas\n2. Send the draft out-of-scope acknowledgment email (after attorney review)\n3. Provide referral information: Our firm does not handle criminal defense matters. We recommend contacting the State Bar Lawyer Referral Service for a criminal defense attorney.\n4. Close intake \u2014 no further action required\n\n---\n\n*Generated by GuideHerd Legal Intake Copilot | May 05, 2026 at 08:48 PM*\n*DRAFT \u2014 FOR ATTORNEY REVIEW ONLY \u2014 DO NOT DISTRIBUTE*"
+  },
+  "notes": []
+}

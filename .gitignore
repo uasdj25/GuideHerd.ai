@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Vite cache
+.vite/
+*.local
+
+# Editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Env files (never commit secrets)
+.env
+.env.local
+.env.*.local
+
+# Python runtime files (local demo only)
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Local data files (contain session state, not source)
+data/leads.json
+outputs/
+
+# OS
+Thumbs.db

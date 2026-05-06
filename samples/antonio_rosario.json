@@ -1,0 +1,38 @@
+{
+  "id": "bb3eec9f-17d5-4bc5-a92d-6838eb29f67c",
+  "submittedAt": "2026-05-05T20:48:30.381724",
+  "status": "pending",
+  "intake": {
+    "firstName": "Antonio",
+    "lastName": "Rosario",
+    "email": "tony@rosarioscapes.example.com",
+    "phone": "(555) 309-7741",
+    "matterDescription": "I own a landscaping company, Rosario Landscapes LLC. Earlier this year I entered into a written contract with Pinnacle Property Group LLC to provide commercial landscaping services for a 12-month period across three of their properties in the metro area. Total contract value was $47,500. I performed all the work as specified. They paid the first two invoices ($15,000 total) but have not paid the remaining $32,500 despite three invoices and several emails. My last communication with their office manager was six weeks ago \u2014 they said the check was 'processing' and I've heard nothing since. I sent a formal demand letter via certified mail two weeks ago and have not received a response. I have the signed contract, all invoices, delivery confirmations, and the certified mail receipt. I want to sue if they don't pay.",
+    "partiesInvolved": "Pinnacle Property Group LLC",
+    "estimatedDamages": "$32,500",
+    "priorAttorney": "None",
+    "urgency": "Medium",
+    "referralSource": "Chamber of Commerce referral"
+  },
+  "analysis": {
+    "areaKey": "business",
+    "label": "Business & Commercial Litigation",
+    "inScope": true,
+    "confidence": 78,
+    "referralNote": null,
+    "needsManualReview": false,
+    "conflictNames": [
+      "Pinnacle Property Group LLC",
+      "Rosario Landscapes",
+      "Pinnacle Property Group",
+      "Antonio Rosario"
+    ],
+    "missingInfo": [],
+    "riskFlags": []
+  },
+  "drafts": {
+    "acknowledgmentEmail": "Subject: Your Inquiry to Hargrove & Associates \u2014 Receipt Confirmed\n\nDear Antonio,\n\nThank you for contacting Hargrove & Associates. We have received your inquiry submitted on May 05, 2026.\n\nA member of our team will review your matter and be in touch within [X] business days to discuss next steps. Please note that no attorney has been assigned to your matter at this time, and no attorney-client relationship has been formed.\n\nIf your matter is urgent or you have an upcoming court date or deadline, please call our office immediately at (555) 400-2200 so we can prioritize your inquiry accordingly.\n\nIMPORTANT: This acknowledgment does not constitute legal advice, and no attorney-client relationship has been formed between you and Hargrove & Associates by virtue of this communication or your submission. The submission of this form and receipt of this message does not obligate our firm to represent you.\n\nWe appreciate your interest in our firm and look forward to speaking with you.\n\nSincerely,\n\n[ATTORNEY SIGNATURE REQUIRED]\nHargrove & Associates\n(555) 400-2200 | intake@hargrovelaw.example.com\n\n---\nDRAFT \u2014 NOT YET SENT \u2014 REQUIRES ATTORNEY APPROVAL BEFORE SENDING",
+    "attorneySummary": "# Attorney Intake Summary\n## GuideHerd Legal Intake Copilot \u2014 CONFIDENTIAL WORK PRODUCT\n\n> **This summary is generated for attorney review only. It does not constitute legal advice,\n> establish an attorney-client relationship, or represent a conflict determination.**\n> All items require attorney verification before any action is taken.\n\n---\n\n## Matter Overview\n\n| Field | Value |\n|-------|-------|\n| **Prospective Client** | Antonio Rosario |\n| **Submitted** | May 05, 2026 at 08:48 PM |\n| **Contact Email** | tony@rosarioscapes.example.com |\n| **Contact Phone** | (555) 309-7741 |\n| **Urgency (Self-Reported)** | Medium |\n| **Estimated Value** | $32,500 |\n| **Prior Attorney** | None |\n| **Referral Source** | Chamber of Commerce referral |\n\n---\n\n## Classification \u2705 IN SCOPE\n\n- **Practice Area:** Business & Commercial Litigation\n- **Confidence:** 78%\n- **In-Scope:** Yes\n\n\n---\n\n## Client Description (Verbatim)\n\n> I own a landscaping company, Rosario Landscapes LLC. Earlier this year I entered into a written contract with Pinnacle Property Group LLC to provide commercial landscaping services for a 12-month period across three of their properties in the metro area. Total contract value was $47,500. I performed all the work as specified. They paid the first two invoices ($15,000 total) but have not paid the remaining $32,500 despite three invoices and several emails. My last communication with their office manager was six weeks ago \u2014 they said the check was 'processing' and I've heard nothing since. I sent a formal demand letter via certified mail two weeks ago and have not received a response. I have the signed contract, all invoices, delivery confirmations, and the certified mail receipt. I want to sue if they don't pay.\n\n**Parties Identified by Client:** Pinnacle Property Group LLC\n\n---\n\n## Conflict Check Names\n\n*The following names were extracted from the intake for conflict screening. This list may be incomplete. Attorney must conduct full conflict check before any substantive discussion.*\n\n- Pinnacle Property Group LLC\n- Rosario Landscapes\n- Pinnacle Property Group\n- Antonio Rosario\n\n---\n\n## Missing Information\n\n*The following items were not addressed in the intake and should be obtained before evaluating the matter:*\n\n- None identified at this stage\n\n---\n\n## Risk Flags\n\n- None identified\n\n---\n\n## Recommended Next Steps\n\n1. **Run full conflicts check** using extracted names above\n2. Assign intake to appropriate practice group: **Business & Commercial Litigation**\n3. Schedule initial consultation call\n4. Review and send draft acknowledgment email (after attorney approval)\n5. Determine engagement letter requirements if matter is accepted\n\n---\n\n*Generated by GuideHerd Legal Intake Copilot | May 05, 2026 at 08:48 PM*\n*DRAFT \u2014 FOR ATTORNEY REVIEW ONLY \u2014 DO NOT DISTRIBUTE*"
+  },
+  "notes": []
+}

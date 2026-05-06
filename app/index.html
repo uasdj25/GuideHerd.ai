@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GuideHerd | Legal Intake Copilot</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #1a3a5c; --navy-dark: #122840; --navy-light: #264d78;
+  --gold: #c9a84c; --gold-light: #e8c96a;
+  --cream: #f7f5f0; --white: #fff;
+  --gray-50: #f9f9f7; --gray-100: #f0ede6; --gray-200: #e0ddd5;
+  --gray-400: #9a9488; --gray-600: #5c574e; --gray-800: #2e2b25;
+  --green: #2d7a4f; --green-bg: #edf7f2;
+  --red: #9b2020; --red-bg: #fdf0f0;
+  --amber: #8a5800; --amber-bg: #fdf6e3;
+  --blue: #1a4a8a; --blue-bg: #eef3fb;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.08); --shadow: 0 2px 8px rgba(0,0,0,.10); --shadow-md: 0 4px 16px rgba(0,0,0,.12);
+  --radius: 8px; --radius-lg: 12px;
+}
+body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; background:var(--cream); color:var(--gray-800); line-height:1.5; font-size:15px; }
+a { color:inherit; text-decoration:none; }
+button { cursor:pointer; font-family:inherit; }
+textarea,input,select { font-family:inherit; font-size:15px; }
+
+/* Header */
+.app-header { background:var(--navy); color:#fff; padding:0 32px; height:60px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 2px 8px rgba(0,0,0,.2); position:sticky; top:0; z-index:100; }
+.brand { display:flex; align-items:center; gap:12px; cursor:pointer; }
+.brand-badge { background:var(--gold); color:var(--navy-dark); width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px; }
+.brand-name { font-weight:700; font-size:17px; }
+.brand-sub { color:rgba(255,255,255,.6); font-size:12px; }
+.header-nav { display:flex; gap:4px; }
+.nav-btn { color:rgba(255,255,255,.75); padding:6px 14px; border-radius:6px; font-size:14px; font-weight:500; border:none; background:transparent; transition:all .15s; cursor:pointer; }
+.nav-btn:hover,.nav-btn.active { background:rgba(255,255,255,.15); color:#fff; }
+.nav-btn.cta { background:var(--gold); color:var(--navy-dark); font-weight:600; margin-left:8px; }
+.nav-btn.cta:hover { background:var(--gold-light); }
+
+/* Page */
+.page { flex:1; padding:32px; max-width:1100px; margin:0 auto; width:100%; }
+
+/* Disclaimer */
+.disclaimer { background:var(--amber-bg); border:1px solid #f0c060; border-radius:var(--radius); padding:10px 16px; font-size:13px; color:var(--amber); margin-bottom:24px; display:flex; align-items:flex-start; gap:8px; }
+
+/* Stats */
+.stats-row { display:flex; gap:16px; margin-bottom:24px; }
+.stat-card { background:var(--white); border-radius:var(--radius-lg); padding:16px 20px; flex:1; border:1px solid var(--gray-200); box-shadow:var(--shadow-sm); }
+.stat-value { font-size:28px; font-weight:800; color:var(--navy); }
+.stat-label { font-size:12px; color:var(--gray-400); font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-top:2px; }
+
+/* Filter bar */
+.filter-bar { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+
+/* Status buttons */
+.status-btn { padding:6px 14px; border-radius:20px; border:1.5px solid var(--gray-200); font-size:13px; font-weight:600; background:var(--white); color:var(--gray-600); transition:all .15s; cursor:pointer; }
+.status-btn:hover { border-color:var(--navy); color:var(--navy); }
+.status-btn.sel { background:var(--navy); border-color:var(--navy); color:#fff; }
+
+/* Leads */
+.leads-list { display:flex; flex-direction:column; gap:12px; }
+.lead-card { background:var(--white); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); border:1px solid var(--gray-200); padding:18px 22px; display:flex; align-items:center; gap:20px; transition:box-shadow .15s,border-color .15s; cursor:pointer; }
+.lead-card:hover { box-shadow:var(--shadow-md); border-color:var(--navy-light); }
+.avatar { width:44px; height:44px; border-radius:50%; background:var(--navy); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:16px; flex-shrink:0; }
+.lead-main { flex:1; min-width:0; }
+.lead-name { font-weight:700; font-size:16px; color:var(--navy); }
+.lead-meta { font-size:13px; color:var(--gray-600); margin-top:2px; }
+.lead-area { font-size:13px; font-weight:600; color:var(--gray-800); margin-top:4px; }
+.lead-badges { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px; }
+.conf-bar { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--gray-600); }
+.conf-track { width:80px; height:6px; background:var(--gray-200); border-radius:3px; overflow:hidden; }
+.conf-fill { height:100%; border-radius:3px; background:var(--navy); }
+.lead-arrow { color:var(--gray-400); flex-shrink:0; font-size:18px; }
+
+/* Badges */
+.badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600; white-space:nowrap; }
+.b-pending { background:var(--amber-bg); color:var(--amber); }
+.b-in_review { background:var(--blue-bg); color:var(--blue); }
+.b-accepted { background:var(--green-bg); color:var(--green); }
+.b-declined { background:var(--gray-100); color:var(--gray-600); }
+.b-referred { background:#f0eafb; color:#6a2fa0; }
+.b-scope-in { background:var(--green-bg); color:var(--green); }
+.b-scope-out { background:var(--red-bg); color:var(--red); }
+.b-scope-unk { background:var(--amber-bg); color:var(--amber); }
+.b-high,.b-emergency { background:var(--red-bg); color:var(--red); }
+.b-medium { background:var(--amber-bg); color:var(--amber); }
+.b-low { background:var(--green-bg); color:var(--green); }
+.b-flag { font-size:12px; color:var(--red); font-weight:600; }
+.b-missing { font-size:12px; color:var(--amber); font-weight:600; }
+
+/* Card */
+.card { background:var(--white); border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:24px; }
+.card+.card { margin-top:16px; }
+
+/* Page header */
+.page-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px; gap:16px; }
+.page-title { font-size:22px; font-weight:700; color:var(--navy); }
+.page-subtitle { font-size:14px; color:var(--gray-600); margin-top:3px; }
+
+/* Back link */
+.back-btn { display:inline-flex; align-items:center; gap:6px; color:var(--gray-600); font-size:14px; margin-bottom:20px; border:none; background:none; cursor:pointer; transition:color .15s; }
+.back-btn:hover { color:var(--navy); }
+
+/* Section title */
+.section-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--gray-400); margin-bottom:12px; }
+
+/* Detail grid */
+.detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.detail-row { display:flex; flex-direction:column; gap:3px; }
+.detail-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--gray-400); }
+.detail-value { font-size:14px; color:var(--gray-800); }
+
+/* Scope alert */
+.scope-alert { display:flex; gap:14px; padding:16px 20px; border-radius:var(--radius); margin-bottom:16px; align-items:flex-start; }
+.scope-in { background:var(--green-bg); border:1px solid #a8d5bb; }
+.scope-out { background:var(--red-bg); border:1px solid #f5c0c0; }
+.scope-unk { background:var(--amber-bg); border:1px solid #f0c060; }
+.scope-icon { font-size:20px; flex-shrink:0; }
+.scope-content h4 { font-weight:700; margin-bottom:3px; }
+.scope-in .scope-content h4 { color:var(--green); }
+.scope-out .scope-content h4 { color:var(--red); }
+.scope-unk .scope-content h4 { color:var(--amber); }
+.scope-content p { font-size:13px; color:var(--gray-600); }
+
+/* Two col */
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+
+/* Checklist */
+.checklist { list-style:none; display:flex; flex-direction:column; gap:8px; }
+.checklist li { display:flex; gap:10px; align-items:flex-start; font-size:14px; padding:8px 12px; background:var(--gray-50); border-radius:var(--radius); border:1px solid var(--gray-200); }
+.flag-item { display:flex; gap:10px; align-items:flex-start; font-size:14px; color:var(--red); background:var(--red-bg); border:1px solid #f5c0c0; padding:8px 12px; border-radius:var(--radius); }
+.name-chip { display:inline-flex; align-items:center; background:var(--blue-bg); color:var(--blue); border:1px solid #c0d4f5; padding:4px 10px; border-radius:20px; font-size:13px; font-weight:500; margin:3px; }
+
+/* Description blockquote */
+.desc-quote { border-left:3px solid var(--gold); padding-left:14px; font-style:italic; color:var(--gray-600); font-size:14px; line-height:1.7; white-space:pre-wrap; }
+
+/* Tabs */
+.tabs { display:flex; gap:0; border-bottom:2px solid var(--gray-200); margin-bottom:24px; }
+.tab-btn { padding:10px 20px; border:none; background:none; font-size:14px; font-weight:600; color:var(--gray-600); border-bottom:2px solid transparent; margin-bottom:-2px; transition:all .15s; cursor:pointer; }
+.tab-btn:hover { color:var(--navy); }
+.tab-btn.active { color:var(--navy); border-bottom-color:var(--navy); }
+
+/* Draft */
+.draft-warning { background:var(--amber-bg); border:1px solid #f0c060; border-radius:var(--radius); padding:8px 14px; font-size:13px; color:var(--amber); margin-bottom:12px; }
+.draft-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.draft-box { background:#f8f7f4; border:1px solid var(--gray-200); border-radius:var(--radius); padding:20px; font-family:'Georgia',serif; font-size:14px; line-height:1.7; white-space:pre-wrap; color:var(--gray-800); max-height:480px; overflow-y:auto; }
+
+/* JSON */
+.json-box { background:#1e1e2e; color:#cdd6f4; border-radius:var(--radius); padding:20px; font-family:'JetBrains Mono','Fira Code',monospace; font-size:12.5px; line-height:1.6; white-space:pre; overflow:auto; max-height:520px; }
+
+/* Summary (markdown) */
+.md-body { font-size:14px; line-height:1.7; color:var(--gray-800); max-height:520px; overflow-y:auto; }
+.md-body h1 { font-size:18px; color:var(--navy); margin-bottom:4px; }
+.md-body h2 { font-size:15px; color:var(--navy); margin:20px 0 8px; border-bottom:1px solid var(--gray-200); padding-bottom:4px; }
+.md-body blockquote { border-left:3px solid var(--gold); padding-left:12px; color:var(--gray-600); font-style:italic; margin:8px 0; }
+.md-body table { width:100%; border-collapse:collapse; font-size:13px; margin:8px 0; }
+.md-body th { background:var(--navy); color:#fff; padding:6px 10px; text-align:left; font-size:12px; }
+.md-body td { padding:6px 10px; border-bottom:1px solid var(--gray-200); }
+.md-body tr:nth-child(even) td { background:var(--gray-50); }
+.md-body ul,.md-body ol { padding-left:20px; margin:6px 0; }
+.md-body li { margin:3px 0; }
+.md-body code { background:var(--gray-100); padding:1px 5px; border-radius:3px; font-size:12px; }
+.md-body hr { border:none; border-top:1px solid var(--gray-200); margin:12px 0; }
+
+/* Buttons */
+.btn { display:inline-flex; align-items:center; gap:6px; padding:9px 18px; border-radius:var(--radius); border:none; font-size:14px; font-weight:600; transition:all .15s; cursor:pointer; }
+.btn-primary { background:var(--navy); color:#fff; }
+.btn-primary:hover { background:var(--navy-light); }
+.btn-primary:disabled { opacity:.5; cursor:not-allowed; }
+.btn-outline { background:transparent; border:1.5px solid var(--gray-200); color:var(--gray-800); }
+.btn-outline:hover { border-color:var(--navy); color:var(--navy); }
+.btn-sm { padding:5px 12px; font-size:13px; }
+.btn-ghost { background:transparent; color:var(--gray-600); border:none; }
+.btn-ghost:hover { background:var(--gray-100); }
+
+/* Form */
+.form-section { margin-bottom:28px; }
+.form-section-title { font-size:14px; font-weight:700; color:var(--navy); margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid var(--gray-200); }
+.form-row { display:grid; gap:16px; margin-bottom:16px; }
+.form-row.c2 { grid-template-columns:1fr 1fr; }
+.form-group { display:flex; flex-direction:column; gap:5px; }
+.form-label { font-size:13px; font-weight:600; color:var(--gray-800); }
+.form-label .req { color:var(--red); margin-left:2px; }
+.form-input,.form-select,.form-textarea { padding:9px 12px; border:1.5px solid var(--gray-200); border-radius:var(--radius); font-size:14px; background:var(--white); color:var(--gray-800); transition:border-color .15s; outline:none; }
+.form-input:focus,.form-select:focus,.form-textarea:focus { border-color:var(--navy); }
+.form-textarea { resize:vertical; min-height:120px; }
+.form-hint { font-size:12px; color:var(--gray-400); }
+.form-error { background:var(--red-bg); border:1px solid #f5c0c0; border-radius:var(--radius); padding:10px 14px; color:var(--red); font-size:14px; margin-bottom:12px; }
+.form-notice { background:var(--amber-bg); border:1px solid #f0c060; border-radius:var(--radius); padding:12px 16px; margin:16px 0; font-size:13px; color:var(--amber); }
+.form-actions { display:flex; gap:12px; justify-content:flex-end; }
+
+/* Notes */
+.note-item { background:var(--gray-50); border:1px solid var(--gray-200); border-radius:var(--radius); padding:12px 14px; margin-bottom:10px; }
+.note-meta { font-size:12px; color:var(--gray-400); margin-bottom:5px; }
+.note-text { font-size:14px; }
+
+/* Lead detail header */
+.lead-detail-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }
+.status-selector { display:flex; gap:8px; flex-wrap:wrap; }
+
+/* Toast */
+.toast { position:fixed; bottom:24px; right:24px; background:var(--navy-dark); color:#fff; padding:12px 20px; border-radius:var(--radius); font-size:14px; font-weight:500; box-shadow:var(--shadow-md); z-index:999; border-left:4px solid var(--gold); animation:slideUp .2s ease; }
+@keyframes slideUp { from{transform:translateY(12px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+/* Empty state */
+.empty-state { text-align:center; padding:60px 20px; color:var(--gray-400); }
+.empty-state h3 { font-size:18px; color:var(--gray-600); margin-bottom:8px; }
+
+/* Loading */
+.loading { display:flex; align-items:center; justify-content:center; padding:60px; color:var(--gray-400); font-size:16px; }
+
+@media(max-width:700px) {
+  .page{padding:16px}
+  .detail-grid,.two-col{grid-template-columns:1fr}
+  .form-row.c2{grid-template-columns:1fr}
+  .stats-row{flex-wrap:wrap}
+  .lead-card{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="module">
+import { h, render, Fragment } from 'https://esm.sh/preact@10.19.3';
+import { useState, useEffect, useCallback, useRef } from 'https://esm.sh/preact@10.19.3/hooks';
+
+const API = 'http://localhost:3001';
+
+// ---------------------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------------------
+const STATUS_LABELS = { pending:'Pending', in_review:'In Review', accepted:'Accepted', declined:'Declined', referred:'Referred Out' };
+
+function initials(name) { return (name||'').split(' ').map(p=>p[0]||'').join('').slice(0,2).toUpperCase(); }
+
+function fmtDate(iso) {
+  return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+
+function ScopeBadge({inScope}) {
+  if (inScope===true) return h('span',{class:'badge b-scope-in'},'✓ In Scope');
+  if (inScope===false) return h('span',{class:'badge b-scope-out'},'✗ Out of Scope');
+  return h('span',{class:'badge b-scope-unk'},'? Needs Review');
+}
+
+function StatusBadge({status}) {
+  const cls = {pending:'b-pending',in_review:'b-in_review',accepted:'b-accepted',declined:'b-declined',referred:'b-referred'}[status]||'b-pending';
+  return h('span',{class:`badge ${cls}`},STATUS_LABELS[status]||status);
+}
+
+function UrgencyBadge({urgency}) {
+  if (!urgency) return null;
+  const u = urgency.toLowerCase();
+  const cls = {emergency:'b-emergency',high:'b-high',medium:'b-medium',low:'b-low'}[u]||'b-medium';
+  return h('span',{class:`badge ${cls}`},urgency);
+}
+
+function ConfBar({pct}) {
+  return h('div',{class:'conf-bar'},
+    h('div',{class:'conf-track'}, h('div',{class:'conf-fill',style:{width:`${pct}%`}})),
+    h('span',null,`${pct}%`)
+  );
+}
+
+let _toastTimer;
+function Toast({msg, onDone}) {
+  useEffect(()=>{ clearTimeout(_toastTimer); _toastTimer=setTimeout(onDone,2500); },[]);
+  return h('div',{class:'toast'},msg);
+}
+
+function CopyBtn({text, label='Copy'}) {
+  const [copied, setCopied] = useState(false);
+  async function copy() { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(()=>setCopied(false),1800); }
+  return h('button',{class:'btn btn-outline btn-sm', onClick:copy}, copied?'✓ Copied':label);
+}
+
+// ---------------------------------------------------------------------------
+// Router (simple hash-based)
+// ---------------------------------------------------------------------------
+function useRoute() {
+  const [route, setRoute] = useState(location.hash||'#/');
+  useEffect(()=>{
+    const fn = ()=>setRoute(location.hash||'#/');
+    window.addEventListener('hashchange',fn);
+    return ()=>window.removeEventListener('hashchange',fn);
+  },[]);
+  return route;
+}
+function navigate(path) { location.hash = path; }
+
+// ---------------------------------------------------------------------------
+// Dashboard
+// ---------------------------------------------------------------------------
+function Dashboard() {
+  const [leads, setLeads] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+
+  useEffect(()=>{
+    fetch(`${API}/api/leads`).then(r=>r.json()).then(d=>{setLeads(d);setLoading(false);}).catch(()=>setLoading(false));
+  },[]);
+
+  const filtered = filter==='all' ? leads : leads.filter(l=>l.status===filter);
+  const stats = {
+    total: leads.length,
+    pending: leads.filter(l=>l.status==='pending').length,
+    inScope: leads.filter(l=>l.inScope===true).length,
+    flags: leads.reduce((s,l)=>s+(l.riskFlagCount||0),0),
+  };
+
+  return h('main',{class:'page'},
+    h('div',{class:'disclaimer'},
+      h('span',null,'⚠️'),
+      h('span',null, h('strong',null,'Demo system. '), 'All data is fictional. This tool does not provide legal advice, conduct conflict checks, or create attorney-client relationships. All AI-generated content requires attorney review before any action.')
+    ),
+    h('div',{class:'page-header'},
+      h('div',null,
+        h('h1',{class:'page-title'},'Intake Dashboard'),
+        h('p',{class:'page-subtitle'},'Review and manage prospective client inquiries')
+      )
+    ),
+    h('div',{class:'stats-row'},
+      h('div',{class:'stat-card'}, h('div',{class:'stat-value'},stats.total), h('div',{class:'stat-label'},'Total Leads')),
+      h('div',{class:'stat-card'}, h('div',{class:'stat-value',style:{color:'var(--amber)'}},stats.pending), h('div',{class:'stat-label'},'Pending Review')),
+      h('div',{class:'stat-card'}, h('div',{class:'stat-value',style:{color:'var(--green)'}},stats.inScope), h('div',{class:'stat-label'},'In-Scope Matters')),
+      h('div',{class:'stat-card'}, h('div',{class:'stat-value',style:{color:'var(--red)'}},stats.flags), h('div',{class:'stat-label'},'Risk Flags')),
+    ),
+    h('div',{class:'filter-bar'},
+      ['all','pending','in_review','accepted','declined','referred'].map(f=>
+        h('button',{class:`status-btn${filter===f?' sel':''}`,onClick:()=>setFilter(f),key:f},
+          f==='all'?'All Leads':STATUS_LABELS[f],
+          f!=='all' && h('span',{style:{marginLeft:4,opacity:.7}},` (${leads.filter(l=>l.status===f).length})`)
+        )
+      )
+    ),
+    loading ? h('div',{class:'loading'},'Loading leads…') :
+    filtered.length===0 ? h('div',{class:'empty-state'},h('h3',null,'No leads found'),h('p',null,'Submit a new intake to get started.')) :
+    h('div',{class:'leads-list'},
+      filtered.map(lead=>
+        h('div',{class:'lead-card',key:lead.id,onClick:()=>navigate(`#/leads/${lead.id}`)},
+          h('div',{class:'avatar'},initials(lead.clientName)),
+          h('div',{class:'lead-main'},
+            h('div',{class:'lead-name'},lead.clientName),
+            h('div',{class:'lead-meta'},`${lead.email} · ${fmtDate(lead.submittedAt)}`),
+            h('div',{class:'lead-area'},lead.practiceArea),
+            h('div',{class:'lead-badges'},
+              h(StatusBadge,{status:lead.status}),
+              h(ScopeBadge,{inScope:lead.inScope}),
+              h(UrgencyBadge,{urgency:lead.urgency}),
+              lead.riskFlagCount>0 && h('span',{class:'b-flag'},`⚑ ${lead.riskFlagCount} flag${lead.riskFlagCount!==1?'s':''}`),
+              lead.missingInfoCount>0 && h('span',{class:'b-missing'},`◌ ${lead.missingInfoCount} missing`),
+            )
+          ),
+          h('div',{style:{textAlign:'right',flexShrink:0}},
+            h(ConfBar,{pct:lead.confidence}),
+            h('div',{style:{fontSize:11,color:'var(--gray-400)',marginTop:4}},'confidence')
+          ),
+          h('div',{class:'lead-arrow'},'›')
+        )
+      )
+    )
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Intake Form
+// ---------------------------------------------------------------------------
+function IntakeForm() {
+  const [form, setForm] = useState({firstName:'',lastName:'',email:'',phone:'',matterDescription:'',partiesInvolved:'',estimatedDamages:'',priorAttorney:'',urgency:'',referralSource:''});
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  function set(k) { return e=>setForm(f=>({...f,[k]:e.target.value})); }
+
+  async function submit(e) {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API}/api/leads`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)});
+      if (!res.ok) { const d=await res.json(); throw new Error(d.error||'Submission failed'); }
+      const lead = await res.json();
+      navigate(`#/leads/${lead.id}`);
+    } catch(err) { setError(err.message); }
+    finally { setSubmitting(false); }
+  }
+
+  return h('main',{class:'page',style:{maxWidth:780}},
+    h('div',{class:'disclaimer'},h('span',null,'⚠️'),h('span',null,h('strong',null,'Demo form only. '),'Submitting this form does not create an attorney-client relationship and does not constitute legal advice.')),
+    h('div',{class:'page-header'},
+      h('div',null,
+        h('h1',{class:'page-title'},'New Client Intake'),
+        h('p',{class:'page-subtitle'},'Hargrove & Associates — Prospective Client Inquiry Form')
+      )
+    ),
+    h('form',{onSubmit:submit},
+      h('div',{class:'card'},
+        h('div',{class:'form-section'},
+          h('div',{class:'form-section-title'},'Contact Information'),
+          h('div',{class:'form-row c2'},
+            h('div',{class:'form-group'},h('label',{class:'form-label'},'First Name ',h('span',{class:'req'},'*')),h('input',{class:'form-input',value:form.firstName,onInput:set('firstName'),required:true,placeholder:'First name'})),
+            h('div',{class:'form-group'},h('label',{class:'form-label'},'Last Name ',h('span',{class:'req'},'*')),h('input',{class:'form-input',value:form.lastName,onInput:set('lastName'),required:true,placeholder:'Last name'})),
+          ),
+          h('div',{class:'form-row c2'},
+            h('div',{class:'form-group'},h('label',{class:'form-label'},'Email Address ',h('span',{class:'req'},'*')),h('input',{class:'form-input',type:'email',value:form.email,onInput:set('email'),required:true,placeholder:'your@email.com'})),
+            h('div',{class:'form-group'},h('label',{class:'form-label'},'Phone Number'),h('input',{class:'form-input',type:'tel',value:form.phone,onInput:set('phone'),placeholder:'(555) 000-0000'})),
+          )
+        ),
+        h('div',{class:'form-section'},
+          h('div',{class:'form-section-title'},'Matter Description'),
+          h('div',{class:'form-row'},
+            h('div',{class:'form-group'},
+              h('label',{class:'form-label'},'Describe Your Legal Matter ',h('span',{class:'req'},'*')),
+              h('textarea',{class:'form-textarea',style:{minHeight:160},value:form.matterDescription,onInput:set('matterDescription'),required:true,placeholder:'Please describe the situation in as much detail as possible. Include relevant dates, events, and what outcome you are seeking.'}),
+              h('span',{class:'form-hint'},'The more detail you provide, the better we can evaluate your matter.')
+            )
+          ),
+          h('div',{class:'form-row'},
+            h('div',{class:'form-group'},
+              h('label',{class:'form-label'},'Other Parties Involved'),
+              h('input',{class:'form-input',value:form.partiesInvolved,onInput:set('partiesInvolved'),placeholder:'Names of individuals, companies, or entities involved (separate with commas)'}),
+              h('span',{class:'form-hint'},'Used for conflict-of-interest screening purposes.')
+            )
+          ),
+          h('div',{class:'form-row c2'},
+            h('div',{class:'form-group'},h('label',{class:'form-label'},'Estimated Value / Damages'),h('input',{class:'form-input',value:form.estimatedDamages,onInput:set('estimatedDamages'),placeholder:'e.g. $50,000 or Unknown'})),
+            h('div',{class:'form-group'},
+              h('label',{class:'form-label'},'Urgency Level'),
+              h('select',{class:'form-select',value:form.urgency,onChange:set('urgency')},
+                h('option',{value:''},'Select urgency…'),
+                h('option',{value:'Low'},'Low — no immediate deadlines'),
+                h('option',{value:'Medium'},'Medium — within the next few weeks'),
+                h('option',{value:'High'},'High — within the next few days'),
+                h('option',{value:'Emergency'},'Emergency — immediate action needed'),
+              )
+            )
+          )
+        ),
+        h('div',{class:'form-section',style:{marginBottom:0}},
+          h('div',{class:'form-section-title'},'Additional Information'),
+          h('div',{class:'form-row c2'},
+            h('div',{class:'form-group'},
+              h('label',{class:'form-label'},'Prior or Current Attorney'),
+              h('input',{class:'form-input',value:form.priorAttorney,onInput:set('priorAttorney'),placeholder:"Name of attorney, or 'None'"}),
+              h('span',{class:'form-hint'},'If you have or had an attorney on this matter, please list them.')
+            ),
+            h('div',{class:'form-group'},
+              h('label',{class:'form-label'},'How Did You Hear About Us?'),
+              h('select',{class:'form-select',value:form.referralSource,onChange:set('referralSource')},
+                h('option',{value:''},'Select…'),
+                h('option',{value:'Google Search'},'Google Search'),
+                h('option',{value:'Friend or Family'},'Friend or Family'),
+                h('option',{value:'Bar Referral'},'State Bar Referral'),
+                h('option',{value:'Former Client'},'Former Client'),
+                h('option',{value:'Chamber of Commerce referral'},'Chamber of Commerce'),
+                h('option',{value:'Other'},'Other'),
+              )
+            )
+          )
+        )
+      ),
+      h('div',{class:'form-notice'},
+        h('strong',null,'Notice: '),'Submitting this form does not create an attorney-client relationship. No attorney will be assigned to your matter until a formal engagement agreement is signed. Do not include highly sensitive information in this form.'
+      ),
+      error && h('div',{class:'form-error'},error),
+      h('div',{class:'form-actions'},
+        h('button',{type:'button',class:'btn btn-outline',onClick:()=>navigate('#/')},'Cancel'),
+        h('button',{type:'submit',class:'btn btn-primary',disabled:submitting},submitting?'Processing…':'Submit Intake →')
+      )
+    )
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Lead Detail
+// ---------------------------------------------------------------------------
+function ScopeAlert({inScope,label,referralNote}) {
+  const [cls,icon,title,body] = inScope===true
+    ? ['scope-in','✅',`In-Scope Matter — ${label}`,"This matter appears to fall within the firm's practice areas. Conflicts check and attorney assignment are the recommended next steps."]
+    : inScope===false
+    ? ['scope-out','🚫',`Out-of-Scope — ${label}`,referralNote||"This matter does not fall within the firm's current practice areas."]
+    : ['scope-unk','⚠️','Needs Manual Review',"Classification confidence is low. An attorney should review the full description before making a determination."];
+  return h('div',{class:`scope-alert ${cls}`},
+    h('div',{class:'scope-icon'},icon),
+    h('div',{class:'scope-content'},h('h4',null,title),h('p',null,body))
+  );
+}
+
+function AnalysisTab({lead}) {
+  const {analysis,intake} = lead;
+  return h(Fragment,null,
+    h(ScopeAlert,{inScope:analysis.inScope,label:analysis.label,referralNote:analysis.referralNote}),
+    h('div',{class:'two-col'},
+      h('div',{class:'card'},
+        h('div',{class:'section-title'},'Classification'),
+        h('div',{style:{marginBottom:12}},
+          h('div',{style:{fontSize:18,fontWeight:700,color:'var(--navy)',marginBottom:6}},analysis.label),
+          h(ConfBar,{pct:analysis.confidence})
+        ),
+        h('div',{class:'detail-grid',style:{marginTop:16}},
+          h('div',{class:'detail-row'},h('span',{class:'detail-label'},'Status'),h('span',{class:'detail-value'},STATUS_LABELS[lead.status]||lead.status)),
+          h('div',{class:'detail-row'},h('span',{class:'detail-label'},'Urgency'),h('span',{class:'detail-value'},intake.urgency||'—')),
+          h('div',{class:'detail-row'},h('span',{class:'detail-label'},'Est. Value'),h('span',{class:'detail-value'},intake.estimatedDamages||'—')),
+          h('div',{class:'detail-row'},h('span',{class:'detail-label'},'Prior Attorney'),h('span',{class:'detail-value'},intake.priorAttorney||'None')),
+          h('div',{class:'detail-row'},h('span',{class:'detail-label'},'Referral'),h('span',{class:'detail-value'},intake.referralSource||'—')),
+          h('div',{class:'detail-row'},h('span',{class:'detail-label'},'Submitted'),h('span',{class:'detail-value'},fmtDate(lead.submittedAt))),
+        )
+      ),
+      h('div',{class:'card'},
+        h('div',{class:'section-title'},'Contact'),
+        h('div',{style:{display:'flex',flexDirection:'column',gap:10}},
+          h('div',{class:'detail-row'},h('span',{class:'detail-label'},'Full Name'),h('span',{class:'detail-value',style:{fontWeight:700}},`${intake.firstName} ${intake.lastName}`)),
+          h('div',{class:'detail-row'},h('span',{class:'detail-label'},'Email'),h('span',{class:'detail-value'},intake.email)),
+          h('div',{class:'detail-row'},h('span',{class:'detail-label'},'Phone'),h('span',{class:'detail-value'},intake.phone||'—')),
+          h('div',{class:'detail-row'},h('span',{class:'detail-label'},'Other Parties'),h('span',{class:'detail-value'},intake.partiesInvolved||'—')),
+        )
+      )
+    ),
+    h('div',{class:'card',style:{marginBottom:16}},
+      h('div',{class:'section-title'},'Conflict-Check Names'),
+      h('p',{style:{fontSize:13,color:'var(--gray-600)',marginBottom:10}},
+        'Extracted for conflict screening. ',h('strong',null,'This list may be incomplete.'),' Attorney must run full conflicts check before any substantive discussion.'
+      ),
+      h('div',null,(analysis.conflictNames||[]).map((n,i)=>h('span',{class:'name-chip',key:i},n)))
+    ),
+    h('div',{class:'two-col'},
+      h('div',{class:'card'},
+        h('div',{class:'section-title'},'Missing Information'),
+        (analysis.missingInfo||[]).length>0
+          ? h('ul',{class:'checklist'},(analysis.missingInfo||[]).map((item,i)=>h('li',{key:i},h('span',null,'◌'),item)))
+          : h('p',{style:{fontSize:14,color:'var(--gray-400)'}},'No obvious gaps identified.')
+      ),
+      h('div',{class:'card'},
+        h('div',{class:'section-title'},'Risk Flags'),
+        (analysis.riskFlags||[]).length>0
+          ? h('div',{style:{display:'flex',flexDirection:'column',gap:8}},(analysis.riskFlags||[]).map((f,i)=>h('div',{class:'flag-item',key:i},h('span',null,'⚑'),h('span',null,f))))
+          : h('p',{style:{fontSize:14,color:'var(--gray-400)'}},'No flags identified.')
+      )
+    ),
+    h('div',{class:'card'},
+      h('div',{class:'section-title'},'Client Description (Verbatim)'),
+      h('blockquote',{class:'desc-quote'},intake.matterDescription)
+    )
+  );
+}
+
+function DraftsTab({lead}) {
+  const [tab, setTab] = useState('email');
+  const email = lead.drafts?.acknowledgmentEmail||'';
+  const summary = lead.drafts?.attorneySummary||'';
+
+  return h(Fragment,null,
+    h('div',{class:'draft-warning'},'⚠️ ',h('strong',null,'These are AI-generated drafts.'),' All content requires attorney review and approval before any communication is sent or action is taken. No email has been or will be sent automatically.'),
+    h('div',{style:{display:'flex',gap:8,marginBottom:16}},
+      h('button',{class:`status-btn${tab==='email'?' sel':''}`,onClick:()=>setTab('email')},'Draft Client Email'),
+      h('button',{class:`status-btn${tab==='summary'?' sel':''}`,onClick:()=>setTab('summary')},'Attorney Summary'),
+    ),
+    tab==='email' && h('div',{class:'card'},
+      h('div',{class:'draft-toolbar'},
+        h('div',null,
+          h('div',{style:{fontWeight:700,marginBottom:2}},'Draft Acknowledgment Email'),
+          h('div',{style:{fontSize:12,color:'var(--gray-400)'}},'To: ',lead.intake.email,' — NOT SENT')
+        ),
+        h(CopyBtn,{text:email,label:'Copy Email'})
+      ),
+      h('div',{class:'draft-box'},email)
+    ),
+    tab==='summary' && h('div',{class:'card'},
+      h('div',{class:'draft-toolbar'},
+        h('div',null,
+          h('div',{style:{fontWeight:700,marginBottom:2}},'Attorney Summary'),
+          h('div',{style:{fontSize:12,color:'var(--gray-400)'}},'Confidential Work Product — Attorney Eyes Only')
+        ),
+        h(CopyBtn,{text:summary,label:'Copy Markdown'})
+      ),
+      h(MdSummary,{content:summary})
+    )
+  );
+}
+
+function MdSummary({content}) {
+  const lines = content.split('\n');
+  const els = [];
+  let i = 0;
+  function inl(t) {
+    return t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/`(.+?)`/g,'<code>$1</code>');
+  }
+  while (i<lines.length) {
+    const line = lines[i];
+    if (line.startsWith('# ')) { els.push(h('h1',{key:i},line.slice(2))); }
+    else if (line.startsWith('## ')) { els.push(h('h2',{key:i},line.slice(3))); }
+    else if (line.startsWith('> ')) {
+      const bq=[]; while(i<lines.length&&lines[i].startsWith('> ')){bq.push(lines[i].slice(2));i++;}
+      els.push(h('blockquote',{key:`bq${i}`},bq.join(' '))); continue;
+    } else if (line.startsWith('|')) {
+      const tb=[]; while(i<lines.length&&lines[i].startsWith('|')){tb.push(lines[i]);i++;}
+      const rows=tb.filter(r=>!r.match(/^\|\s*[-:]+\s*\|/));
+      if (rows.length) {
+        const [head,...body]=rows;
+        const hs=head.split('|').filter(c=>c.trim()).map(c=>c.trim());
+        const bs=body.map(r=>r.split('|').filter(c=>c.trim()).map(c=>c.trim()));
+        els.push(h('table',{key:`t${i}`},
+          h('thead',null,h('tr',null,...hs.map((hh,j)=>h('th',{key:j,dangerouslySetInnerHTML:{__html:inl(hh)}})))),
+          h('tbody',null,...bs.map((row,j)=>h('tr',{key:j},...row.map((cell,k)=>h('td',{key:k,dangerouslySetInnerHTML:{__html:inl(cell)}})))))
+        ));
+      }
+      continue;
+    } else if (line.startsWith('- ')||line.startsWith('* ')) {
+      const items=[]; while(i<lines.length&&(lines[i].startsWith('- ')||lines[i].startsWith('* '))){items.push(lines[i].slice(2));i++;}
+      els.push(h('ul',{key:`ul${i}`},...items.map((it,j)=>h('li',{key:j,dangerouslySetInnerHTML:{__html:inl(it)}}))));
+      continue;
+    } else if (line.match(/^\d+\./)) {
+      const items=[]; while(i<lines.length&&lines[i].match(/^\d+\./)){items.push(lines[i].replace(/^\d+\.\s*/,''));i++;}
+      els.push(h('ol',{key:`ol${i}`},...items.map((it,j)=>h('li',{key:j,dangerouslySetInnerHTML:{__html:inl(it)}}))));
+      continue;
+    } else if (line.startsWith('---')) { els.push(h('hr',{key:i})); }
+    else if (line.trim()) { els.push(h('p',{key:i,dangerouslySetInnerHTML:{__html:inl(line)},style:{marginBottom:6}})); }
+    i++;
+  }
+  return h('div',{class:'md-body'},...els);
+}
+
+function JsonTab({lead}) {
+  const json = JSON.stringify(lead, null, 2);
+  function colorize(t) {
+    return t.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+\.?\d*)/g,m=>{
+      if (/^".*":$/.test(m)) return `<span style="color:#89b4fa">${m}</span>`;
+      if (/^"/.test(m)) return `<span style="color:#a6e3a1">${m}</span>`;
+      if (/true|false/.test(m)) return `<span style="color:#cba6f7">${m}</span>`;
+      if (/null/.test(m)) return `<span style="color:#6c7086">${m}</span>`;
+      return `<span style="color:#fab387">${m}</span>`;
+    });
+  }
+  return h('div',{class:'card'},
+    h('div',{class:'draft-toolbar'},
+      h('div',null,h('div',{style:{fontWeight:700,marginBottom:2}},'Lead JSON Output'),h('div',{style:{fontSize:12,color:'var(--gray-400)'}},`${lead.id}.json`)),
+      h(CopyBtn,{text:json,label:'Copy JSON'})
+    ),
+    h('div',{class:'json-box',dangerouslySetInnerHTML:{__html:colorize(json)}})
+  );
+}
+
+function NotesTab({lead,onUpdate}) {
+  const [note, setNote] = useState('');
+  const [attorney, setAttorney] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function addNote() {
+    if (!note.trim()) return;
+    setSaving(true);
+    await fetch(`${API}/api/leads/${lead.id}/notes`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({note,attorney:attorney||'Attorney'})});
+    setNote('');
+    setSaving(false);
+    onUpdate();
+  }
+
+  return h(Fragment,null,
+    h('div',{class:'card',style:{marginBottom:16}},
+      h('div',{class:'section-title'},'Attorney Notes'),
+      (lead.notes||[]).length===0
+        ? h('p',{style:{color:'var(--gray-400)',fontSize:14}},'No notes yet.')
+        : (lead.notes||[]).map(n=>h('div',{class:'note-item',key:n.id},
+            h('div',{class:'note-meta'},`${n.attorney} · ${new Date(n.createdAt).toLocaleString()}`),
+            h('div',{class:'note-text'},n.text)
+          ))
+    ),
+    h('div',{class:'card'},
+      h('div',{class:'section-title'},'Add Note'),
+      h('div',{style:{display:'flex',flexDirection:'column',gap:8}},
+        h('input',{class:'form-input',placeholder:'Attorney name or initials',value:attorney,onInput:e=>setAttorney(e.target.value),style:{maxWidth:240}}),
+        h('textarea',{class:'form-textarea',placeholder:'Enter note…',value:note,onInput:e=>setNote(e.target.value),style:{minHeight:80}}),
+        h('div',{style:{display:'flex',justifyContent:'flex-end'}},
+          h('button',{class:'btn btn-primary',onClick:addNote,disabled:saving||!note.trim()},saving?'Saving…':'Add Note')
+        )
+      )
+    )
+  );
+}
+
+function LeadDetail({id}) {
+  const [lead, setLead] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState('analysis');
+  const [toast, setToast] = useState(null);
+
+  const fetchLead = useCallback(()=>{
+    fetch(`${API}/api/leads/${id}`).then(r=>r.json()).then(d=>{setLead(d);setLoading(false);}).catch(()=>setLoading(false));
+  },[id]);
+  useEffect(()=>{fetchLead();},[fetchLead]);
+
+  async function updateStatus(status) {
+    await fetch(`${API}/api/leads/${id}/status`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
+    setLead(l=>({...l,status}));
+    setToast(`Status updated to "${STATUS_LABELS[status]}"`);
+  }
+
+  if (loading) return h('main',{class:'page'},h('div',{class:'loading'},'Loading…'));
+  if (!lead) return h('main',{class:'page'},h('p',null,'Lead not found.'));
+
+  const {intake,analysis} = lead;
+  return h('main',{class:'page'},
+    toast && h(Toast,{msg:toast,onDone:()=>setToast(null)}),
+    h('button',{class:'back-btn',onClick:()=>navigate('#/')},'← Back to Dashboard'),
+    h('div',{class:'card',style:{marginBottom:20}},
+      h('div',{class:'lead-detail-header'},
+        h('div',null,
+          h('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:4}},
+            h('h1',{style:{fontSize:22,fontWeight:800,color:'var(--navy)'}},`${intake.firstName} ${intake.lastName}`),
+            h(ScopeBadge,{inScope:analysis.inScope})
+          ),
+          h('div',{style:{fontSize:14,color:'var(--gray-600)'}},`${intake.email} · ${intake.phone||'No phone'} · Submitted ${fmtDate(lead.submittedAt)}`),
+          h('div',{style:{fontSize:14,fontWeight:600,color:'var(--navy)',marginTop:4}},analysis.label)
+        ),
+        h('div',null,
+          h('div',{style:{fontSize:12,color:'var(--gray-400)',marginBottom:6,fontWeight:600,textTransform:'uppercase',letterSpacing:'.5px'}},'Set Status'),
+          h('div',{class:'status-selector'},
+            Object.entries(STATUS_LABELS).map(([key,label])=>
+              h('button',{key,class:`status-btn${lead.status===key?' sel':''}`,onClick:()=>updateStatus(key)},label)
+            )
+          )
+        )
+      )
+    ),
+    h('div',{class:'tabs'},
+      [['analysis','Analysis'],['drafts','Drafts'],['json','JSON Output'],['notes',`Notes${lead.notes?.length?` (${lead.notes.length})`:''}`]].map(([k,l])=>
+        h('button',{key:k,class:`tab-btn${tab===k?' active':''}`,onClick:()=>setTab(k)},l)
+      )
+    ),
+    tab==='analysis' && h(AnalysisTab,{lead}),
+    tab==='drafts' && h(DraftsTab,{lead}),
+    tab==='json' && h(JsonTab,{lead}),
+    tab==='notes' && h(NotesTab,{lead,onUpdate:fetchLead}),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// App shell + router
+// ---------------------------------------------------------------------------
+function App() {
+  const route = useRoute();
+  let page;
+  if (route.startsWith('#/leads/')) {
+    const id = route.slice('#/leads/'.length);
+    page = h(LeadDetail,{id,key:id});
+  } else if (route==='#/intake') {
+    page = h(IntakeForm,null);
+  } else {
+    page = h(Dashboard,null);
+  }
+
+  return h('div',{style:{display:'flex',flexDirection:'column',minHeight:'100vh'}},
+    h('header',{class:'app-header'},
+      h('div',{class:'brand',onClick:()=>navigate('#/')},
+        h('div',{class:'brand-badge'},'G'),
+        h('div',null,
+          h('div',{class:'brand-name'},'GuideHerd ',h('span',{style:{color:'var(--gold)',fontWeight:800}},'Copilot')),
+          h('div',{class:'brand-sub'},'Hargrove & Associates — Demo')
+        )
+      ),
+      h('nav',{class:'header-nav'},
+        h('button',{class:`nav-btn${route==='#/'||route===''?' active':''}`,onClick:()=>navigate('#/')},'Dashboard'),
+        h('button',{class:'nav-btn cta',onClick:()=>navigate('#/intake')},'+ New Intake'),
+      )
+    ),
+    page
+  );
+}
+
+render(h(App,null), document.getElementById('root'));
+</script>
+</body>
+</html>

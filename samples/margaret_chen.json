@@ -1,0 +1,44 @@
+{
+  "id": "98cfce46-b19f-4b0c-afcb-2035268f49d6",
+  "submittedAt": "2026-05-05T20:48:30.381100",
+  "status": "pending",
+  "intake": {
+    "firstName": "Margaret",
+    "lastName": "Chen",
+    "email": "margaret.chen@example.com",
+    "phone": "(555) 214-8830",
+    "matterDescription": "My mother, Dorothy Chen, passed away three months ago. She had a will that left her estate equally between me and my brother, Kevin Chen. The estate includes her home in Riverside County (valued around $480,000), a brokerage account, and some personal property. Kevin is now claiming that our mother signed a second, handwritten will two weeks before she died that leaves everything to him. He says she was of sound mind, but I have serious doubts \u2014 she had been in hospice care and was heavily medicated. The original will was drafted by attorney James Whitfield five years ago. I need to know if I can contest this second document and what the probate process looks like. No court proceedings have started yet.",
+    "partiesInvolved": "Dorothy Chen (deceased), Kevin Chen (brother), James Whitfield (prior attorney)",
+    "estimatedDamages": "$480,000+",
+    "priorAttorney": "James Whitfield (drafted original will, not representing me)",
+    "urgency": "Medium",
+    "referralSource": "Google Search"
+  },
+  "analysis": {
+    "areaKey": "probate",
+    "label": "Probate & Estate",
+    "inScope": true,
+    "confidence": 93,
+    "referralNote": null,
+    "needsManualReview": false,
+    "conflictNames": [
+      "Kevin Chen",
+      "Dorothy Chen",
+      "Margaret Chen",
+      "James Whitfield",
+      "Kevin Chen (brother)",
+      "James Whitfield (prior attorney)",
+      "Dorothy Chen (deceased)",
+      "Riverside County"
+    ],
+    "missingInfo": [],
+    "riskFlags": [
+      "High-value matter \u2014 conflicts check and malpractice insurance notification may be required"
+    ]
+  },
+  "drafts": {
+    "acknowledgmentEmail": "Subject: Your Inquiry to Hargrove & Associates \u2014 Receipt Confirmed\n\nDear Margaret,\n\nThank you for contacting Hargrove & Associates. We have received your inquiry submitted on May 05, 2026.\n\nA member of our team will review your matter and be in touch within [X] business days to discuss next steps. Please note that no attorney has been assigned to your matter at this time, and no attorney-client relationship has been formed.\n\nIf your matter is urgent or you have an upcoming court date or deadline, please call our office immediately at (555) 400-2200 so we can prioritize your inquiry accordingly.\n\nIMPORTANT: This acknowledgment does not constitute legal advice, and no attorney-client relationship has been formed between you and Hargrove & Associates by virtue of this communication or your submission. The submission of this form and receipt of this message does not obligate our firm to represent you.\n\nWe appreciate your interest in our firm and look forward to speaking with you.\n\nSincerely,\n\n[ATTORNEY SIGNATURE REQUIRED]\nHargrove & Associates\n(555) 400-2200 | intake@hargrovelaw.example.com\n\n---\nDRAFT \u2014 NOT YET SENT \u2014 REQUIRES ATTORNEY APPROVAL BEFORE SENDING",
+    "attorneySummary": "# Attorney Intake Summary\n## GuideHerd Legal Intake Copilot \u2014 CONFIDENTIAL WORK PRODUCT\n\n> **This summary is generated for attorney review only. It does not constitute legal advice,\n> establish an attorney-client relationship, or represent a conflict determination.**\n> All items require attorney verification before any action is taken.\n\n---\n\n## Matter Overview\n\n| Field | Value |\n|-------|-------|\n| **Prospective Client** | Margaret Chen |\n| **Submitted** | May 05, 2026 at 08:48 PM |\n| **Contact Email** | margaret.chen@example.com |\n| **Contact Phone** | (555) 214-8830 |\n| **Urgency (Self-Reported)** | Medium |\n| **Estimated Value** | $480,000+ |\n| **Prior Attorney** | James Whitfield (drafted original will, not representing me) |\n| **Referral Source** | Google Search |\n\n---\n\n## Classification \u2705 IN SCOPE\n\n- **Practice Area:** Probate & Estate\n- **Confidence:** 93%\n- **In-Scope:** Yes\n\n\n---\n\n## Client Description (Verbatim)\n\n> My mother, Dorothy Chen, passed away three months ago. She had a will that left her estate equally between me and my brother, Kevin Chen. The estate includes her home in Riverside County (valued around $480,000), a brokerage account, and some personal property. Kevin is now claiming that our mother signed a second, handwritten will two weeks before she died that leaves everything to him. He says she was of sound mind, but I have serious doubts \u2014 she had been in hospice care and was heavily medicated. The original will was drafted by attorney James Whitfield five years ago. I need to know if I can contest this second document and what the probate process looks like. No court proceedings have started yet.\n\n**Parties Identified by Client:** Dorothy Chen (deceased), Kevin Chen (brother), James Whitfield (prior attorney)\n\n---\n\n## Conflict Check Names\n\n*The following names were extracted from the intake for conflict screening. This list may be incomplete. Attorney must conduct full conflict check before any substantive discussion.*\n\n- Kevin Chen\n- Dorothy Chen\n- Margaret Chen\n- James Whitfield\n- Kevin Chen (brother)\n- James Whitfield (prior attorney)\n- Dorothy Chen (deceased)\n- Riverside County\n\n---\n\n## Missing Information\n\n*The following items were not addressed in the intake and should be obtained before evaluating the matter:*\n\n- None identified at this stage\n\n---\n\n## Risk Flags\n\n- \u26a0\ufe0f High-value matter \u2014 conflicts check and malpractice insurance notification may be required\n\n---\n\n## Recommended Next Steps\n\n1. **Run full conflicts check** using extracted names above\n2. Assign intake to appropriate practice group: **Probate & Estate**\n3. Schedule initial consultation call\n4. Review and send draft acknowledgment email (after attorney approval)\n5. Determine engagement letter requirements if matter is accepted\n\n---\n\n*Generated by GuideHerd Legal Intake Copilot | May 05, 2026 at 08:48 PM*\n*DRAFT \u2014 FOR ATTORNEY REVIEW ONLY \u2014 DO NOT DISTRIBUTE*"
+  },
+  "notes": []
+}

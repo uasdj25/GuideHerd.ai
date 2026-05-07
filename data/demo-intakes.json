@@ -1,0 +1,44 @@
+[
+  {
+    "id": "demo-intake-001",
+    "submitted_at": "2025-04-21T10:14:00Z",
+    "first_name": "Margaret",
+    "last_name": "Holloway",
+    "email": "m.holloway.demo@example.com",
+    "phone": "256-555-0101",
+    "matter_description": "My father, Robert Holloway, passed away on March 3rd of this year. He had a will that was executed about eight years ago naming me as the executor. My sister, Patricia Greer, is now contesting the will. She claims that our father lacked mental capacity when he signed it, and that I unduly influenced him. The estate includes the family home here in Madison (appraised around $280,000) and a joint checking account with about $98,000. There is also a small investment account but we have not gotten a valuation yet. I have the original will and I have already notified the probate court. My sister has hired an attorney. I need to know what to do next and whether I need an attorney to defend the will.",
+    "parties_involved": "Robert Holloway (decedent), Patricia Greer (sister, opposing party), Greer's attorney name unknown",
+    "estimated_value": "Approximately $380,000 plus unvalued investment account",
+    "urgency_self_reported": "High — sister's attorney has sent a demand letter",
+    "prior_attorney": "None",
+    "referral_source": "Friend referral"
+  },
+  {
+    "id": "demo-intake-002",
+    "submitted_at": "2025-04-22T14:32:00Z",
+    "first_name": "Carlos",
+    "last_name": "Mendez",
+    "email": "c.mendez.demo@example.com",
+    "phone": "256-555-0202",
+    "matter_description": "I own a landscaping business, Mendez Landscaping LLC. In October 2024 I entered into a written contract with Ridgeline Properties LLC to provide seasonal landscaping services for a commercial property they manage at 400 Commerce Parkway. I completed all work as specified and submitted my final invoice on November 15, 2024 for $28,500. They acknowledged receipt of the invoice but have not paid. I have sent two follow-up emails and left voicemails with their property manager, Jordan Blake, and their accounting contact, Sandra Odom. It has now been over 90 days. I have all the paperwork — the signed contract, the signed completion report, and all invoice and communication records. I want to send a formal demand letter and pursue collection if necessary.",
+    "parties_involved": "Mendez Landscaping LLC (client business), Carlos Mendez (owner), Ridgeline Properties LLC (opposing party), Jordan Blake (property manager), Sandra Odom (accounting contact)",
+    "estimated_value": "$28,500",
+    "urgency_self_reported": "Medium — want to act before further delay",
+    "prior_attorney": "None",
+    "referral_source": "Chamber of Commerce referral"
+  },
+  {
+    "id": "demo-intake-003",
+    "submitted_at": "2025-04-23T09:05:00Z",
+    "first_name": "Derek",
+    "last_name": "Simmons",
+    "email": "d.simmons.demo@example.com",
+    "phone": "256-555-0303",
+    "matter_description": "I was arrested last Thursday in Limestone County for DUI, first offense. I took a breathalyzer and blew a 0.09. I have no prior criminal record and I have never been in trouble before. My arraignment is scheduled for May 6th. I need a criminal defense attorney as quickly as possible. I am worried about losing my driver's license and whether this will affect my job.",
+    "parties_involved": "Derek Simmons (prospective client), State of Alabama (opposing party)",
+    "estimated_value": "Unknown — criminal case",
+    "urgency_self_reported": "Emergency — arraignment on May 6th",
+    "prior_attorney": "None",
+    "referral_source": "Google Search"
+  }
+]

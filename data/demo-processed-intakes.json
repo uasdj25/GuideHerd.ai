@@ -1,0 +1,224 @@
+[
+  {
+    "intake_id": "demo-intake-001",
+    "processed_at": "2026-05-07T22:27:23.155Z",
+    "demo_data_only": true,
+    "not_legal_advice": true,
+    "requires_human_approval": true,
+    "firm": {
+      "name": "Madison Valley Law Group",
+      "location": "Madison, Alabama",
+      "phone": "256-555-0199",
+      "email": "intake@madisonvalleylaw.example"
+    },
+    "intake": {
+      "first_name": "Margaret",
+      "last_name": "Holloway",
+      "email": "m.holloway.demo@example.com",
+      "phone": "256-555-0101",
+      "matter_description": "My father, Robert Holloway, passed away on March 3rd of this year. He had a will that was executed about eight years ago naming me as the executor. My sister, Patricia Greer, is now contesting the will. She claims that our father lacked mental capacity when he signed it, and that I unduly influenced him. The estate includes the family home here in Madison (appraised around $280,000) and a joint checking account with about $98,000. There is also a small investment account but we have not gotten a valuation yet. I have the original will and I have already notified the probate court. My sister has hired an attorney. I need to know what to do next and whether I need an attorney to defend the will.",
+      "parties_involved": "Robert Holloway (decedent), Patricia Greer (sister, opposing party), Greer's attorney name unknown",
+      "estimated_value": "Approximately $380,000 plus unvalued investment account",
+      "urgency_self_reported": "High — sister's attorney has sent a demand letter",
+      "prior_attorney": "None",
+      "referral_source": "Friend referral",
+      "submitted_at": "2025-04-21T10:14:00Z"
+    },
+    "classification": "Probate",
+    "secondary_areas": [
+      "Estate Planning",
+      "Small Business Disputes"
+    ],
+    "fit_status": "in_scope",
+    "confidence_score": 95,
+    "urgency": "high",
+    "referral_suggestion": null,
+    "conflict_check_names": {
+      "extracted": [
+        {
+          "name": "Margaret Holloway",
+          "role": "client"
+        },
+        {
+          "name": "Robert Holloway",
+          "role": "referenced_third_party"
+        },
+        {
+          "name": "Patricia Greer (sister",
+          "role": "referenced_third_party"
+        },
+        {
+          "name": "opposing party)",
+          "role": "opposing_party"
+        },
+        {
+          "name": "Greer's attorney name unknown",
+          "role": "referenced_third_party"
+        }
+      ],
+      "disclaimer": "This name list is extracted for conflict-screening purposes only. It may be incomplete or inaccurate. An attorney must conduct a full conflict-of-interest review using the firm's client database before any substantive discussion occurs. This output does not represent a conflict clearance."
+    },
+    "missing_information": [
+      "Confirm whether prior counsel was involved on this specific matter.",
+      "Copy of the will and any codicils needed for review.",
+      "Inventory or estimate of all estate assets and liabilities."
+    ],
+    "consultation_questions": [
+      "Can you walk me through the timeline of events from beginning to today?",
+      "Have you been contacted by any other attorney about this matter?",
+      "Have you signed any documents related to this matter that we should review?",
+      "Has the will been filed with the probate court? Which county?",
+      "What is your sister's specific basis for contesting the will — capacity, undue influence, or both?",
+      "Are there any other potential beneficiaries or interested parties beyond those mentioned?",
+      "Has any asset been transferred or distributed since the date of death?"
+    ],
+    "internal_warnings": [
+      "HIGH URGENCY: Demand letter or time-sensitive trigger mentioned. Verify applicable deadlines.",
+      "HIGH VALUE: Estimated value exceeds $100,000. Senior attorney review recommended before accepting engagement."
+    ],
+    "attorney_summary": "INTERNAL — ATTORNEY EYES ONLY — NOT FOR CLIENT DISTRIBUTION\n\n# Intake Summary: Margaret Holloway\n**Intake ID:** demo-intake-001\n**Submitted:** April 21, 2025\n**Classification:** Probate (95% confidence)\n**Fit Status:** IN SCOPE\n**Urgency:** HIGH\n\n---\n\n## What the Prospective Client Says\n\nMy father, Robert Holloway, passed away on March 3rd of this year. He had a will that was executed about eight years ago naming me as the executor. My sister, Patricia Greer, is now contesting the will. She claims that our father lacked mental capacity when he signed it, and that I unduly influenced him. The estate includes the family home here in Madison (appraised around $280,000) and a joint checking account with about $98,000. There is also a small investment account but we have not gotten a valuation yet. I have the original will and I have already notified the probate court. My sister has hired an attorney. I need to know what to do next and whether I need an attorney to defend the will.\n\n---\n\n## Classification Rationale\n\nThe matter description appears to involve Probate. The classification is based on keyword and context analysis of the intake form. Confidence score: 95/100.\nSecondary areas potentially implicated: Estate Planning, Small Business Disputes.\n\n---\n\n## Missing Information\n\n- Confirm whether prior counsel was involved on this specific matter.\n- Copy of the will and any codicils needed for review.\n- Inventory or estimate of all estate assets and liabilities.\n\n---\n\n## Conflict-Check Names\n\n*This name list is extracted for conflict-screening purposes only. It may be incomplete or inaccurate. An attorney must conduct a full conflict-of-interest review using the firm's client database before any substantive discussion occurs. This output does not represent a conflict clearance.*\n\n- **Margaret Holloway** (client)\n- **Robert Holloway** (referenced_third_party)\n- **Patricia Greer (sister** (referenced_third_party)\n- **opposing party)** (opposing_party)\n- **Greer's attorney name unknown** (referenced_third_party)\n\n---\n\n## Suggested Consultation Questions\n\n- Can you walk me through the timeline of events from beginning to today?\n- Have you been contacted by any other attorney about this matter?\n- Have you signed any documents related to this matter that we should review?\n- Has the will been filed with the probate court? Which county?\n- What is your sister's specific basis for contesting the will — capacity, undue influence, or both?\n- Are there any other potential beneficiaries or interested parties beyond those mentioned?\n- Has any asset been transferred or distributed since the date of death?\n\n---\n\n## Internal Warnings\n\n- ⚠️ HIGH URGENCY: Demand letter or time-sensitive trigger mentioned. Verify applicable deadlines.\n- ⚠️ HIGH VALUE: Estimated value exceeds $100,000. Senior attorney review recommended before accepting engagement.\n\n---\n\n*This summary is a draft prepared by AI-assisted intake processing. It does not constitute legal advice and requires attorney review before any action is taken. No attorney-client relationship has been formed.*",
+    "client_acknowledgment": "[DRAFT] — Requires attorney review and approval before sending. Do not send as-is.\n\nSubject: We Received Your Inquiry — Madison Valley Law Group\n\nDear Margaret,\n\nThank you for reaching out to Madison Valley Law Group. We have received your inquiry regarding an estate administration matter.\n\nAn attorney will review the information you have provided. If your matter falls within our practice areas and no conflicts are identified, we will be in touch to schedule an initial consultation.\n\nPlease note the following:\n\n- This acknowledgment does not create an attorney-client relationship.\n- Submitting an inquiry does not mean the firm has agreed to represent you.\n- Before any attorney-client relationship can be formed, the firm must complete a conflict-of-interest review and both parties must sign a written engagement agreement.\n- No legal advice is provided by this communication.\n\nIf your matter is time-sensitive, please call our office directly at 256-555-0199.\n\nWe appreciate you contacting our firm and will follow up as soon as possible.\n\nWarm regards,\n\n[Attorney Name — to be completed by reviewing attorney]\nMadison Valley Law Group\n256-555-0199\nintake@madisonvalleylaw.example\n\n---\nIMPORTANT NOTICE: This communication is for informational purposes only and does not constitute legal advice. No attorney-client relationship is created by this message or by submitting an intake inquiry. Confidentiality of this communication cannot be assured until a formal engagement agreement is signed by both parties.\n\n[END DRAFT]"
+  },
+  {
+    "intake_id": "demo-intake-002",
+    "processed_at": "2026-05-07T22:27:23.169Z",
+    "demo_data_only": true,
+    "not_legal_advice": true,
+    "requires_human_approval": true,
+    "firm": {
+      "name": "Madison Valley Law Group",
+      "location": "Madison, Alabama",
+      "phone": "256-555-0199",
+      "email": "intake@madisonvalleylaw.example"
+    },
+    "intake": {
+      "first_name": "Carlos",
+      "last_name": "Mendez",
+      "email": "c.mendez.demo@example.com",
+      "phone": "256-555-0202",
+      "matter_description": "I own a landscaping business, Mendez Landscaping LLC. In October 2024 I entered into a written contract with Ridgeline Properties LLC to provide seasonal landscaping services for a commercial property they manage at 400 Commerce Parkway. I completed all work as specified and submitted my final invoice on November 15, 2024 for $28,500. They acknowledged receipt of the invoice but have not paid. I have sent two follow-up emails and left voicemails with their property manager, Jordan Blake, and their accounting contact, Sandra Odom. It has now been over 90 days. I have all the paperwork — the signed contract, the signed completion report, and all invoice and communication records. I want to send a formal demand letter and pursue collection if necessary.",
+      "parties_involved": "Mendez Landscaping LLC (client business), Carlos Mendez (owner), Ridgeline Properties LLC (opposing party), Jordan Blake (property manager), Sandra Odom (accounting contact)",
+      "estimated_value": "$28,500",
+      "urgency_self_reported": "Medium — want to act before further delay",
+      "prior_attorney": "None",
+      "referral_source": "Chamber of Commerce referral",
+      "submitted_at": "2025-04-22T14:32:00Z"
+    },
+    "classification": "Small Business Disputes",
+    "secondary_areas": [
+      "Real Estate Transactions"
+    ],
+    "fit_status": "in_scope",
+    "confidence_score": 95,
+    "urgency": "high",
+    "referral_suggestion": null,
+    "conflict_check_names": {
+      "extracted": [
+        {
+          "name": "Carlos Mendez",
+          "role": "client"
+        },
+        {
+          "name": "Mendez Landscaping LLC",
+          "role": "entity"
+        },
+        {
+          "name": "Ridgeline Properties LLC",
+          "role": "opposing_party"
+        },
+        {
+          "name": "Jordan Blake",
+          "role": "referenced_third_party"
+        },
+        {
+          "name": "Sandra Odom",
+          "role": "referenced_third_party"
+        }
+      ],
+      "disclaimer": "This name list is extracted for conflict-screening purposes only. It may be incomplete or inaccurate. An attorney must conduct a full conflict-of-interest review using the firm's client database before any substantive discussion occurs. This output does not represent a conflict clearance."
+    },
+    "missing_information": [
+      "Confirm whether prior counsel was involved on this specific matter.",
+      "Copy of the written contract referenced.",
+      "Invoice number(s) and invoice date(s).",
+      "Records of all communications regarding non-payment."
+    ],
+    "consultation_questions": [
+      "Can you walk me through the timeline of events from beginning to today?",
+      "Have you been contacted by any other attorney about this matter?",
+      "Have you signed any documents related to this matter that we should review?",
+      "Does the contract include a payment dispute resolution clause or arbitration provision?",
+      "Has the other party given any written reason for non-payment?",
+      "What is the nature of the business relationship — is this a one-time project or ongoing?",
+      "Are you seeking payment only, or also damages for breach of contract?"
+    ],
+    "internal_warnings": [
+      "HIGH URGENCY: Demand letter or time-sensitive trigger mentioned. Verify applicable deadlines.",
+      "DEMAND LETTER: Active demand mentioned — potential for imminent litigation."
+    ],
+    "attorney_summary": "INTERNAL — ATTORNEY EYES ONLY — NOT FOR CLIENT DISTRIBUTION\n\n# Intake Summary: Carlos Mendez\n**Intake ID:** demo-intake-002\n**Submitted:** April 22, 2025\n**Classification:** Small Business Disputes (95% confidence)\n**Fit Status:** IN SCOPE\n**Urgency:** HIGH\n\n---\n\n## What the Prospective Client Says\n\nI own a landscaping business, Mendez Landscaping LLC. In October 2024 I entered into a written contract with Ridgeline Properties LLC to provide seasonal landscaping services for a commercial property they manage at 400 Commerce Parkway. I completed all work as specified and submitted my final invoice on November 15, 2024 for $28,500. They acknowledged receipt of the invoice but have not paid. I have sent two follow-up emails and left voicemails with their property manager, Jordan Blake, and their accounting contact, Sandra Odom. It has now been over 90 days. I have all the paperwork — the signed contract, the signed completion report, and all invoice and communication records. I want to send a formal demand letter and pursue collection if necessary.\n\n---\n\n## Classification Rationale\n\nThe matter description appears to involve Small Business Disputes. The classification is based on keyword and context analysis of the intake form. Confidence score: 95/100.\nSecondary areas potentially implicated: Real Estate Transactions.\n\n---\n\n## Missing Information\n\n- Confirm whether prior counsel was involved on this specific matter.\n- Copy of the written contract referenced.\n- Invoice number(s) and invoice date(s).\n- Records of all communications regarding non-payment.\n\n---\n\n## Conflict-Check Names\n\n*This name list is extracted for conflict-screening purposes only. It may be incomplete or inaccurate. An attorney must conduct a full conflict-of-interest review using the firm's client database before any substantive discussion occurs. This output does not represent a conflict clearance.*\n\n- **Carlos Mendez** (client)\n- **Mendez Landscaping LLC** (entity)\n- **Ridgeline Properties LLC** (opposing_party)\n- **Jordan Blake** (referenced_third_party)\n- **Sandra Odom** (referenced_third_party)\n\n---\n\n## Suggested Consultation Questions\n\n- Can you walk me through the timeline of events from beginning to today?\n- Have you been contacted by any other attorney about this matter?\n- Have you signed any documents related to this matter that we should review?\n- Does the contract include a payment dispute resolution clause or arbitration provision?\n- Has the other party given any written reason for non-payment?\n- What is the nature of the business relationship — is this a one-time project or ongoing?\n- Are you seeking payment only, or also damages for breach of contract?\n\n---\n\n## Internal Warnings\n\n- ⚠️ HIGH URGENCY: Demand letter or time-sensitive trigger mentioned. Verify applicable deadlines.\n- ⚠️ DEMAND LETTER: Active demand mentioned — potential for imminent litigation.\n\n---\n\n*This summary is a draft prepared by AI-assisted intake processing. It does not constitute legal advice and requires attorney review before any action is taken. No attorney-client relationship has been formed.*",
+    "client_acknowledgment": "[DRAFT] — Requires attorney review and approval before sending. Do not send as-is.\n\nSubject: We Received Your Inquiry — Madison Valley Law Group\n\nDear Carlos,\n\nThank you for reaching out to Madison Valley Law Group. We have received your inquiry regarding a business dispute matter.\n\nAn attorney will review the information you have provided. If your matter falls within our practice areas and no conflicts are identified, we will be in touch to schedule an initial consultation.\n\nPlease note the following:\n\n- This acknowledgment does not create an attorney-client relationship.\n- Submitting an inquiry does not mean the firm has agreed to represent you.\n- Before any attorney-client relationship can be formed, the firm must complete a conflict-of-interest review and both parties must sign a written engagement agreement.\n- No legal advice is provided by this communication.\n\nIf your matter is time-sensitive, please call our office directly at 256-555-0199.\n\nWe appreciate you contacting our firm and will follow up as soon as possible.\n\nWarm regards,\n\n[Attorney Name — to be completed by reviewing attorney]\nMadison Valley Law Group\n256-555-0199\nintake@madisonvalleylaw.example\n\n---\nIMPORTANT NOTICE: This communication is for informational purposes only and does not constitute legal advice. No attorney-client relationship is created by this message or by submitting an intake inquiry. Confidentiality of this communication cannot be assured until a formal engagement agreement is signed by both parties.\n\n[END DRAFT]"
+  },
+  {
+    "intake_id": "demo-intake-003",
+    "processed_at": "2026-05-07T22:27:23.169Z",
+    "demo_data_only": true,
+    "not_legal_advice": true,
+    "requires_human_approval": true,
+    "firm": {
+      "name": "Madison Valley Law Group",
+      "location": "Madison, Alabama",
+      "phone": "256-555-0199",
+      "email": "intake@madisonvalleylaw.example"
+    },
+    "intake": {
+      "first_name": "Derek",
+      "last_name": "Simmons",
+      "email": "d.simmons.demo@example.com",
+      "phone": "256-555-0303",
+      "matter_description": "I was arrested last Thursday in Limestone County for DUI, first offense. I took a breathalyzer and blew a 0.09. I have no prior criminal record and I have never been in trouble before. My arraignment is scheduled for May 6th. I need a criminal defense attorney as quickly as possible. I am worried about losing my driver's license and whether this will affect my job.",
+      "parties_involved": "Derek Simmons (prospective client), State of Alabama (opposing party)",
+      "estimated_value": "Unknown — criminal case",
+      "urgency_self_reported": "Emergency — arraignment on May 6th",
+      "prior_attorney": "None",
+      "referral_source": "Google Search",
+      "submitted_at": "2025-04-23T09:05:00Z"
+    },
+    "classification": "Out of Scope — Criminal Defense",
+    "secondary_areas": [
+      "Estate Planning"
+    ],
+    "fit_status": "out_of_scope",
+    "confidence_score": 88,
+    "urgency": "emergency",
+    "referral_suggestion": "Criminal defense matters are outside this firm's practice. The prospective client should consult a licensed criminal defense attorney in the relevant jurisdiction as soon as possible, particularly given any pending court dates.",
+    "conflict_check_names": {
+      "extracted": [
+        {
+          "name": "Derek Simmons",
+          "role": "client"
+        },
+        {
+          "name": "State of Alabama",
+          "role": "opposing_party"
+        }
+      ],
+      "disclaimer": "This name list is extracted for conflict-screening purposes only. It may be incomplete or inaccurate. An attorney must conduct a full conflict-of-interest review using the firm's client database before any substantive discussion occurs. This output does not represent a conflict clearance."
+    },
+    "missing_information": [
+      "Confirm whether prior counsel was involved on this specific matter."
+    ],
+    "consultation_questions": [
+      "Can you walk me through the timeline of events from beginning to today?",
+      "Have you been contacted by any other attorney about this matter?",
+      "Have you signed any documents related to this matter that we should review?",
+      "NOTE TO ATTORNEY: Matter appears out of scope. Confirm and prepare referral information."
+    ],
+    "internal_warnings": [
+      "URGENT: Prospective client reports an imminent court date or deadline. Confirm date and prioritize review.",
+      "OUT OF SCOPE: This matter does not fall within firm practice areas. Prepare referral language. Do not discuss merits."
+    ],
+    "attorney_summary": "INTERNAL — ATTORNEY EYES ONLY — NOT FOR CLIENT DISTRIBUTION\n\n# Intake Summary: Derek Simmons\n**Intake ID:** demo-intake-003\n**Submitted:** April 23, 2025\n**Classification:** Out of Scope — Criminal Defense (88% confidence)\n**Fit Status:** OUT OF_SCOPE\n**Urgency:** EMERGENCY\n\n---\n\n## What the Prospective Client Says\n\nI was arrested last Thursday in Limestone County for DUI, first offense. I took a breathalyzer and blew a 0.09. I have no prior criminal record and I have never been in trouble before. My arraignment is scheduled for May 6th. I need a criminal defense attorney as quickly as possible. I am worried about losing my driver's license and whether this will affect my job.\n\n---\n\n## Classification Rationale\n\nThe matter description appears to involve Out of Scope — Criminal Defense. The classification is based on keyword and context analysis of the intake form. Confidence score: 88/100.\nSecondary areas potentially implicated: Estate Planning.\n\n**This matter appears to be out of scope for this firm.** See referral suggestion below.\n\n### Referral Note\n\nCriminal defense matters are outside this firm's practice. The prospective client should consult a licensed criminal defense attorney in the relevant jurisdiction as soon as possible, particularly given any pending court dates.\n\n---\n\n## Missing Information\n\n- Confirm whether prior counsel was involved on this specific matter.\n\n---\n\n## Conflict-Check Names\n\n*This name list is extracted for conflict-screening purposes only. It may be incomplete or inaccurate. An attorney must conduct a full conflict-of-interest review using the firm's client database before any substantive discussion occurs. This output does not represent a conflict clearance.*\n\n- **Derek Simmons** (client)\n- **State of Alabama** (opposing_party)\n\n---\n\n## Suggested Consultation Questions\n\n- Can you walk me through the timeline of events from beginning to today?\n- Have you been contacted by any other attorney about this matter?\n- Have you signed any documents related to this matter that we should review?\n- NOTE TO ATTORNEY: Matter appears out of scope. Confirm and prepare referral information.\n\n---\n\n## Internal Warnings\n\n- ⚠️ URGENT: Prospective client reports an imminent court date or deadline. Confirm date and prioritize review.\n- ⚠️ OUT OF SCOPE: This matter does not fall within firm practice areas. Prepare referral language. Do not discuss merits.\n\n---\n\n*This summary is a draft prepared by AI-assisted intake processing. It does not constitute legal advice and requires attorney review before any action is taken. No attorney-client relationship has been formed.*",
+    "client_acknowledgment": "[DRAFT] — Requires attorney review and approval before sending. Do not send as-is.\n\nSubject: We Received Your Inquiry — Madison Valley Law Group\n\nDear Derek,\n\nThank you for reaching out to Madison Valley Law Group. We have received your inquiry regarding your recent inquiry.\n\nAfter reviewing your inquiry, it appears that this matter may fall outside of our firm's current practice areas. An attorney will follow up with more information, including possible referral resources that may be able to assist you.\n\nAn attorney will review the information you have provided. If your matter falls within our practice areas and no conflicts are identified, we will be in touch to schedule an initial consultation.\n\nPlease note the following:\n\n- This acknowledgment does not create an attorney-client relationship.\n- Submitting an inquiry does not mean the firm has agreed to represent you.\n- Before any attorney-client relationship can be formed, the firm must complete a conflict-of-interest review and both parties must sign a written engagement agreement.\n- No legal advice is provided by this communication.\n\nIf your matter is time-sensitive, please call our office directly at 256-555-0199.\n\nWe appreciate you contacting our firm and will follow up as soon as possible.\n\nWarm regards,\n\n[Attorney Name — to be completed by reviewing attorney]\nMadison Valley Law Group\n256-555-0199\nintake@madisonvalleylaw.example\n\n---\nIMPORTANT NOTICE: This communication is for informational purposes only and does not constitute legal advice. No attorney-client relationship is created by this message or by submitting an intake inquiry. Confidentiality of this communication cannot be assured until a formal engagement agreement is signed by both parties.\n\n[END DRAFT]"
+  }
+]

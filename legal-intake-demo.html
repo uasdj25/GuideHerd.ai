@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GuideHerd Legal Intake Copilot</title>
+  <meta name="description" content="GuideHerd Legal Intake Copilot — AI-assisted intake prep for small law firms. Demo only. No legal advice." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter+Tight:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:        #0E2A3F;
+      --ink-80:     rgba(14,42,63,0.80);
+      --ink-40:     rgba(14,42,63,0.40);
+      --ink-20:     rgba(14,42,63,0.20);
+      --ink-10:     rgba(14,42,63,0.10);
+      --paper:      #F5F2EA;
+      --paper-dark: #EDE9DF;
+      --white:      #ffffff;
+      --accent:     #2FA4A0;
+      --accent-bg:  rgba(47,164,160,0.10);
+      --warm:       #C8A97A;
+      --red-flag:   #A63B2A;
+      --red-bg:     rgba(166,59,42,0.08);
+      --green:      #2D7A50;
+      --green-bg:   rgba(45,122,80,0.08);
+      --amber:      #8A5800;
+      --amber-bg:   rgba(138,88,0,0.08);
+      --blue:       #1A4A8A;
+      --blue-bg:    rgba(26,74,138,0.08);
+      --serif:      'Fraunces', Georgia, serif;
+      --sans:       'Inter Tight', system-ui, sans-serif;
+      --radius:     2px;
+      --radius-pill:999px;
+    }
+
+    body {
+      font-family: var(--sans);
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 15px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* Header */
+    .site-header {
+      background: rgba(245,242,234,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--ink-10);
+      padding: 0 40px;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .site-header-brand { display: flex; align-items: center; gap: 12px; }
+    .wordmark { font-family: var(--serif); font-size: 20px; font-weight: 400; color: var(--ink); letter-spacing: -0.02em; }
+    .badge-copilot {
+      background: var(--accent); color: var(--white);
+      font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+      padding: 3px 9px; border-radius: var(--radius-pill); margin-left: 6px; vertical-align: middle;
+    }
+    .back-home {
+      font-size: 13px; color: var(--ink-40); font-weight: 500;
+      padding: 6px 14px; border-radius: var(--radius-pill);
+      border: 1px solid var(--ink-20); transition: all 0.15s;
+    }
+    .back-home:hover { color: var(--ink); border-color: var(--ink-80); }
+
+    /* Demo banner */
+    .demo-banner {
+      background: var(--amber-bg);
+      border-bottom: 1px solid rgba(138,88,0,0.18);
+      padding: 10px 40px;
+      font-size: 13px;
+      color: var(--amber);
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .demo-banner strong { font-weight: 600; }
+
+    /* Layout */
+    .page-wrap { max-width: 1100px; margin: 0 auto; padding: 36px 40px; }
+
+    /* Page title */
+    .page-hero { margin-bottom: 32px; }
+    .page-hero h1 { font-family: var(--serif); font-size: 34px; font-weight: 400; letter-spacing: -0.02em; line-height: 1.15; color: var(--ink); }
+    .page-hero p  { font-size: 16px; color: var(--ink-80); margin-top: 6px; }
+
+    /* Selector */
+    .intake-selector {
+      display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 28px;
+    }
+    .selector-btn {
+      font-family: var(--sans); font-size: 14px; font-weight: 500;
+      padding: 9px 18px; border-radius: var(--radius-pill);
+      border: 1.5px solid var(--ink-20); background: var(--white);
+      color: var(--ink-80); cursor: pointer; transition: all 0.15s;
+    }
+    .selector-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .selector-btn.active { background: var(--ink); border-color: var(--ink); color: var(--white); }
+
+    /* Grid */
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    /* Cards */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--ink-10);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 4px rgba(14,42,63,0.07);
+    }
+    .card-title {
+      font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.07em; color: var(--ink-40); margin-bottom: 14px;
+    }
+
+    /* Intake summary */
+    .client-name { font-family: var(--serif); font-size: 26px; font-weight: 400; letter-spacing: -0.02em; margin-bottom: 4px; }
+    .client-meta { font-size: 13px; color: var(--ink-40); margin-bottom: 14px; }
+    .description-text {
+      background: var(--paper);
+      border: 1px solid var(--ink-10);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      font-size: 14px; line-height: 1.7; color: var(--ink);
+      max-height: 200px; overflow-y: auto;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: var(--radius-pill);
+      font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap;
+    }
+    .badge-in-scope    { background: var(--green-bg); color: var(--green); }
+    .badge-out-scope   { background: var(--red-bg); color: var(--red-flag); }
+    .badge-needs-review{ background: var(--amber-bg); color: var(--amber); }
+    .badge-low         { background: var(--green-bg); color: var(--green); }
+    .badge-medium      { background: var(--amber-bg); color: var(--amber); }
+    .badge-high        { background: var(--red-bg); color: var(--red-flag); }
+    .badge-emergency   { background: #3a0000; color: #ff9090; }
+
+    /* Classification panel */
+    .classification-label {
+      font-family: var(--serif); font-size: 20px; font-weight: 400;
+      letter-spacing: -0.01em; margin-bottom: 8px;
+    }
+    .confidence-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .confidence-track {
+      width: 100px; height: 5px;
+      background: var(--ink-10); border-radius: var(--radius-pill); overflow: hidden;
+    }
+    .confidence-fill { height: 100%; background: var(--accent); border-radius: var(--radius-pill); }
+    .confidence-pct { font-size: 13px; color: var(--ink-40); }
+
+    /* Detail rows */
+    .detail-row { display: flex; flex-direction: column; gap: 3px; margin-bottom: 12px; }
+    .detail-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-40); }
+    .detail-value { font-size: 14px; color: var(--ink); }
+
+    /* Lists */
+    .info-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .info-list li {
+      display: flex; gap: 10px; align-items: flex-start;
+      font-size: 14px; padding: 9px 12px;
+      background: var(--paper); border: 1px solid var(--ink-10);
+      border-radius: var(--radius);
+    }
+    .info-list li .icon { flex-shrink: 0; color: var(--accent); }
+
+    .warning-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .warning-list li {
+      display: flex; gap: 10px; align-items: flex-start;
+      font-size: 14px; padding: 9px 12px;
+      background: var(--red-bg); border: 1px solid rgba(166,59,42,0.18);
+      border-radius: var(--radius); color: var(--red-flag);
+    }
+
+    /* Name chips */
+    .name-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .name-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--accent-bg); color: var(--accent);
+      border: 1px solid rgba(47,164,160,0.25);
+      padding: 4px 11px; border-radius: var(--radius-pill);
+      font-size: 13px; font-weight: 500;
+    }
+    .name-chip-role {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--ink-40);
+    }
+
+    /* Draft panel */
+    .draft-header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 12px; gap: 12px;
+    }
+    .draft-label {
+      display: inline-block; background: var(--red-bg);
+      color: var(--red-flag); font-weight: 700; font-size: 12px;
+      padding: 2px 8px; border-radius: var(--radius); margin-bottom: 6px;
+      letter-spacing: 0.05em;
+    }
+    .draft-box {
+      background: var(--paper); border: 1px solid var(--ink-20);
+      border-radius: var(--radius); padding: 18px 20px;
+      font-size: 13.5px; line-height: 1.75; white-space: pre-wrap;
+      max-height: 340px; overflow-y: auto; color: var(--ink);
+    }
+    .copy-btn {
+      font-family: var(--sans); font-size: 13px; font-weight: 500;
+      padding: 6px 14px; border-radius: var(--radius-pill);
+      border: 1.5px solid var(--ink-20); background: var(--white);
+      color: var(--ink-80); cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    }
+    .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Referral box */
+    .referral-box {
+      background: var(--blue-bg); border: 1px solid rgba(26,74,138,0.18);
+      border-radius: var(--radius); padding: 14px 16px; font-size: 14px; color: var(--blue);
+      margin-top: 12px;
+    }
+
+    /* Disclaimer footer */
+    .disclaimer-footer {
+      margin-top: 40px;
+      border-top: 1px solid var(--ink-10);
+      padding-top: 20px;
+      font-size: 12.5px; color: var(--ink-40);
+      line-height: 1.65;
+    }
+
+    /* Loading / error */
+    .state-msg { text-align: center; padding: 60px 20px; color: var(--ink-40); font-size: 15px; }
+
+    /* Responsive */
+    @media (max-width: 760px) {
+      .site-header { padding: 0 20px; height: 60px; }
+      .demo-banner { padding: 10px 20px; }
+      .page-wrap   { padding: 24px 20px; }
+      .detail-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="site-header">
+  <div class="site-header-brand">
+    <span class="wordmark">GuideHerd<span class="badge-copilot">Copilot</span></span>
+  </div>
+  <a class="back-home" href="/">← Back to site</a>
+</header>
+
+<!-- Demo disclaimer banner -->
+<div class="demo-banner">
+  <span>⚠️</span>
+  <span>
+    <strong>Demo system — fictional data only.</strong>
+    This tool does not provide legal advice, conduct conflict checks, send emails, or create attorney-client relationships.
+    All AI-generated content is a draft and requires attorney review before any action is taken.
+    &nbsp;|&nbsp; <strong>No attorney-client relationship</strong> &nbsp;|&nbsp;
+    <strong>Conflict extraction only — not a conflict determination</strong> &nbsp;|&nbsp;
+    <strong>Human approval required on all drafts</strong>
+  </span>
+</div>
+
+<!-- Main -->
+<main class="page-wrap">
+
+  <div class="page-hero">
+    <h1>Legal Intake Copilot</h1>
+    <p>AI-assisted intake prep for small law firms &mdash; select a demo intake to review</p>
+  </div>
+
+  <div id="selector" class="intake-selector">
+    <em style="color:var(--ink-40);font-size:14px;">Loading demo intakes…</em>
+  </div>
+
+  <div id="detail">
+    <div class="state-msg">Select a demo intake above to view the processed record.</div>
+  </div>
+
+  <div class="disclaimer-footer">
+    <strong>Important Notices:</strong>
+    This page displays fictional demo data generated by the GuideHerd Legal Intake Copilot demonstration system.
+    It does not constitute legal advice. No attorney-client relationship is formed by viewing or interacting with this page.
+    No real client information is displayed or stored. All names, facts, and scenarios are invented for demonstration purposes only.
+    Conflict-check name extraction is for screening purposes only; it does not represent a conflict-of-interest determination.
+    All draft content requires attorney review and approval before any action or communication.
+    &copy; GuideHerd AI &mdash; <a href="/" style="color:var(--accent);">guideherd.ai</a>
+  </div>
+
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  // -------------------------------------------------------------------------
+  // Embedded fallback data (same three cases — used if fetch fails locally)
+  // -------------------------------------------------------------------------
+  const FALLBACK = [
+    {
+      intake_id: 'demo-intake-001',
+      processed_at: '2025-04-21T10:14:00Z',
+      demo_data_only: true,
+      not_legal_advice: true,
+      requires_human_approval: true,
+      firm: { name: 'Madison Valley Law Group', location: 'Madison, Alabama' },
+      intake: {
+        first_name: 'Margaret', last_name: 'Holloway',
+        email: 'm.holloway.demo@example.com', phone: '256-555-0101',
+        matter_description: 'My father, Robert Holloway, passed away on March 3rd. He had a will executed eight years ago naming me as executor. My sister, Patricia Greer, is now contesting the will — she claims he lacked mental capacity and that I unduly influenced him. The estate includes the family home (appraised ~$280,000) and a joint checking account (~$98,000). I have the original will and notified the probate court. My sister has hired an attorney.',
+        parties_involved: 'Robert Holloway (decedent), Patricia Greer (sister, opposing party)',
+        estimated_value: 'Approximately $380,000',
+        urgency_self_reported: 'High — sister\'s attorney has sent a demand letter',
+        prior_attorney: 'None',
+        referral_source: 'Friend referral',
+        submitted_at: '2025-04-21T10:14:00Z',
+      },
+      classification: 'Probate',
+      fit_status: 'in_scope',
+      confidence_score: 88,
+      secondary_areas: ['Estate Planning'],
+      urgency: 'high',
+      referral_suggestion: null,
+      conflict_check_names: {
+        extracted: [
+          { name: 'Margaret Holloway', role: 'client' },
+          { name: 'Robert Holloway', role: 'entity' },
+          { name: 'Patricia Greer', role: 'opposing_party' },
+        ],
+        disclaimer: 'This name list is extracted for conflict-screening purposes only. It may be incomplete or inaccurate. An attorney must conduct a full conflict-of-interest review using the firm\'s client database before any substantive discussion occurs. This output does not represent a conflict clearance.',
+      },
+      missing_information: [
+        'Copy of the will and any codicils needed for review.',
+        'Inventory or estimate of all estate assets and liabilities.',
+        'Confirm whether probate has been opened and in which county.',
+        'Confirm whether prior counsel was involved on this specific matter.',
+      ],
+      consultation_questions: [
+        'Can you walk me through the timeline of events from beginning to today?',
+        'Has the will been filed with the probate court? Which county?',
+        'What is your sister\'s specific basis for contesting — capacity, undue influence, or both?',
+        'Are there any other potential beneficiaries beyond those mentioned?',
+        'Has any asset been transferred or distributed since the date of death?',
+        'Have you been contacted by any other attorney about this matter?',
+      ],
+      internal_warnings: [
+        'HIGH URGENCY: Demand letter mentioned. Verify applicable deadlines.',
+        'HIGH VALUE: Estimated value exceeds $100,000. Senior attorney review recommended.',
+      ],
+      attorney_summary: 'INTERNAL — ATTORNEY EYES ONLY — NOT FOR CLIENT DISTRIBUTION\n\nProspective client Margaret Holloway seeks representation in a contested probate matter involving the estate of her late father, Robert Holloway. The decedent passed on March 3, 2025. Margaret is named executor under a will executed approximately eight years prior. Her sister, Patricia Greer, is contesting the will on grounds of testamentary incapacity and alleged undue influence. Patricia has retained counsel and reportedly sent a demand letter.\n\nThe estate includes real property in Madison (~$280,000 appraised) and a joint checking account (~$98,000). An investment account of undetermined value is also mentioned. Total estimated value exceeds $380,000.\n\nClassification: Probate (88% confidence). In scope. Urgency: High.\n\nKey missing items: copy of will and codicils, full asset inventory, county where probate filed.\n\nThis summary is a draft prepared by AI-assisted intake processing. It does not constitute legal advice and requires attorney review before any action is taken. No attorney-client relationship has been formed.',
+      client_acknowledgment: '[DRAFT] — Requires attorney review and approval before sending.\n\nSubject: We Received Your Inquiry — Madison Valley Law Group\n\nDear Margaret,\n\nThank you for reaching out to Madison Valley Law Group. We have received your inquiry regarding an estate administration matter.\n\nAn attorney will review the information you have provided. If your matter falls within our practice areas and no conflicts are identified, we will be in touch to schedule an initial consultation.\n\nPlease note:\n- This acknowledgment does not create an attorney-client relationship.\n- No legal advice is provided by this communication.\n- Before any attorney-client relationship can be formed, the firm must complete a conflict-of-interest review and both parties must sign a written engagement agreement.\n\nIf your matter is time-sensitive, please call us at 256-555-0199.\n\nWarm regards,\n[Attorney Name — to be completed by reviewing attorney]\nMadison Valley Law Group\n\n---\nIMPORTANT NOTICE: This communication does not constitute legal advice. No attorney-client relationship is created by this message.\n\n[END DRAFT]',
+    },
+    {
+      intake_id: 'demo-intake-002',
+      processed_at: '2025-04-22T14:32:00Z',
+      demo_data_only: true,
+      not_legal_advice: true,
+      requires_human_approval: true,
+      firm: { name: 'Madison Valley Law Group', location: 'Madison, Alabama' },
+      intake: {
+        first_name: 'Carlos', last_name: 'Mendez',
+        email: 'c.mendez.demo@example.com', phone: '256-555-0202',
+        matter_description: 'I own Mendez Landscaping LLC. In October 2024 I entered a written contract with Ridgeline Properties LLC for seasonal landscaping at 400 Commerce Parkway. I completed all work and submitted my final invoice on November 15, 2024 for $28,500. They acknowledged receipt but have not paid. I have sent two follow-up emails and left voicemails with their property manager, Jordan Blake, and accounting contact, Sandra Odom. It has now been over 90 days. I have the signed contract, signed completion report, and all invoice and communication records.',
+        parties_involved: 'Mendez Landscaping LLC (client business), Carlos Mendez (owner), Ridgeline Properties LLC (opposing party), Jordan Blake (property manager), Sandra Odom (accounting contact)',
+        estimated_value: '$28,500',
+        urgency_self_reported: 'Medium — want to act before further delay',
+        prior_attorney: 'None',
+        referral_source: 'Chamber of Commerce referral',
+        submitted_at: '2025-04-22T14:32:00Z',
+      },
+      classification: 'Small Business Disputes',
+      fit_status: 'in_scope',
+      confidence_score: 84,
+      secondary_areas: ['Contract Review'],
+      urgency: 'medium',
+      referral_suggestion: null,
+      conflict_check_names: {
+        extracted: [
+          { name: 'Carlos Mendez', role: 'client' },
+          { name: 'Mendez Landscaping LLC', role: 'entity' },
+          { name: 'Ridgeline Properties LLC', role: 'entity' },
+          { name: 'Jordan Blake', role: 'referenced_third_party' },
+          { name: 'Sandra Odom', role: 'referenced_third_party' },
+        ],
+        disclaimer: 'This name list is extracted for conflict-screening purposes only. It may be incomplete or inaccurate. An attorney must conduct a full conflict-of-interest review using the firm\'s client database before any substantive discussion occurs. This output does not represent a conflict clearance.',
+      },
+      missing_information: [
+        'Copy of the written contract referenced.',
+        'Invoice number(s) and invoice date(s).',
+        'Records of all communications regarding non-payment.',
+        'Confirm whether a formal written demand for payment has been sent.',
+        'Confirm whether prior counsel was involved on this specific matter.',
+      ],
+      consultation_questions: [
+        'Can you walk me through the timeline of events from beginning to today?',
+        'Does the contract include a payment dispute resolution clause or arbitration provision?',
+        'Has the other party given any written reason for non-payment?',
+        'What is the nature of the business relationship — is this a one-time project or ongoing?',
+        'Are there any other amounts owed under separate invoices or projects?',
+        'Have you been contacted by any other attorney about this matter?',
+      ],
+      internal_warnings: [
+        'DEMAND LETTER: Active demand follow-up mentioned — potential for imminent dispute.',
+      ],
+      attorney_summary: 'INTERNAL — ATTORNEY EYES ONLY — NOT FOR CLIENT DISTRIBUTION\n\nProspective client Carlos Mendez, owner of Mendez Landscaping LLC, seeks assistance collecting an unpaid commercial invoice of $28,500 from Ridgeline Properties LLC. A written contract was signed in October 2024 for seasonal landscaping at 400 Commerce Parkway. All work was completed and a final invoice submitted November 15, 2024. Despite acknowledgment and follow-up contacts with Jordan Blake and Sandra Odom, payment has not been received after 90+ days.\n\nClient has documentation: signed contract, signed completion report, invoices, and communications log.\n\nClassification: Small Business Disputes (84% confidence). In scope. Urgency: Medium.\n\nNext steps: Review contract for payment terms, demand letter provisions, and dispute resolution clauses. Assess viability of formal demand letter and, if necessary, civil collection action.\n\nThis summary is a draft prepared by AI-assisted intake processing. It does not constitute legal advice and requires attorney review before any action is taken. No attorney-client relationship has been formed.',
+      client_acknowledgment: '[DRAFT] — Requires attorney review and approval before sending.\n\nSubject: We Received Your Inquiry — Madison Valley Law Group\n\nDear Carlos,\n\nThank you for reaching out to Madison Valley Law Group. We have received your inquiry regarding a business dispute matter.\n\nAn attorney will review the information you have provided. If your matter falls within our practice areas and no conflicts are identified, we will be in touch to schedule an initial consultation.\n\nPlease note:\n- This acknowledgment does not create an attorney-client relationship.\n- No legal advice is provided by this communication.\n- Before any attorney-client relationship can be formed, the firm must complete a conflict-of-interest review and both parties must sign a written engagement agreement.\n\nIf your matter is time-sensitive, please call us at 256-555-0199.\n\nWarm regards,\n[Attorney Name — to be completed by reviewing attorney]\nMadison Valley Law Group\n\n---\nIMPORTANT NOTICE: This communication does not constitute legal advice. No attorney-client relationship is created by this message.\n\n[END DRAFT]',
+    },
+    {
+      intake_id: 'demo-intake-003',
+      processed_at: '2025-04-23T09:05:00Z',
+      demo_data_only: true,
+      not_legal_advice: true,
+      requires_human_approval: true,
+      firm: { name: 'Madison Valley Law Group', location: 'Madison, Alabama' },
+      intake: {
+        first_name: 'Derek', last_name: 'Simmons',
+        email: 'd.simmons.demo@example.com', phone: '256-555-0303',
+        matter_description: 'I was arrested last Thursday in Limestone County for DUI, first offense. I blew a 0.09. I have no prior criminal record. My arraignment is scheduled for May 6th. I need a criminal defense attorney as quickly as possible. I am worried about losing my driver\'s license and whether this will affect my job.',
+        parties_involved: 'Derek Simmons (prospective client), State of Alabama (opposing party)',
+        estimated_value: 'Unknown — criminal case',
+        urgency_self_reported: 'Emergency — arraignment on May 6th',
+        prior_attorney: 'None',
+        referral_source: 'Google Search',
+        submitted_at: '2025-04-23T09:05:00Z',
+      },
+      classification: 'Out of Scope — Criminal Defense',
+      fit_status: 'out_of_scope',
+      confidence_score: 92,
+      secondary_areas: [],
+      urgency: 'emergency',
+      referral_suggestion: 'Criminal defense matters are outside this firm\'s practice. The prospective client should consult a licensed criminal defense attorney in Limestone County as soon as possible, given the pending arraignment date.',
+      conflict_check_names: {
+        extracted: [
+          { name: 'Derek Simmons', role: 'client' },
+          { name: 'State of Alabama', role: 'opposing_party' },
+        ],
+        disclaimer: 'This name list is extracted for conflict-screening purposes only. It may be incomplete or inaccurate. An attorney must conduct a full conflict-of-interest review using the firm\'s client database before any substantive discussion occurs. This output does not represent a conflict clearance.',
+      },
+      missing_information: [
+        'Confirm whether prior counsel was involved on this specific matter.',
+      ],
+      consultation_questions: [
+        'NOTE TO ATTORNEY: Matter appears out of scope. Confirm and prepare referral information.',
+        'Can the prospective client be connected with a criminal defense attorney referral promptly given the pending court date?',
+      ],
+      internal_warnings: [
+        'URGENT: Prospective client reports an imminent court date (May 6th arraignment). Confirm and prioritize referral.',
+        'OUT OF SCOPE: This matter does not fall within firm practice areas. Prepare referral language. Do not discuss merits.',
+      ],
+      attorney_summary: 'INTERNAL — ATTORNEY EYES ONLY — NOT FOR CLIENT DISTRIBUTION\n\nProspective client Derek Simmons reports a first-offense DUI arrest in Limestone County with an arraignment scheduled for May 6, 2025. This matter falls outside the firm\'s practice areas. No substantive discussion of the merits should occur.\n\nClassification: Out of Scope — Criminal Defense (92% confidence). Urgency: Emergency (pending court date).\n\nRecommended action: Decline and refer. Provide general referral information to licensed criminal defense counsel in Limestone County. Respond promptly given the time constraint.\n\nThis summary is a draft prepared by AI-assisted intake processing. It does not constitute legal advice and requires attorney review before any action is taken. No attorney-client relationship has been formed.',
+      client_acknowledgment: '[DRAFT] — Requires attorney review and approval before sending.\n\nSubject: We Received Your Inquiry — Madison Valley Law Group\n\nDear Derek,\n\nThank you for reaching out to Madison Valley Law Group. We have received your inquiry.\n\nAfter reviewing your inquiry, it appears that this matter may fall outside of our firm\'s current practice areas. An attorney will follow up with more information, including possible referral resources that may be able to assist you.\n\nPlease note:\n- This acknowledgment does not create an attorney-client relationship.\n- No legal advice is provided by this communication.\n- If your matter is time-sensitive, please contact our office immediately at 256-555-0199 so we can assist in connecting with the appropriate resources.\n\nWarm regards,\n[Attorney Name — to be completed by reviewing attorney]\nMadison Valley Law Group\n\n---\nIMPORTANT NOTICE: This communication does not constitute legal advice. No attorney-client relationship is created by this message.\n\n[END DRAFT]',
+    },
+  ];
+
+  // -------------------------------------------------------------------------
+  // State
+  // -------------------------------------------------------------------------
+  let records = [];
+  let activeIdx = 0;
+
+  // -------------------------------------------------------------------------
+  // Render selector buttons
+  // -------------------------------------------------------------------------
+  function renderSelector() {
+    const el = document.getElementById('selector');
+    el.innerHTML = '';
+    records.forEach((r, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'selector-btn' + (i === activeIdx ? ' active' : '');
+      btn.textContent = `${r.intake.first_name} ${r.intake.last_name}`;
+      btn.addEventListener('click', () => { activeIdx = i; render(); });
+      el.appendChild(btn);
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Helpers
+  // -------------------------------------------------------------------------
+  function fitBadge(fit) {
+    if (fit === 'in_scope')    return '<span class="badge badge-in-scope">✓ In Scope</span>';
+    if (fit === 'out_of_scope')return '<span class="badge badge-out-scope">✗ Out of Scope</span>';
+    return '<span class="badge badge-needs-review">? Needs Review</span>';
+  }
+
+  function urgencyBadge(u) {
+    const cls = { low:'badge-low', medium:'badge-medium', high:'badge-high', emergency:'badge-emergency' }[u] || 'badge-medium';
+    return `<span class="badge ${cls}">${u.charAt(0).toUpperCase() + u.slice(1)}</span>`;
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function copyText(text) {
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
+
+  // -------------------------------------------------------------------------
+  // Render detail view
+  // -------------------------------------------------------------------------
+  function render() {
+    renderSelector();
+    const r = records[activeIdx];
+    if (!r) return;
+
+    const { intake, conflict_check_names: cc } = r;
+
+    const conflictHtml = cc.extracted.map(e =>
+      `<span class="name-chip">${esc(e.name)} <span class="name-chip-role">${esc(e.role.replace('_',' '))}</span></span>`
+    ).join('');
+
+    const missingHtml = (r.missing_information || []).map(m =>
+      `<li><span class="icon">◌</span> ${esc(m)}</li>`
+    ).join('') || '<li><span class="icon">✓</span> No significant gaps identified.</li>';
+
+    const questionsHtml = (r.consultation_questions || []).map(q =>
+      `<li><span class="icon">?</span> ${esc(q)}</li>`
+    ).join('');
+
+    const warningsHtml = (r.internal_warnings || []).length > 0
+      ? (r.internal_warnings || []).map(w =>
+          `<li><span>⚑</span> ${esc(w)}</li>`
+        ).join('')
+      : '<li><span>—</span> No flags.</li>';
+
+    const referralHtml = r.referral_suggestion
+      ? `<div class="referral-box"><strong>Referral Note:</strong> ${esc(r.referral_suggestion)}</div>`
+      : '';
+
+    document.getElementById('detail').innerHTML = `
+
+      <!-- Row 1: Intake summary + Classification -->
+      <div class="detail-grid" style="margin-bottom:0">
+        <div>
+          <div class="card">
+            <div class="card-title">Intake Summary</div>
+            <div class="client-name">${esc(intake.first_name)} ${esc(intake.last_name)}</div>
+            <div class="client-meta">${esc(intake.email)} &middot; ${esc(intake.phone || '—')} &middot; ${new Date(intake.submitted_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+              ${fitBadge(r.fit_status)} ${urgencyBadge(r.urgency)}
+            </div>
+            <div class="detail-label" style="margin-bottom:6px;">Matter Description</div>
+            <div class="description-text">${esc(intake.matter_description)}</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <div class="card-title">Attorney Review Panel</div>
+            <div class="classification-label">${esc(r.classification)}</div>
+            <div class="confidence-row">
+              <div class="confidence-track"><div class="confidence-fill" style="width:${r.confidence_score}%"></div></div>
+              <span class="confidence-pct">${r.confidence_score}% confidence</span>
+            </div>
+            <div class="detail-row"><div class="detail-label">Fit Status</div><div class="detail-value">${fitBadge(r.fit_status)}</div></div>
+            <div class="detail-row"><div class="detail-label">Urgency</div><div class="detail-value">${urgencyBadge(r.urgency)}</div></div>
+            <div class="detail-row"><div class="detail-label">Estimated Value</div><div class="detail-value">${esc(intake.estimated_value || '—')}</div></div>
+            <div class="detail-row"><div class="detail-label">Prior Attorney</div><div class="detail-value">${esc(intake.prior_attorney || '—')}</div></div>
+            <div class="detail-row"><div class="detail-label">Referral Source</div><div class="detail-value">${esc(intake.referral_source || '—')}</div></div>
+            ${referralHtml}
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: Conflict check + Missing info -->
+      <div class="detail-grid">
+        <div>
+          <div class="card">
+            <div class="card-title">Conflict-Check Panel</div>
+            <p style="font-size:13px;color:var(--ink-40);margin-bottom:10px;line-height:1.55;">${esc(cc.disclaimer)}</p>
+            <div class="name-chips">${conflictHtml || '<em style="color:var(--ink-40);font-size:13px;">No names extracted.</em>'}</div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-title">Missing Information</div>
+            <ul class="info-list">${missingHtml}</ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3: Consultation questions + Internal warnings -->
+      <div class="detail-grid">
+        <div>
+          <div class="card">
+            <div class="card-title">Consultation Questions</div>
+            <ul class="info-list">${questionsHtml}</ul>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-title">Internal Warnings</div>
+            <ul class="warning-list">${warningsHtml}</ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Draft acknowledgment -->
+      <div class="card">
+        <div class="draft-header">
+          <div>
+            <span class="draft-label">[DRAFT]</span>
+            <div class="card-title" style="margin-bottom:0;">Client Acknowledgment — For Attorney Review</div>
+          </div>
+          <button class="copy-btn" onclick="document.getElementById('ack-copy-${activeIdx}').dataset.done ? null : null" id="copy-ack-btn-${activeIdx}">Copy Draft</button>
+        </div>
+        <div class="draft-box" id="ack-text-${activeIdx}">${esc(r.client_acknowledgment)}</div>
+      </div>
+
+    `;
+
+    // Wire copy button after render
+    const copyBtn = document.getElementById(`copy-ack-btn-${activeIdx}`);
+    if (copyBtn) {
+      copyBtn.addEventListener('click', () => {
+        copyText(r.client_acknowledgment);
+        copyBtn.textContent = '✓ Copied';
+        setTimeout(() => { copyBtn.textContent = 'Copy Draft'; }, 1800);
+      });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Load data
+  // -------------------------------------------------------------------------
+  function init(data) {
+    records = data;
+    activeIdx = 0;
+    render();
+  }
+
+  // Try fetch first; fall back to embedded data on error (covers file:// and CORS)
+  fetch('./data/demo-processed-intakes.json')
+    .then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    })
+    .then(data => {
+      console.log('[GuideHerd] Loaded demo data from data/demo-processed-intakes.json');
+      init(data);
+    })
+    .catch(err => {
+      console.warn('[GuideHerd] Fetch failed (' + err.message + '); using embedded fallback data.');
+      init(FALLBACK);
+    });
+
+})();
+</script>
+
+</body>
+</html>

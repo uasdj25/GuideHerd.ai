@@ -1,0 +1,180 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GuideHerd Legal Intake Copilot — Processed Intake Record",
+  "description": "Required output structure for each processed intake record. All fields are required unless noted optional.",
+  "version": "1.0",
+  "type": "object",
+
+  "required": [
+    "intake_id",
+    "processed_at",
+    "demo_data_only",
+    "not_legal_advice",
+    "requires_human_approval",
+    "firm",
+    "intake",
+    "classification",
+    "fit_status",
+    "confidence_score",
+    "urgency",
+    "conflict_check_names",
+    "missing_information",
+    "consultation_questions",
+    "internal_warnings",
+    "attorney_summary",
+    "client_acknowledgment"
+  ],
+
+  "properties": {
+    "intake_id": {
+      "type": "string",
+      "description": "Unique identifier for this intake record."
+    },
+    "processed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when the record was processed."
+    },
+    "demo_data_only": {
+      "type": "boolean",
+      "const": true,
+      "description": "MUST be true. Indicates this record contains fictional demo data only."
+    },
+    "not_legal_advice": {
+      "type": "boolean",
+      "const": true,
+      "description": "MUST be true. Confirms this output does not constitute legal advice."
+    },
+    "requires_human_approval": {
+      "type": "boolean",
+      "const": true,
+      "description": "MUST be true. All content requires attorney review before any action."
+    },
+    "firm": {
+      "type": "object",
+      "required": ["name", "location"],
+      "properties": {
+        "name": { "type": "string" },
+        "location": { "type": "string" }
+      }
+    },
+    "intake": {
+      "type": "object",
+      "description": "Original intake submission fields.",
+      "required": ["first_name", "last_name", "email", "matter_description"],
+      "properties": {
+        "first_name": { "type": "string" },
+        "last_name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "matter_description": { "type": "string" },
+        "parties_involved": { "type": "string" },
+        "estimated_value": { "type": "string" },
+        "urgency_self_reported": { "type": "string" },
+        "prior_attorney": { "type": "string" },
+        "referral_source": { "type": "string" }
+      }
+    },
+    "classification": {
+      "type": "string",
+      "description": "Primary practice area classification or 'Out of Scope'.",
+      "examples": ["Probate", "Small Business Disputes", "Estate Planning", "Contract Review", "Real Estate Transactions", "Out of Scope"]
+    },
+    "secondary_areas": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional. Secondary practice areas implicated by the matter."
+    },
+    "fit_status": {
+      "type": "string",
+      "enum": ["in_scope", "out_of_scope", "needs_review"],
+      "description": "Whether the matter is within the firm's practice areas."
+    },
+    "confidence_score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Classification confidence score (0–100)."
+    },
+    "urgency": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "emergency"],
+      "description": "Urgency level based on intake content."
+    },
+    "conflict_check_names": {
+      "type": "object",
+      "description": "Names and entities extracted for conflict-check screening.",
+      "required": ["extracted", "disclaimer"],
+      "properties": {
+        "extracted": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "role"],
+            "properties": {
+              "name": { "type": "string" },
+              "role": {
+                "type": "string",
+                "enum": ["client", "opposing_party", "referenced_third_party", "entity"]
+              }
+            }
+          }
+        },
+        "disclaimer": {
+          "type": "string",
+          "description": "Required disclaimer about conflict check limitations."
+        }
+      }
+    },
+    "missing_information": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of information gaps identified in the intake."
+    },
+    "consultation_questions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Suggested questions for the attorney to ask at consultation."
+    },
+    "internal_warnings": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Internal flags for attorney attention (urgency, risk factors, etc.)."
+    },
+    "attorney_summary": {
+      "type": "string",
+      "description": "Internal attorney-facing summary of the intake. Must not give legal advice or imply representation."
+    },
+    "client_acknowledgment": {
+      "type": "string",
+      "description": "DRAFT client-facing acknowledgment email. Must begin with [DRAFT] and must not imply representation or legal advice."
+    },
+    "referral_suggestion": {
+      "type": "string",
+      "description": "Optional. For out-of-scope matters, a general referral suggestion (no specific attorney recommendation)."
+    }
+  },
+
+  "hard_constraints": {
+    "description": "These constraints are enforced by validate-demo-outputs.js",
+    "rules": [
+      { "field": "demo_data_only",        "must_equal": true },
+      { "field": "not_legal_advice",      "must_equal": true },
+      { "field": "requires_human_approval","must_equal": true },
+      { "field": "client_acknowledgment", "must_start_with": "[DRAFT]" },
+      { "prohibited_phrases": [
+          "we represent you",
+          "you are our client",
+          "our client",
+          "you should",
+          "you must",
+          "guarantee",
+          "will win",
+          "conflict cleared",
+          "conflict is cleared",
+          "no conflict found"
+        ]
+      }
+    ]
+  }
+}

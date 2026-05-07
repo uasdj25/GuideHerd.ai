@@ -1,0 +1,1751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Training &amp; Certification — GuideHerd AI</title>
+<meta name="description" content="GuideHerd AI training tracks for law firms and professional services. Role-based curriculum, certification included, built around the system we deployed for you.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600&family=GT+America&display=swap">
+<style>
+/* ==========================================================================
+   GuideHerd AI — site stylesheet
+   Editorial / consulting quarterly feel. Paper off-white, ink navy, teal accent.
+   ========================================================================== */
+
+:root {
+  /* brand */
+  --ink:        #0E2A3F;
+  --ink-soft:   #1C3A52;
+  --ink-60:     rgba(14, 42, 63, 0.60);
+  --ink-40:     rgba(14, 42, 63, 0.40);
+  --ink-20:     rgba(14, 42, 63, 0.20);
+  --ink-10:     rgba(14, 42, 63, 0.10);
+  --ink-05:     rgba(14, 42, 63, 0.05);
+
+  --paper:      #F5F2EA;
+  --paper-2:    #EDE8DB;
+  --paper-3:    #E3DCC9;
+  --cream:      #FBF8F1;
+
+  --accent:     #2FA4A0;
+  --accent-deep:#1E7C79;
+  --accent-ink: #0E6D6A;
+
+  --warm:       #C8A97A;
+  --red-flag:   #A63B2A;
+
+  /* type */
+  --serif:   "Fraunces", "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --sans:    "Inter Tight", "Söhne", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --mono:    "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+  /* scale */
+  --fs-xs:   11px;
+  --fs-sm:   13px;
+  --fs-base: 16px;
+  --fs-md:   18px;
+  --fs-lg:   22px;
+  --fs-xl:   28px;
+  --fs-2xl:  40px;
+  --fs-3xl:  64px;
+  --fs-4xl:  96px;
+  --fs-5xl:  140px;
+
+  /* spacing */
+  --gutter: 32px;
+  --sp-1: 8px;
+  --sp-2: 16px;
+  --sp-3: 24px;
+  --sp-4: 32px;
+  --sp-5: 48px;
+  --sp-6: 64px;
+  --sp-7: 96px;
+  --sp-8: 128px;
+  --sp-9: 160px;
+}
+
+html[data-pairing="inter-serif"] {
+  --serif: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  --sans:  "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+}
+html[data-pairing="instrument-inter"] {
+  --serif: "Instrument Serif", Georgia, serif;
+}
+html[data-accent="warm"] {
+  --accent:     #C8A97A;
+  --accent-deep:#A8864F;
+  --accent-ink: #7A5F32;
+}
+html[data-accent="ink"] {
+  --accent:     #0E2A3F;
+  --accent-deep:#0E2A3F;
+  --accent-ink: #0E2A3F;
+}
+html[data-accent="rust"] {
+  --accent:     #B85A3A;
+  --accent-deep:#8F4428;
+  --accent-ink: #6F331E;
+}
+
+/* ---------- RESET ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+body {
+  font-family: var(--sans);
+  font-size: var(--fs-base);
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--paper);
+  font-feature-settings: "ss01", "cv11";
+}
+img, svg { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; cursor: pointer; }
+ul { list-style: none; padding: 0; margin: 0; }
+h1, h2, h3, h4 { margin: 0; font-weight: 400; letter-spacing: -0.01em; }
+p { margin: 0; }
+
+/* ---------- LAYOUT ---------- */
+.container {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 0 var(--sp-6);
+}
+@media (max-width: 900px) {
+  .container { padding: 0 var(--sp-3); }
+}
+
+.section {
+  padding: var(--sp-8) 0;
+  border-top: 1px solid var(--ink-10);
+}
+.section:first-of-type { border-top: 0; }
+
+.section-num {
+  display: inline-block;
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-60);
+  font-feature-settings: "tnum";
+}
+.section-num.on-dark { color: rgba(245, 242, 234, 0.6); }
+
+.section-head {
+  margin-bottom: var(--sp-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.section-kicker {
+  font-family: var(--serif);
+  font-size: var(--fs-2xl);
+  line-height: 1.08;
+  font-weight: 400;
+  max-width: 28ch;
+}
+
+/* ---------- HEADER ---------- */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(245, 242, 234, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--ink-10);
+}
+.header-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  height: 72px;
+  gap: var(--sp-6);
+}
+.wordmark {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: flex-start;
+}
+.wordmark-main { letter-spacing: -0.02em; }
+.wordmark-sup {
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-left: 2px;
+  margin-top: 4px;
+  line-height: 1;
+}
+.wordmark-light { color: var(--paper); }
+
+.primary-nav {
+  display: flex;
+  justify-content: center;
+  gap: var(--sp-5);
+}
+.primary-nav a {
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  position: relative;
+  padding: 4px 0;
+  transition: color .2s;
+}
+.primary-nav a::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -2px;
+  height: 1px;
+  background: var(--ink);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform .3s cubic-bezier(.2,.7,.2,1);
+}
+.primary-nav a:hover::after,
+.primary-nav a[aria-current="page"]::after { transform: scaleX(1); }
+
+.nav-cta {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  padding: 10px 16px;
+  border-radius: 999px;
+  transition: background .2s, color .2s;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+.nav-cta:hover { background: var(--ink); color: var(--paper); }
+
+@media (max-width: 900px) {
+  .header-row { grid-template-columns: auto auto; }
+  .primary-nav { display: none; }
+}
+
+/* ---------- BUTTONS ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px;
+  border-radius: 999px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  border: 1px solid transparent;
+  transition: all .2s ease;
+  font-family: var(--sans);
+}
+.btn-primary {
+  background: var(--ink);
+  color: var(--paper);
+}
+.btn-primary:hover { background: var(--accent-ink); }
+.btn-ghost {
+  color: var(--ink);
+  border-color: transparent;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+.btn-ghost:hover { color: var(--accent-ink); }
+.btn-ghost::after {
+  content: "";
+  display: inline-block;
+  width: 20px; height: 1px;
+  background: currentColor;
+  margin-left: 6px;
+  transition: width .25s;
+}
+.btn-ghost:hover::after { width: 36px; }
+.btn-outline {
+  border-color: var(--ink);
+  color: var(--ink);
+  background: transparent;
+}
+.btn-outline:hover { background: var(--ink); color: var(--paper); }
+.btn-outline-light {
+  border-color: rgba(245, 242, 234, 0.4);
+  color: var(--paper);
+  background: transparent;
+}
+.btn-outline-light:hover { background: rgba(245, 242, 234, 0.1); border-color: var(--paper); }
+.btn-full { width: 100%; justify-content: center; }
+
+/* ---------- INNER PAGE HERO ---------- */
+.page-hero {
+  padding: var(--sp-7) 0 var(--sp-6);
+  border-bottom: 1px solid var(--ink-20);
+}
+.page-eyebrow {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-60);
+  margin-bottom: var(--sp-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.eyebrow-dot {
+  width: 6px; height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  display: inline-block;
+}
+.page-title {
+  font-family: var(--serif);
+  font-size: clamp(48px, 7vw, 96px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  max-width: 22ch;
+  margin-bottom: var(--sp-4);
+  font-weight: 400;
+}
+.page-lede {
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 56ch;
+  font-weight: 300;
+  margin-bottom: var(--sp-5);
+}
+.page-ctas {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+/* ---------- SECTION BODY ---------- */
+.section-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: var(--sp-7);
+}
+.section-body { max-width: 58ch; }
+.lede {
+  font-family: var(--serif);
+  font-size: var(--fs-xl);
+  line-height: 1.35;
+  color: var(--ink);
+  margin-bottom: var(--sp-4);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+.section-body p:not(.lede) {
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+@media (max-width: 900px) {
+  .section-grid { grid-template-columns: 1fr; gap: var(--sp-4); }
+}
+
+/* ---------- PACKAGE TABLE ---------- */
+.package-table {
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+}
+.pkg-row {
+  display: grid;
+  grid-template-columns: 2.2fr 1.2fr 0.9fr 1fr;
+  gap: var(--sp-4);
+  padding: var(--sp-4) 0;
+  border-bottom: 1px solid var(--ink-20);
+  align-items: start;
+  transition: background .2s;
+}
+.pkg-row:last-child { border-bottom: 0; }
+.pkg-row:hover:not(.pkg-head) { background: var(--cream); }
+.pkg-head {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--ink);
+}
+.pkg-head > div {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-60);
+}
+.pkg-name {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: var(--sp-2);
+}
+.pkg-index {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: var(--fs-lg);
+  color: var(--accent-ink);
+}
+.pkg-name h3 {
+  font-family: var(--serif);
+  font-size: var(--fs-lg);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.pkg-name p {
+  font-size: var(--fs-sm);
+  color: var(--ink-60);
+  line-height: 1.5;
+  max-width: 48ch;
+}
+.pkg-for, .pkg-dur {
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  padding-top: 4px;
+}
+.pkg-price {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.pkg-price-num {
+  font-family: var(--serif);
+  font-size: var(--fs-lg);
+  color: var(--ink);
+  font-feature-settings: "tnum";
+}
+.pkg-price-range { color: var(--ink-60); font-style: italic; font-size: var(--fs-md); }
+.pkg-price-sub {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-60);
+}
+.pkg-featured {
+  background: var(--cream);
+  margin: 0 calc(-1 * var(--sp-4));
+  padding-left: var(--sp-4);
+  padding-right: var(--sp-4);
+  border-left: 2px solid var(--accent);
+}
+@media (max-width: 900px) {
+  .pkg-row { grid-template-columns: 1fr; gap: var(--sp-2); }
+  .pkg-head { display: none; }
+  .pkg-price { align-items: flex-start; text-align: left; }
+}
+
+/* ---------- CTA BAND ---------- */
+.cta-band { background: var(--ink); color: var(--paper); }
+.cta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-7);
+  align-items: start;
+}
+.cta-headline {
+  font-family: var(--serif);
+  font-size: clamp(40px, 6vw, 84px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  margin: var(--sp-3) 0 var(--sp-4);
+  color: var(--paper);
+}
+.serif-italic {
+  font-style: italic;
+  font-family: var(--serif);
+  color: var(--accent-ink);
+  font-weight: 400;
+}
+.cta-band .serif-italic { color: var(--accent); }
+.cta-sub {
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  color: rgba(245, 242, 234, 0.75);
+  max-width: 48ch;
+  margin-bottom: var(--sp-5);
+}
+.cta-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: var(--sp-4);
+  border-top: 1px solid rgba(245, 242, 234, 0.2);
+  padding-top: var(--sp-4);
+}
+.cta-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: var(--fs-sm);
+  color: rgba(245, 242, 234, 0.9);
+}
+.cta-check {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.cta-aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding-top: var(--sp-3);
+}
+@media (max-width: 900px) {
+  .cta-grid { grid-template-columns: 1fr; gap: var(--sp-5); }
+}
+
+/* ---------- FOOTER ---------- */
+.site-footer {
+  background: var(--ink);
+  color: var(--paper);
+  padding: var(--sp-7) 0 var(--sp-4);
+  border-top: 1px solid rgba(245, 242, 234, 0.15);
+}
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr 1fr;
+  gap: var(--sp-5);
+  padding-bottom: var(--sp-6);
+  border-bottom: 1px solid rgba(245, 242, 234, 0.15);
+}
+.footer-brand .wordmark { color: var(--paper); margin-bottom: var(--sp-3); display: inline-flex; }
+.footer-tag {
+  font-family: var(--serif);
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  color: rgba(245, 242, 234, 0.9);
+  margin-bottom: var(--sp-3);
+  max-width: 32ch;
+}
+.footer-address {
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: rgba(245, 242, 234, 0.6);
+}
+.footer-col h4 {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(245, 242, 234, 0.5);
+  margin-bottom: var(--sp-3);
+  font-weight: 500;
+}
+.footer-col a {
+  display: block;
+  font-size: var(--fs-sm);
+  color: rgba(245, 242, 234, 0.9);
+  padding: 6px 0;
+  transition: color .2s;
+}
+.footer-col a:hover { color: var(--accent); }
+.footer-meta {
+  padding-top: var(--sp-3);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  font-size: var(--fs-xs);
+  color: rgba(245, 242, 234, 0.5);
+  letter-spacing: 0.06em;
+}
+.footer-meta a:hover { color: var(--accent); }
+@media (max-width: 900px) {
+  .footer-grid { grid-template-columns: 1fr 1fr; }
+  .footer-meta { flex-direction: column; }
+}
+
+/* ==========================================================================
+   TRAINING PAGE — specific styles
+   ========================================================================== */
+
+/* ---------- PROBLEM SECTION ---------- */
+.training-problem { background: var(--paper); }
+
+.problem-items {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--ink);
+  margin-top: var(--sp-5);
+}
+.problem-item {
+  padding: var(--sp-4) var(--sp-4) var(--sp-4) 0;
+  border-right: 1px solid var(--ink-20);
+}
+.problem-item:last-child { border-right: 0; padding-right: 0; }
+.problem-item:not(:first-child) { padding-left: var(--sp-4); }
+.problem-item-num {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: var(--fs-lg);
+  color: var(--accent-ink);
+  margin-bottom: var(--sp-2);
+  display: block;
+}
+.problem-item h3 {
+  font-family: var(--serif);
+  font-size: var(--fs-lg);
+  line-height: 1.2;
+  margin-bottom: var(--sp-2);
+  font-weight: 400;
+}
+.problem-item p {
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 36ch;
+}
+
+@media (max-width: 900px) {
+  .problem-items {
+    grid-template-columns: 1fr;
+  }
+  .problem-item {
+    border-right: 0;
+    border-bottom: 1px solid var(--ink-20);
+    padding: var(--sp-4) 0;
+  }
+  .problem-item:last-child { border-bottom: 0; }
+  .problem-item:not(:first-child) { padding-left: 0; }
+}
+
+/* ---------- PILLARS A/B/C ---------- */
+.training-pillars { background: var(--paper-2); }
+
+.training-pillar-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-5);
+}
+.training-pillar {
+  border-top: 1px solid var(--ink);
+  padding: var(--sp-4) 0 0;
+  display: flex;
+  flex-direction: column;
+}
+.training-pillar-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.training-pillar-index {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: var(--fs-lg);
+  color: var(--accent-ink);
+}
+.training-pillar-title {
+  font-family: var(--serif);
+  font-size: var(--fs-xl);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  font-weight: 400;
+}
+.training-pillar-tag {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: var(--fs-sm);
+  color: var(--ink-60);
+  margin-bottom: var(--sp-3);
+}
+.training-pillar-lede {
+  font-size: var(--fs-md);
+  line-height: 1.55;
+  color: var(--ink-soft);
+  margin-bottom: var(--sp-4);
+  padding-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--ink-20);
+}
+.training-pillar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.training-pillar-list li {
+  padding: 11px 0;
+  border-bottom: 1px solid var(--ink-10);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--ink);
+  padding-left: 16px;
+  position: relative;
+}
+.training-pillar-list li::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 19px;
+  width: 8px; height: 1px;
+  background: var(--accent);
+}
+.training-pillar-list li:last-child { border-bottom: 0; }
+
+@media (max-width: 900px) {
+  .training-pillar-grid { grid-template-columns: 1fr; gap: var(--sp-5); }
+}
+
+/* ---------- TRAINING TRACKS ---------- */
+.training-tracks { background: var(--paper); }
+.tracks-intro {
+  margin-bottom: var(--sp-5);
+  font-size: var(--fs-md);
+  color: var(--ink-soft);
+  max-width: 52ch;
+}
+
+.track-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--ink-20);
+  border: 1px solid var(--ink-20);
+}
+.track-card {
+  background: var(--paper);
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  transition: background .2s;
+}
+.track-card:hover { background: var(--cream); }
+.track-card-index {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: var(--fs-2xl);
+  color: var(--accent-ink);
+  line-height: 1;
+  margin-bottom: var(--sp-3);
+}
+.track-card h3 {
+  font-family: var(--serif);
+  font-size: var(--fs-xl);
+  line-height: 1.1;
+  margin-bottom: var(--sp-2);
+  font-weight: 400;
+}
+.track-card-audience {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-60);
+  margin-bottom: var(--sp-3);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--ink-10);
+}
+.track-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: var(--sp-4);
+}
+.track-meta-row {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+}
+.track-meta-label {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-60);
+  padding-top: 2px;
+}
+.track-meta-val { color: var(--ink); }
+
+.track-outcomes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--ink-10);
+}
+.track-outcomes-label {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-60);
+  margin-bottom: 4px;
+}
+.track-outcomes li {
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  padding-left: 16px;
+  position: relative;
+  color: var(--ink-soft);
+}
+.track-outcomes li::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 9px;
+  width: 8px; height: 1px;
+  background: var(--accent);
+}
+.track-card-price {
+  margin-top: auto;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--ink-20);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.track-price-label {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-60);
+}
+.track-price-num {
+  font-family: var(--serif);
+  font-size: var(--fs-xl);
+  color: var(--ink);
+  font-feature-settings: "tnum";
+}
+
+@media (max-width: 900px) {
+  .track-grid { grid-template-columns: 1fr; }
+}
+
+/* ---------- CERTIFICATION ---------- */
+.training-cert { background: var(--paper-2); }
+.cert-intro {
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 58ch;
+  margin-bottom: var(--sp-6);
+}
+.cert-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-6);
+  border-top: 1px solid var(--ink);
+  padding-top: var(--sp-5);
+}
+.cert-col h3 {
+  font-family: var(--serif);
+  font-size: var(--fs-lg);
+  margin-bottom: var(--sp-3);
+  font-weight: 400;
+}
+.cert-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.cert-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--ink-10);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+.cert-list li:last-child { border-bottom: 0; }
+.cert-list-num {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: var(--fs-sm);
+  color: var(--accent-ink);
+  flex-shrink: 0;
+  min-width: 18px;
+}
+.cert-note {
+  margin-top: var(--sp-5);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--paper-3);
+  border-left: 2px solid var(--accent);
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+.cert-note strong { color: var(--ink); font-weight: 500; }
+
+@media (max-width: 900px) {
+  .cert-grid { grid-template-columns: 1fr; gap: var(--sp-4); }
+}
+
+/* ---------- DELIVERY FORMAT ---------- */
+.training-delivery { background: var(--paper); }
+.delivery-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border-top: 1px solid var(--ink);
+  border-left: 1px solid var(--ink-20);
+}
+.delivery-item {
+  padding: var(--sp-5);
+  border-right: 1px solid var(--ink-20);
+  border-bottom: 1px solid var(--ink-20);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.delivery-item:nth-child(odd):nth-last-child(1),
+.delivery-item:nth-last-child(-n+2) {
+  /* bottom row: no bottom border */
+}
+.delivery-num {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: var(--fs-lg);
+  color: var(--accent-ink);
+  line-height: 1;
+}
+.delivery-item h3 {
+  font-family: var(--serif);
+  font-size: var(--fs-xl);
+  line-height: 1.1;
+  font-weight: 400;
+}
+.delivery-item p {
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 42ch;
+}
+
+@media (max-width: 900px) {
+  .delivery-grid {
+    grid-template-columns: 1fr;
+    border-left: 0;
+  }
+  .delivery-item {
+    border-right: 0;
+    border-left: 1px solid var(--ink-20);
+    border-bottom: 1px solid var(--ink-20);
+  }
+}
+
+/* ---------- PRICING ---------- */
+.training-pricing { background: var(--paper-2); }
+.pricing-intro {
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 58ch;
+  margin-bottom: var(--sp-5);
+}
+.pricing-addons {
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--ink-20);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.pricing-addon-row {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: var(--sp-4);
+  align-items: baseline;
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--ink-10);
+}
+.pricing-addon-row:last-child { border-bottom: 0; }
+.pricing-addon-label {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-60);
+  font-weight: 500;
+}
+.pricing-addon-val {
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.pricing-cta {
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-5);
+  border-top: 1px solid var(--ink-20);
+}
+
+@media (max-width: 900px) {
+  .pricing-addon-row { grid-template-columns: 1fr; gap: var(--sp-1); }
+}
+
+/* ---------- FAQ ---------- */
+.training-faq { background: var(--paper); }
+.faq-list {
+  border-top: 1px solid var(--ink);
+  max-width: 80ch;
+}
+.faq-item {
+  border-bottom: 1px solid var(--ink-20);
+}
+.faq-q {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-4) 0;
+  background: transparent;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink);
+}
+.faq-q-text {
+  font-family: var(--serif);
+  font-size: var(--fs-lg);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.faq-q-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--ink-20);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform .3s, background .2s, border-color .2s;
+  color: var(--ink-60);
+}
+.faq-q[aria-expanded="true"] .faq-q-icon {
+  transform: rotate(45deg);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+.faq-a {
+  display: none;
+  padding: 0 0 var(--sp-4);
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 68ch;
+}
+.faq-a.open { display: block; }
+
+/* ---------- CLOSING CTA ---------- */
+.training-cta { background: var(--ink); color: var(--paper); }
+.training-cta-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-7);
+  align-items: start;
+}
+.training-cta-right {
+  padding-top: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.training-cta-callout {
+  background: rgba(245, 242, 234, 0.05);
+  border: 1px solid rgba(245, 242, 234, 0.15);
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.callout-label {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 500;
+}
+.callout-body {
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: rgba(245, 242, 234, 0.75);
+}
+
+@media (max-width: 900px) {
+  .training-cta-inner { grid-template-columns: 1fr; gap: var(--sp-5); }
+  .page-ctas { flex-direction: column; align-items: flex-start; }
+}
+
+</style>
+</head>
+<body>
+
+<script>
+window.TWEAKS = { "accent": "teal", "heroLayout": "editorial", "typePairing": "fraunces-inter", "density": "comfortable" };
+</script>
+
+<!-- HEADER ------------------------------------------------------------------>
+<header class="site-header">
+  <div class="container header-row">
+    <a class="wordmark" href="index.html" aria-label="GuideHerd AI home">
+      <span class="wordmark-main">GuideHerd</span><sup class="wordmark-sup">AI</sup>
+    </a>
+    <nav class="primary-nav" aria-label="Primary">
+      <a href="services.html">Services</a>
+      <a href="approach.html">Approach</a>
+      <a href="index.html#packages">Packages</a>
+      <a href="about.html">About</a>
+      <a href="index.html#contact">Contact</a>
+    </nav>
+    <a class="nav-cta" href="index.html#assessment">Book an assessment <span aria-hidden="true">→</span></a>
+  </div>
+</header>
+
+<!-- HERO -------------------------------------------------------------------->
+<section class="page-hero" id="top">
+  <div class="container">
+    <div class="page-eyebrow">
+      <span class="eyebrow-dot" aria-hidden="true"></span>
+      <span>Training &amp; Certification</span>
+    </div>
+    <h1 class="page-title">The team that can't run it is the system that won't last.</h1>
+    <p class="page-lede">
+      GuideHerd training is built for the people who will actually use the system day-to-day — not for the partners who approved it.
+      It covers AI principles, the GuideHerd platform, and ongoing skill maintenance as the field evolves.
+    </p>
+    <div class="page-ctas">
+      <a class="btn btn-primary" href="#tracks">
+        View training tracks
+        <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M1 7h12M8 2l5 5-5 5" stroke="currentColor" stroke-width="1.25" fill="none" stroke-linecap="square"/></svg>
+      </a>
+      <a class="btn btn-ghost" href="index.html#assessment">Book a readiness assessment →</a>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEM ----------------------------------------------------------------->
+<section class="section training-problem">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">The problem, named.</span>
+      <h2 class="section-kicker">Three ways a system becomes shelfware.</h2>
+    </div>
+    <div class="problem-items" role="list">
+      <div class="problem-item" role="listitem">
+        <span class="problem-item-num" aria-hidden="true">1</span>
+        <h3>The capable tool, the helpless team.</h3>
+        <p>The system ships. Nobody owns it. The consultant leaves. Twelve months later the workflow is manual again.</p>
+      </div>
+      <div class="problem-item" role="listitem">
+        <span class="problem-item-num" aria-hidden="true">2</span>
+        <h3>The training that doesn't transfer.</h3>
+        <p>One session, one slide deck, one certificate nobody can find. Staff nods along and returns to what they know.</p>
+      </div>
+      <div class="problem-item" role="listitem">
+        <span class="problem-item-num" aria-hidden="true">3</span>
+        <h3>The knowledge cliff.</h3>
+        <p>AI models, tools, and libraries change quarterly. Teams trained once fall behind fast. The system becomes a liability instead of an asset.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PILLARS A/B/C ------------------------------------------------------------>
+<section class="section training-pillars" id="pillars">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">What the training covers.</span>
+      <h2 class="section-kicker">Three pillars. One curriculum.</h2>
+    </div>
+    <div class="training-pillar-grid">
+
+      <article class="training-pillar">
+        <header class="training-pillar-head">
+          <div class="training-pillar-index" aria-hidden="true">A</div>
+          <h3 class="training-pillar-title">AI Foundations</h3>
+        </header>
+        <p class="training-pillar-tag">"Understanding what you're working with."</p>
+        <p class="training-pillar-lede">
+          Before anyone can use the system well, they need a working mental model of what AI agents actually do — and don't do.
+          This track removes the mysticism and replaces it with practical intuition.
+        </p>
+        <ul class="training-pillar-list" aria-label="Foundations topics">
+          <li>How large language models work (no math required)</li>
+          <li>Prompt design and iteration basics</li>
+          <li>What AI is unreliable at — and why that matters for your workflow</li>
+          <li>Data privacy, compliance exposure, and responsible use</li>
+          <li>AI governance basics for professional services environments</li>
+        </ul>
+      </article>
+
+      <article class="training-pillar">
+        <header class="training-pillar-head">
+          <div class="training-pillar-index" aria-hidden="true">B</div>
+          <h3 class="training-pillar-title">Platform Proficiency</h3>
+        </header>
+        <p class="training-pillar-tag">"Running the system we built for you."</p>
+        <p class="training-pillar-lede">
+          Every GuideHerd deployment is customized to a client's practice. This track covers the specific agents, dashboards,
+          and automations running in the client's environment — and trains staff to operate, troubleshoot, and hand off tasks without calling us.
+        </p>
+        <ul class="training-pillar-list" aria-label="Platform topics">
+          <li>Matter intake and conflict-check agents (for legal clients)</li>
+          <li>Document review and drafting assistants</li>
+          <li>Time capture and billing automation</li>
+          <li>Dashboard navigation and report interpretation</li>
+          <li>Escalation protocols and edge-case handling</li>
+        </ul>
+      </article>
+
+      <article class="training-pillar">
+        <header class="training-pillar-head">
+          <div class="training-pillar-index" aria-hidden="true">C</div>
+          <h3 class="training-pillar-title">Ongoing Skills Maintenance</h3>
+        </header>
+        <p class="training-pillar-tag">"Staying current without becoming a full-time learner."</p>
+        <p class="training-pillar-lede">
+          The AI landscape shifts quarterly. New models drop. Tools change. Libraries deprecate.
+          This track is the recurring cadence that keeps your team's skills current — without requiring them to live in the AI press.
+        </p>
+        <ul class="training-pillar-list" aria-label="Maintenance topics">
+          <li>Monthly model and tool update briefings (curated, not firehose)</li>
+          <li>Quarterly capability refreshes tied to GuideHerd platform updates</li>
+          <li>Emerging use cases relevant to your practice area</li>
+          <li>Internal champion updates and train-the-trainer sessions</li>
+        </ul>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- TRAINING TRACKS --------------------------------------------------------->
+<section class="section training-tracks" id="tracks">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">Training tracks by role.</span>
+      <h2 class="section-kicker">Not everyone needs the same curriculum.</h2>
+    </div>
+    <p class="tracks-intro">We build the tracks around what each person actually does.</p>
+
+    <div class="track-grid">
+
+      <article class="track-card">
+        <div class="track-card-index" aria-hidden="true">1</div>
+        <h3>Partner / Executive</h3>
+        <p class="track-card-audience">Owners · Managing partners · C-suite</p>
+        <div class="track-meta">
+          <div class="track-meta-row">
+            <span class="track-meta-label">Format</span>
+            <span class="track-meta-val">2-session executive briefing + quarterly updates</span>
+          </div>
+          <div class="track-meta-row">
+            <span class="track-meta-label">Duration</span>
+            <span class="track-meta-val">~4 hrs total</span>
+          </div>
+        </div>
+        <div class="track-outcomes">
+          <p class="track-outcomes-label">What they leave with</p>
+          <ul>
+            <li>A clear view of what the system does and what it doesn't</li>
+            <li>Enough to ask the right questions without becoming a technician</li>
+            <li>Confidence to sponsor the program internally</li>
+          </ul>
+        </div>
+        <div class="track-card-price">
+          <span class="track-price-label">Investment</span>
+          <span class="track-price-num">$2,500</span>
+        </div>
+      </article>
+
+      <article class="track-card">
+        <div class="track-card-index" aria-hidden="true">2</div>
+        <h3>Staff / End User</h3>
+        <p class="track-card-audience">Paralegals · Associates · Ops staff · Coordinators</p>
+        <div class="track-meta">
+          <div class="track-meta-row">
+            <span class="track-meta-label">Format</span>
+            <span class="track-meta-val">4-session hands-on cohort</span>
+          </div>
+          <div class="track-meta-row">
+            <span class="track-meta-label">Duration</span>
+            <span class="track-meta-val">~8 hrs over 2–3 weeks</span>
+          </div>
+        </div>
+        <div class="track-outcomes">
+          <p class="track-outcomes-label">What they leave with</p>
+          <ul>
+            <li>Certified proficiency in the GuideHerd tools relevant to their role</li>
+            <li>A written SOP library they helped build</li>
+            <li>A point of contact for ongoing questions</li>
+          </ul>
+        </div>
+        <div class="track-card-price">
+          <span class="track-price-label">Investment</span>
+          <span class="track-price-num">$6,000–$8,000</span>
+        </div>
+      </article>
+
+      <article class="track-card">
+        <div class="track-card-index" aria-hidden="true">3</div>
+        <h3>Internal Champion</h3>
+        <p class="track-card-audience">1–2 nominated staff members</p>
+        <div class="track-meta">
+          <div class="track-meta-row">
+            <span class="track-meta-label">Format</span>
+            <span class="track-meta-val">6-session extended cohort + train-the-trainer supplement</span>
+          </div>
+          <div class="track-meta-row">
+            <span class="track-meta-label">Duration</span>
+            <span class="track-meta-val">~14 hrs + ongoing</span>
+          </div>
+        </div>
+        <div class="track-outcomes">
+          <p class="track-outcomes-label">What they leave with</p>
+          <ul>
+            <li>Deep platform knowledge across all modules</li>
+            <li>Ability to onboard new hires independently</li>
+            <li>Direct line to GuideHerd for escalations and new capability rollouts</li>
+          </ul>
+        </div>
+        <div class="track-card-price">
+          <span class="track-price-label">Investment</span>
+          <span class="track-price-num">$12,000–$15,000</span>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- CERTIFICATION ------------------------------------------------------------>
+<section class="section training-cert" id="certification">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">Certification program.</span>
+      <h2 class="section-kicker">Certification, not just completion.</h2>
+    </div>
+    <p class="cert-intro">
+      Completing a track earns a GuideHerd certification. This is not a participation trophy — it documents that the person
+      demonstrated competency in a specific set of tasks against a real workflow.
+    </p>
+
+    <div class="cert-grid">
+      <div class="cert-col">
+        <h3>What certification includes</h3>
+        <ul class="cert-list" aria-label="Certification components">
+          <li>
+            <span class="cert-list-num" aria-hidden="true">01</span>
+            <span>Written assessment — open-book, scenario-based, graded against documented criteria</span>
+          </li>
+          <li>
+            <span class="cert-list-num" aria-hidden="true">02</span>
+            <span>Live task demonstration — the candidate runs a real workflow inside the platform, observed by a GuideHerd trainer</span>
+          </li>
+          <li>
+            <span class="cert-list-num" aria-hidden="true">03</span>
+            <span>SOP sign-off — the candidate's documented procedures reviewed and approved before certification is issued</span>
+          </li>
+          <li>
+            <span class="cert-list-num" aria-hidden="true">04</span>
+            <span>Digital credential — a verifiable record issued to the individual and the firm</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="cert-col">
+        <h3>Why it matters</h3>
+        <ul class="cert-list" aria-label="Certification value">
+          <li>
+            <span class="cert-list-num" aria-hidden="true">—</span>
+            <span>Creates internal accountability — certified staff have a documented standard to maintain, not just a session they attended</span>
+          </li>
+          <li>
+            <span class="cert-list-num" aria-hidden="true">—</span>
+            <span>Signals compliance-readiness to partners — relevant for firms under regulatory scrutiny or with client-facing AI workflows</span>
+          </li>
+          <li>
+            <span class="cert-list-num" aria-hidden="true">—</span>
+            <span>Gives staff a documented professional development record — something portable and real, not just another vendor completion badge</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cert-note" role="note">
+      <strong>On maintenance:</strong> Certifications are maintained through the ongoing skills track.
+      A certification that goes unmaintained for 12 months lapses.
+    </div>
+  </div>
+</section>
+
+<!-- DELIVERY FORMAT --------------------------------------------------------->
+<section class="section training-delivery">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">Delivery.</span>
+      <h2 class="section-kicker">How it's delivered.</h2>
+    </div>
+    <div class="delivery-grid">
+
+      <div class="delivery-item">
+        <span class="delivery-num" aria-hidden="true">01</span>
+        <h3>Live, remote sessions</h3>
+        <p>Small cohorts, screen-shared, recorded for reference. Not pre-recorded video libraries.</p>
+      </div>
+
+      <div class="delivery-item">
+        <span class="delivery-num" aria-hidden="true">02</span>
+        <h3>Role-scoped curriculum</h3>
+        <p>No one sits through modules irrelevant to their job. Tracks are filtered by role before the first session.</p>
+      </div>
+
+      <div class="delivery-item">
+        <span class="delivery-num" aria-hidden="true">03</span>
+        <h3>Built around your system</h3>
+        <p>Training content is customized to the specific agents and workflows GuideHerd deployed for you. Not generic AI literacy.</p>
+      </div>
+
+      <div class="delivery-item">
+        <span class="delivery-num" aria-hidden="true">04</span>
+        <h3>Paced for a working firm</h3>
+        <p>Sessions are 90–120 minutes. Scheduled around court calendars, client deadlines, and billing cycles. We don't ask your team to disappear for a week.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- PRICING ----------------------------------------------------------------->
+<section class="section training-pricing" id="pricing">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">Pricing.</span>
+      <h2 class="section-kicker">Transparent pricing. No seat licenses.</h2>
+    </div>
+    <p class="pricing-intro">
+      Training is scoped and priced per engagement — not bundled into the retainer, not billed by the seat.
+      You pay for the track your team actually needs. A small firm with four staff and one partner is not paying the same as a 30-person operation.
+    </p>
+
+    <div class="package-table" role="table" aria-label="Training pricing">
+      <div class="pkg-row pkg-head" role="row">
+        <div role="columnheader">Track</div>
+        <div role="columnheader">Audience</div>
+        <div role="columnheader">Format</div>
+        <div role="columnheader">Investment</div>
+      </div>
+
+      <article class="pkg-row" role="row">
+        <div class="pkg-name" role="cell">
+          <span class="pkg-index">I</span>
+          <div>
+            <h3>Executive Briefing</h3>
+            <p>For partners and C-suite who need a clear view of the system — not a full curriculum.</p>
+          </div>
+        </div>
+        <div class="pkg-for" role="cell">Partners · C-suite</div>
+        <div class="pkg-dur" role="cell">2 sessions, ~4 hrs</div>
+        <div class="pkg-price" role="cell">
+          <span class="pkg-price-num">$2,500</span>
+          <span class="pkg-price-sub">Flat fee</span>
+        </div>
+      </article>
+
+      <article class="pkg-row pkg-featured" role="row">
+        <div class="pkg-name" role="cell">
+          <span class="pkg-index">II</span>
+          <div>
+            <h3>Staff Cohort</h3>
+            <p>Hands-on, role-filtered, built around the specific tools your team will use daily.</p>
+          </div>
+        </div>
+        <div class="pkg-for" role="cell">Paralegals · Associates · Ops</div>
+        <div class="pkg-dur" role="cell">4 sessions, ~8 hrs</div>
+        <div class="pkg-price" role="cell">
+          <span class="pkg-price-num">$6,000 <span class="pkg-price-range">– $8,000</span></span>
+          <span class="pkg-price-sub">Scales with firm size, up to 12 staff</span>
+        </div>
+      </article>
+
+      <article class="pkg-row" role="row">
+        <div class="pkg-name" role="cell">
+          <span class="pkg-index">III</span>
+          <div>
+            <h3>Internal Champion</h3>
+            <p>Extended curriculum plus train-the-trainer. This person becomes your in-house platform operator.</p>
+          </div>
+        </div>
+        <div class="pkg-for" role="cell">1–2 nominated staff</div>
+        <div class="pkg-dur" role="cell">6 sessions, ~14 hrs</div>
+        <div class="pkg-price" role="cell">
+          <span class="pkg-price-num">$12,000 <span class="pkg-price-range">– $15,000</span></span>
+          <span class="pkg-price-sub">Includes ongoing access</span>
+        </div>
+      </article>
+
+      <article class="pkg-row" role="row">
+        <div class="pkg-name" role="cell">
+          <span class="pkg-index">IV</span>
+          <div>
+            <h3>Full Firm Package</h3>
+            <p>All three tracks, delivered in coordinated sequence. The most efficient path to a fully trained operation.</p>
+          </div>
+        </div>
+        <div class="pkg-for" role="cell">All roles · Combined delivery</div>
+        <div class="pkg-dur" role="cell">Combined delivery</div>
+        <div class="pkg-price" role="cell">
+          <span class="pkg-price-num">$18,000 <span class="pkg-price-range">– $22,000</span></span>
+          <span class="pkg-price-sub">All tracks included</span>
+        </div>
+      </article>
+    </div>
+
+    <div class="pricing-addons">
+      <div class="pricing-addon-row">
+        <span class="pricing-addon-label">Skills Maintenance</span>
+        <span class="pricing-addon-val">Quarterly briefings on model updates, tool changes, and platform releases. $1,500 per quarter, or $5,000/year. Available to any client who has completed a core track.</span>
+      </div>
+      <div class="pricing-addon-row">
+        <span class="pricing-addon-label">À la carte sessions</span>
+        <span class="pricing-addon-val">$1,500–$2,000 per session. Not recommended as a substitute for a full track, but available for targeted refreshers.</span>
+      </div>
+    </div>
+
+    <div class="pricing-cta">
+      <a class="btn btn-outline" href="index.html#assessment">Talk to us about scoping your training →</a>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ --------------------------------------------------------------------->
+<section class="section training-faq" id="faq">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">FAQ.</span>
+      <h2 class="section-kicker">Common questions.</h2>
+    </div>
+
+    <dl class="faq-list">
+
+      <div class="faq-item">
+        <dt>
+          <button class="faq-q" aria-expanded="false" aria-controls="faq-1">
+            <span class="faq-q-text">Do we need to complete the full program before going live?</span>
+            <span class="faq-q-icon" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.25" stroke-linecap="square"/></svg>
+            </span>
+          </button>
+        </dt>
+        <dd id="faq-1" class="faq-a" role="region">
+          No. Platform Proficiency training runs in parallel with the final implementation phase so your team is ready at go-live.
+          Foundations can start earlier — often during the planning phase.
+        </dd>
+      </div>
+
+      <div class="faq-item">
+        <dt>
+          <button class="faq-q" aria-expanded="false" aria-controls="faq-2">
+            <span class="faq-q-text">What if we hire new staff after the engagement ends?</span>
+            <span class="faq-q-icon" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.25" stroke-linecap="square"/></svg>
+            </span>
+          </button>
+        </dt>
+        <dd id="faq-2" class="faq-a" role="region">
+          Internal Champions are trained to onboard new staff independently. If the firm grows significantly,
+          GuideHerd can run a supplemental cohort — priced as a reduced-scope Staff track engagement.
+        </dd>
+      </div>
+
+      <div class="faq-item">
+        <dt>
+          <button class="faq-q" aria-expanded="false" aria-controls="faq-3">
+            <span class="faq-q-text">How often does the training content change?</span>
+            <span class="faq-q-icon" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.25" stroke-linecap="square"/></svg>
+            </span>
+          </button>
+        </dt>
+        <dd id="faq-3" class="faq-a" role="region">
+          The Foundations content is relatively stable. Platform Proficiency updates whenever we ship a platform change.
+          Skills Maintenance is refreshed quarterly on a fixed cadence.
+        </dd>
+      </div>
+
+      <div class="faq-item">
+        <dt>
+          <button class="faq-q" aria-expanded="false" aria-controls="faq-4">
+            <span class="faq-q-text">Is this available to clients outside the US and Canada?</span>
+            <span class="faq-q-icon" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.25" stroke-linecap="square"/></svg>
+            </span>
+          </button>
+        </dt>
+        <dd id="faq-4" class="faq-a" role="region">
+          All delivery is remote, so yes — though sessions are scheduled in US/Canada time zones by default.
+          We can accommodate international clients with advance notice.
+        </dd>
+      </div>
+
+      <div class="faq-item">
+        <dt>
+          <button class="faq-q" aria-expanded="false" aria-controls="faq-5">
+            <span class="faq-q-text">Can we record the sessions for staff who miss them?</span>
+            <span class="faq-q-icon" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.25" stroke-linecap="square"/></svg>
+            </span>
+          </button>
+        </dt>
+        <dd id="faq-5" class="faq-a" role="region">
+          Yes. Every session is recorded and available to the client through their onboarding portal for 12 months.
+        </dd>
+      </div>
+
+    </dl>
+  </div>
+</section>
+
+<!-- CLOSING CTA ------------------------------------------------------------->
+<section class="section training-cta cta-band" id="cta">
+  <div class="container training-cta-inner">
+    <div class="cta-copy">
+      <span class="section-num on-dark">Start here.</span>
+      <h2 class="cta-headline">
+        Start with the assessment. Training is scoped <em class="serif-italic">from there.</em>
+      </h2>
+      <p class="cta-sub">
+        Every engagement starts with a readiness assessment — a 24–36 page written report on where AI can move a number in your business.
+        Once the implementation is underway, we scope the training around the roles that actually touch the system. No guesswork, no generic curriculum.
+      </p>
+      <ul class="cta-list">
+        <li><span class="cta-check" aria-hidden="true">✓</span> Training scoped to your specific roles and workflows</li>
+        <li><span class="cta-check" aria-hidden="true">✓</span> Priced per track — not per seat, not bundled</li>
+        <li><span class="cta-check" aria-hidden="true">✓</span> Certification included in every track</li>
+        <li><span class="cta-check" aria-hidden="true">✓</span> Skills Maintenance available quarterly after core tracks complete</li>
+      </ul>
+      <div style="margin-top: var(--sp-5);">
+        <a class="btn btn-primary" href="index.html#assessment">
+          Book a readiness assessment
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M1 7h12M8 2l5 5-5 5" stroke="currentColor" stroke-width="1.25" fill="none" stroke-linecap="square"/></svg>
+        </a>
+      </div>
+    </div>
+
+    <div class="training-cta-right">
+      <div class="training-cta-callout">
+        <span class="callout-label">Already a retainer client?</span>
+        <p class="callout-body">
+          Training is a separate engagement — not bundled into the retainer. Reach out directly and we'll scope a track
+          around the roles currently using the system. Most clients start with a Staff Cohort within 30 days of go-live.
+        </p>
+      </div>
+      <div class="training-cta-callout">
+        <span class="callout-label">Not a client yet?</span>
+        <p class="callout-body">
+          The assessment comes first. Once we understand what you're building and who will use it, training scope follows naturally.
+          The readiness assessment is free for qualified businesses.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER ------------------------------------------------------------------>
+<footer class="site-footer" id="contact">
+  <div class="container footer-grid">
+    <div class="footer-brand">
+      <a class="wordmark wordmark-light" href="index.html" aria-label="GuideHerd AI home">
+        <span class="wordmark-main">GuideHerd</span><sup class="wordmark-sup">AI</sup>
+      </a>
+      <p class="footer-tag">AI consulting for practices, firms, and operators.</p>
+      <p class="footer-address">
+        Remote · US &amp; Canada<br>
+        <a href="mailto:hello@guideherd.ai">hello@guideherd.ai</a>
+      </p>
+    </div>
+    <div class="footer-col">
+      <h4>Services</h4>
+      <a href="services.html#implementation">Implementation</a>
+      <a href="services.html#training">Training</a>
+      <a href="index.html#packages">Packages</a>
+      <a href="approach.html">Approach</a>
+    </div>
+    <div class="footer-col">
+      <h4>Firm</h4>
+      <a href="about.html">About</a>
+      <a href="approach.html">Approach</a>
+    </div>
+    <div class="footer-col">
+      <h4>Contact</h4>
+      <a href="index.html#assessment">Book an assessment</a>
+      <a href="mailto:hello@guideherd.ai">General inquiry</a>
+    </div>
+  </div>
+  <div class="container footer-meta">
+    <span>© 2026 GuideHerd AI, LLC. All rights reserved.</span>
+    <span class="footer-meta-right">
+      <a href="#">Privacy</a> · <a href="#">Terms</a> · <a href="#">Engagement letter</a>
+    </span>
+  </div>
+</footer>
+
+<!-- FAQ ACCORDION SCRIPT ---------------------------------------------------->
+<script>
+(function () {
+  document.querySelectorAll('.faq-q').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var expanded = this.getAttribute('aria-expanded') === 'true';
+      var targetId = this.getAttribute('aria-controls');
+      var answer = document.getElementById(targetId);
+
+      // Close all
+      document.querySelectorAll('.faq-q').forEach(function (b) {
+        b.setAttribute('aria-expanded', 'false');
+      });
+      document.querySelectorAll('.faq-a').forEach(function (a) {
+        a.classList.remove('open');
+      });
+
+      // Open this one if it was closed
+      if (!expanded) {
+        this.setAttribute('aria-expanded', 'true');
+        answer.classList.add('open');
+      }
+    });
+  });
+})();
+</script>
+
+<!-- TWEAKS SCRIPT (matches site) -------------------------------------------->
+<script>
+(function () {
+  var DEFAULTS = window.TWEAKS || {};
+  var STATE = Object.assign({ accent: 'teal', heroLayout: 'editorial', typePairing: 'fraunces-inter', density: 'comfortable' }, DEFAULTS);
+
+  function apply() {
+    document.documentElement.dataset.accent = STATE.accent;
+    document.documentElement.dataset.pairing = STATE.typePairing;
+  }
+
+  window.addEventListener('message', function (e) {
+    var d = e.data || {};
+    if (d.type === '__activate_edit_mode' || d.type === '__edit_mode_set_keys') {
+      Object.assign(STATE, d.edits || {});
+      apply();
+    }
+  });
+
+  apply();
+})();
+</script>
+
+</body>
+</html>

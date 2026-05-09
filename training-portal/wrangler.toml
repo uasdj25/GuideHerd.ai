@@ -8,5 +8,5 @@ compatibility_date = "2024-12-18"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "guideherd-academy-db"
-database_id = "REPLACE_WITH_REAL_DATABASE_ID"
+database_name = "guideherd_training"
+database_id = "128fd5ad-5b6a-40e6-a031-b6fb0038a87b"

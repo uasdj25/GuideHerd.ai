@@ -5,8 +5,6 @@ import { isValidPlanKey, getPriceId } from '../_lib/plans.js';
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
-    console.log('[checkout] received request');
-
     let body: { planKey?: unknown; email?: unknown };
     try {
       body = await request.json();
@@ -14,22 +12,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return jsonError('Invalid JSON body', 400);
     }
 
-    console.log('[checkout] parsed JSON');
-
     const { planKey, email } = body;
 
     if (!isValidPlanKey(planKey)) {
       return jsonError('Invalid or missing planKey', 400);
     }
 
-    console.log('[checkout] validated planKey');
-
     const priceId = getPriceId(planKey, env);
     if (!priceId) {
       return jsonError(`Price ID not configured for plan: ${planKey}`, 500);
     }
-
-    console.log('[checkout] resolved price ID');
 
     if (!env.STRIPE_SECRET_KEY) {
       return jsonError('Stripe secret key is not configured', 500);
@@ -50,8 +42,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       params.set('customer_email', email);
     }
 
-    console.log('[checkout] calling Stripe REST API');
-
     const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',
       headers: {
@@ -60,8 +50,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       },
       body: params.toString(),
     });
-
-    console.log('[checkout] Stripe response status', res.status);
 
     if (!res.ok) {
       const text = await res.text();

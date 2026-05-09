@@ -30,8 +30,17 @@ export function getPriceId(planKey: PlanKey, env: Env): string | null {
   return priceId || null;
 }
 
-// Product key granted when a plan is active.
-// All current plans grant 'academy' access.
-export function getProductKey(_planKey: PlanKey): string {
-  return 'academy';
+// Plans that grant Academy product access. Explicit set — never inferred.
+const ACADEMY_PLAN_KEYS = new Set<PlanKey>([
+  'academy_monthly',
+  'academy_annual',
+  'academy_founding_monthly',
+  'academy_plus_monthly',
+  'academy_plus_annual',
+]);
+
+// Explicit product key per plan. Only call with a validated PlanKey.
+// workflow_support_* maps to 'workflow_support', not 'academy'.
+export function getProductKey(planKey: PlanKey): string {
+  return ACADEMY_PLAN_KEYS.has(planKey) ? 'academy' : 'workflow_support';
 }

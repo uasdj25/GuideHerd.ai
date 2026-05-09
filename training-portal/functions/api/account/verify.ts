@@ -58,9 +58,18 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const user = await upsertUser(env.DB, email, name);
   await upsertStripeCustomer(env.DB, user.id, stripeCustomerId);
 
-  const planKey = (session.metadata?.plan_key ?? 'academy_monthly').toString();
-  const resolvedPlanKey = isValidPlanKey(planKey) ? planKey : 'academy_monthly';
-  const productKey = getProductKey(resolvedPlanKey);
+  const rawPlanKey = (session.metadata?.plan_key ?? '').toString();
+
+  // Fail closed: no provisional access and no session cookie for unknown plan keys.
+  if (!isValidPlanKey(rawPlanKey)) {
+    await insertAuditEvent(env.DB, 'account.verify.invalid_plan_key', {
+      userId: user.id,
+      payloadSummary: `raw_plan=${rawPlanKey}`,
+    });
+    return jsonError('Invalid or missing plan in checkout session', 400);
+  }
+
+  const productKey = getProductKey(rawPlanKey);
 
   // Provisional access only — expires in 1 hour. The webhook sync that follows
   // creates a stripe_subscription entitlement and deactivates this row.
@@ -69,7 +78,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   await insertAuditEvent(env.DB, 'account.verify.session', {
     userId: user.id,
-    payloadSummary: `plan=${resolvedPlanKey}`,
+    payloadSummary: `plan=${rawPlanKey}`,
   });
 
   const sessionCookie = await createSessionCookie(user.id, env.SESSION_SECRET);

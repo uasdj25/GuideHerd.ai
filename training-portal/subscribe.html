@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subscribe — GuideHerd Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter+Tight:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="/css/academy.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-row">
+    <a class="wordmark" href="/">
+      GuideHerd<sup class="wordmark-sup">AI</sup>
+      <span class="wordmark-badge">Academy</span>
+    </a>
+    <nav class="primary-nav" aria-label="Primary">
+      <a href="/academy/ai-foundations/">Modules</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="https://guideherd.ai">Main site</a>
+    </nav>
+    <div class="header-actions">
+      <a class="btn btn-ghost btn-sm" href="/login.html">Log in</a>
+    </div>
+  </div>
+</header>
+
+<div class="page-hero" style="border-bottom: 1px solid var(--ink-20); padding-bottom: var(--sp-6);">
+  <p class="page-eyebrow">§ Subscribe</p>
+  <h1 class="page-title">Choose a plan for your firm.</h1>
+  <p class="page-lede">All plans are per firm, up to 10 users. Cancel monthly plans any time.</p>
+</div>
+
+<div class="section">
+
+  <!-- Buttons call POST /api/checkout via checkout.js -->
+
+  <!-- Billing toggle -->
+  <div style="display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-5);">
+    <span style="font-size: var(--fs-sm); color: var(--ink-soft);">Monthly</span>
+    <button id="billing-toggle" aria-pressed="false" style="
+      width: 44px; height: 24px; border-radius: 999px; border: 1px solid var(--ink-20);
+      background: var(--paper-2); cursor: pointer; position: relative; transition: background .2s;
+    ">
+      <span id="toggle-thumb" style="
+        position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+        border-radius: 50%; background: var(--ink); transition: left .2s;
+      "></span>
+    </button>
+    <span style="font-size: var(--fs-sm); color: var(--ink-soft);">Annual <span style="color: var(--accent-ink); font-weight: 500;">Save ~15%</span></span>
+  </div>
+
+  <div class="pricing-grid">
+
+    <!-- Academy -->
+    <div class="pricing-card featured">
+      <p class="pricing-tag">Most common</p>
+      <h2 class="pricing-plan">GuideHerd Academy</h2>
+      <div class="pricing-price" id="academy-price">$149<span>/month</span></div>
+      <p class="pricing-alt" id="academy-alt">or $1,500/year — save $288</p>
+      <p class="pricing-note">Founding rate: $99/month for the first 10 firms</p>
+      <p class="pricing-desc" style="margin-top: var(--sp-2);">Online lessons · Monthly updates · Prompt library · New staff onboarding access · Up to 10 users</p>
+      <div class="pricing-cta">
+        <button class="btn btn-primary btn-full" data-plan="academy" data-period="monthly">
+          Start with Academy →
+        </button>
+      </div>
+    </div>
+
+    <!-- Academy Plus -->
+    <div class="pricing-card">
+      <p class="pricing-tag">Academy + live support</p>
+      <h2 class="pricing-plan">Academy Plus</h2>
+      <div class="pricing-price" id="plus-price">$399<span>/month</span></div>
+      <p class="pricing-alt" id="plus-alt">or $4,000/year — save $788</p>
+      <p class="pricing-desc" style="margin-top: var(--sp-2);">Everything in Academy, plus quarterly group office hours and a workflow review checklist each quarter.</p>
+      <div class="pricing-cta">
+        <button class="btn btn-outline btn-full" data-plan="academy-plus" data-period="monthly">
+          Start with Plus →
+        </button>
+      </div>
+    </div>
+
+    <!-- Workflow Support -->
+    <div class="pricing-card">
+      <p class="pricing-tag">Academy Plus + monthly guidance</p>
+      <h2 class="pricing-plan">Workflow Support</h2>
+      <div class="pricing-price" id="support-price">$750<span>/month</span></div>
+      <p class="pricing-alt" id="support-alt">or $7,500/year — save $1,500</p>
+      <p class="pricing-desc" style="margin-top: var(--sp-2);">Everything in Academy Plus, plus a 60-minute monthly workflow check-in and light template/SOP updates.</p>
+      <div class="pricing-cta">
+        <button class="btn btn-outline btn-full" data-plan="workflow-support" data-period="monthly">
+          Start with Support Plan →
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--ink-20); max-width: 64ch;">
+    <p style="font-size: var(--fs-sm); color: var(--ink-soft); line-height: 1.6;">
+      Looking for <strong style="color: var(--ink);">Scoped Private Training</strong> — live workshops, executive briefings, or in-person sessions?
+      <a href="mailto:hello@guideherd.ai?subject=Scoped training" style="color: var(--accent-ink); border-bottom: 1px solid var(--accent);">Email us</a> or see the <a href="/pricing.html" style="color: var(--accent-ink); border-bottom: 1px solid var(--accent);">full pricing page</a>.
+    </p>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a class="wordmark" href="/" style="color: var(--paper); margin-bottom: var(--sp-2); display: inline-flex;">
+        GuideHerd<sup class="wordmark-sup">AI</sup>
+        <span class="wordmark-badge" style="background: rgba(47,164,160,0.2);">Academy</span>
+      </a>
+      <p>Practical AI workflow training for professional firms.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Academy</h4>
+      <a href="/academy/ai-foundations/">Module 1: AI Foundations</a>
+      <a href="/pricing.html">Pricing</a>
+    </div>
+    <div class="footer-col">
+      <h4>GuideHerd</h4>
+      <a href="https://guideherd.ai">Main site</a>
+      <a href="mailto:hello@guideherd.ai">Contact</a>
+    </div>
+  </div>
+  <div class="footer-meta">
+    <span>© 2026 GuideHerd AI, LLC.</span>
+    <span><a href="#">Privacy</a> · <a href="#">Terms</a></span>
+  </div>
+</footer>
+
+<script src="/js/checkout.js"></script>
+<script>
+// Billing period toggle
+var isAnnual = false;
+var toggle = document.getElementById('billing-toggle');
+var thumb  = document.getElementById('toggle-thumb');
+
+var prices = {
+  monthly: { academy: '$149<span>/month</span>', plus: '$399<span>/month</span>', support: '$750<span>/month</span>' },
+  annual:  { academy: '$125<span>/month</span>', plus: '$333<span>/month</span>', support: '$625<span>/month</span>' }
+};
+var alts = {
+  monthly: { academy: 'billed monthly', plus: 'billed monthly', support: 'billed monthly' },
+  annual:  { academy: '$1,500/year — save $288', plus: '$4,000/year — save $788', support: '$7,500/year — save $1,500' }
+};
+
+toggle.addEventListener('click', function () {
+  isAnnual = !isAnnual;
+  toggle.setAttribute('aria-pressed', String(isAnnual));
+  thumb.style.left = isAnnual ? '23px' : '3px';
+  toggle.style.background = isAnnual ? 'var(--accent)' : 'var(--paper-2)';
+
+  var period = isAnnual ? 'annual' : 'monthly';
+  document.getElementById('academy-price').innerHTML = prices[period].academy;
+  document.getElementById('plus-price').innerHTML   = prices[period].plus;
+  document.getElementById('support-price').innerHTML = prices[period].support;
+  document.getElementById('academy-alt').textContent = alts[period].academy;
+  document.getElementById('plus-alt').textContent   = alts[period].plus;
+  document.getElementById('support-alt').textContent = alts[period].support;
+
+  // Update data-period on all buttons
+  document.querySelectorAll('[data-plan]').forEach(function (btn) {
+    btn.dataset.period = period;
+  });
+});
+</script>
+
+</body>
+</html>

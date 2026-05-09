@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Courses — GuideHerd Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter+Tight:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="/css/academy.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-row">
+    <a class="wordmark" href="/">
+      GuideHerd<sup class="wordmark-sup">AI</sup>
+      <span class="wordmark-badge">Academy</span>
+    </a>
+    <nav class="primary-nav" aria-label="Primary">
+      <a href="/academy/" aria-current="page">My Courses</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="https://guideherd.ai">Main site</a>
+    </nav>
+    <div class="header-actions">
+      <span id="user-display" style="font-size: var(--fs-sm); color: var(--ink-60); display: none; margin-right: var(--sp-2);"></span>
+      <a class="btn btn-ghost btn-sm" href="/login.html">Log in</a>
+    </div>
+  </div>
+</header>
+
+<!-- PAYWALL GATE — shown when no active subscription -->
+<div id="dashboard-gate" style="display: none;">
+  <div style="max-width: 600px; margin: var(--sp-7) auto; padding: 0 var(--sp-4);">
+    <div class="paywall-gate visible">
+      <p class="paywall-eyebrow">Access required</p>
+      <h2 class="paywall-title">Subscribe to access your course dashboard.</h2>
+      <p class="paywall-desc">GuideHerd Academy gives your whole firm access to AI workflow training, monthly updates, and a prompt and template library.</p>
+      <div class="paywall-actions">
+        <a class="btn btn-primary" href="/subscribe.html">View plans →</a>
+        <a class="btn btn-ghost" href="/login.html">Log in to existing account</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD — shown when subscription is active -->
+<div id="dashboard-content" style="display: none;">
+  <div class="page-hero" style="padding-bottom: var(--sp-5); border-bottom: 1px solid var(--ink-20);">
+    <p class="page-eyebrow">§ My Courses</p>
+    <h1 class="page-title" style="font-size: clamp(32px, 4vw, 56px);">Welcome back<span id="user-first-name"></span>.</h1>
+  </div>
+
+  <div class="section">
+    <span class="section-num">§ In progress</span>
+    <h2 class="section-kicker" style="font-size: var(--fs-xl); margin-bottom: var(--sp-4);">Module 1: AI Foundations</h2>
+
+    <div class="module-grid">
+      <a href="/academy/ai-foundations/what-ai-tools-do.html" class="module-card active" style="text-decoration: none;">
+        <p class="module-tag">Lesson 1</p>
+        <h3 class="module-title">What AI Tools Actually Do</h3>
+        <p class="module-desc">How AI tools work, what they are good at, and what they are not. No technical background required.</p>
+        <p class="module-meta">~20 min</p>
+      </a>
+      <a href="/academy/ai-foundations/where-ai-fails.html" class="module-card" style="text-decoration: none;">
+        <p class="module-tag">Lesson 2</p>
+        <h3 class="module-title">Where AI Fails — And How to Catch It</h3>
+        <p class="module-desc">The common failure modes and what to look for during review.</p>
+        <p class="module-meta">~25 min</p>
+      </a>
+      <a href="/academy/ai-foundations/human-review.html" class="module-card" style="text-decoration: none;">
+        <p class="module-tag">Lesson 3</p>
+        <h3 class="module-title">Human Review and When It Is Required</h3>
+        <p class="module-desc">AI prepares. People approve. High-risk categories and the approval model.</p>
+        <p class="module-meta">~20 min</p>
+      </a>
+      <a href="/academy/ai-foundations/data-privacy.html" class="module-card" style="text-decoration: none;">
+        <p class="module-tag">Lesson 4</p>
+        <h3 class="module-title">Data Privacy and Responsible Use</h3>
+        <p class="module-desc">What goes in, what doesn't, and how to handle client data responsibly.</p>
+        <p class="module-meta">~20 min</p>
+      </a>
+      <a href="/academy/ai-foundations/safe-prompt-habits.html" class="module-card" style="text-decoration: none;">
+        <p class="module-tag">Lesson 5</p>
+        <h3 class="module-title">Safe Prompt Habits</h3>
+        <p class="module-desc">A repeatable prompt pattern that reduces errors and makes review easier.</p>
+        <p class="module-meta">~20 min</p>
+      </a>
+    </div>
+  </div>
+
+  <div class="section" style="background: var(--paper-2); max-width: none; padding-left: 0; padding-right: 0;">
+    <div style="max-width: 1280px; margin: 0 auto; padding: 0 var(--sp-4);">
+      <span class="section-num">§ Coming soon</span>
+      <h2 class="section-kicker" style="font-size: var(--fs-xl); margin-bottom: var(--sp-3);">Module 2: Workflow Proficiency</h2>
+      <p style="font-size: var(--fs-md); color: var(--ink-soft); max-width: 52ch; line-height: 1.6;">How to run GuideHerd-configured workflows. Intake review, draft acknowledgment, escalation rules, and SOP usage. In development.</p>
+    </div>
+  </div>
+</div>
+
+<!--
+  TODO: progress tracking
+  When auth is wired up, pull lesson completion status from your backend
+  (Cloudflare KV, D1, or Supabase) and mark lessons as complete.
+  Add completion badges, a progress bar, and a "continue where you left off" shortcut.
+-->
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a class="wordmark" href="/" style="color: var(--paper); margin-bottom: var(--sp-2); display: inline-flex;">
+        GuideHerd<sup class="wordmark-sup">AI</sup>
+        <span class="wordmark-badge" style="background: rgba(47,164,160,0.2);">Academy</span>
+      </a>
+      <p>Practical AI workflow training for professional firms.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Academy</h4>
+      <a href="/academy/ai-foundations/">Module 1: AI Foundations</a>
+      <a href="/pricing.html">Pricing</a>
+    </div>
+    <div class="footer-col">
+      <h4>GuideHerd</h4>
+      <a href="https://guideherd.ai">Main site</a>
+      <a href="mailto:hello@guideherd.ai">Contact</a>
+    </div>
+  </div>
+  <div class="footer-meta">
+    <span>© 2026 GuideHerd AI, LLC.</span>
+    <span><a href="#">Privacy</a> · <a href="#">Terms</a></span>
+  </div>
+</footer>
+
+<script src="/js/access.js"></script>
+</body>
+</html>

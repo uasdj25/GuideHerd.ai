@@ -1,0 +1,14 @@
+{
+  "name": "guideherd-academy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GuideHerd Academy training portal — Cloudflare Pages + Pages Functions + D1 + Stripe",
+  "dependencies": {
+    "stripe": "^17.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.0.0",
+    "typescript": "^5.4.0",
+    "wrangler": "^3.0.0"
+  }
+}

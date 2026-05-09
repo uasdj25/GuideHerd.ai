@@ -1,0 +1,87 @@
+/**
+ * GET /api/account/verify?session_id=...
+ *
+ * Called from /account/success.html immediately after Stripe checkout redirect.
+ * Retrieves the Stripe checkout session, confirms payment, finds/creates the
+ * user record, and issues a session cookie so the user is immediately logged in.
+ *
+ * Safe to call multiple times — all operations are idempotent.
+ */
+
+import type { PagesFunction } from '@cloudflare/workers-types';
+import type { Env } from '../../_lib/types.js';
+import { jsonError, jsonOk } from '../../_lib/types.js';
+import { getStripe } from '../../_lib/stripe.js';
+import { getProductKey, isValidPlanKey } from '../../_lib/plans.js';
+import {
+  upsertUser,
+  upsertStripeCustomer,
+  upsertEntitlement,
+  insertAuditEvent,
+} from '../../_lib/db.js';
+import { createSessionCookie } from '../../_lib/auth.js';
+
+export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
+  const url = new URL(request.url);
+  const sessionId = url.searchParams.get('session_id');
+
+  if (!sessionId || !sessionId.startsWith('cs_')) {
+    return jsonError('Missing or invalid session_id', 400);
+  }
+
+  const stripe = getStripe(env);
+
+  let session;
+  try {
+    session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['customer', 'subscription'],
+    });
+  } catch {
+    return jsonError('Could not retrieve checkout session', 404);
+  }
+
+  if (session.payment_status !== 'paid' && session.status !== 'complete') {
+    return jsonError('Payment not completed', 402);
+  }
+
+  const email = session.customer_details?.email ?? session.customer_email;
+  const name = session.customer_details?.name ?? null;
+  const stripeCustomerId =
+    typeof session.customer === 'string'
+      ? session.customer
+      : (session.customer as { id: string } | null)?.id ?? null;
+
+  if (!email || !stripeCustomerId) {
+    return jsonError('Incomplete checkout session data', 500);
+  }
+
+  const user = await upsertUser(env.DB, email, name);
+  await upsertStripeCustomer(env.DB, user.id, stripeCustomerId);
+
+  const planKey = (session.metadata?.plan_key ?? 'academy_monthly').toString();
+  const resolvedPlanKey = isValidPlanKey(planKey) ? planKey : 'academy_monthly';
+  const productKey = getProductKey(resolvedPlanKey);
+
+  await upsertEntitlement(env.DB, user.id, productKey, 'full', true, 'stripe_checkout', null);
+
+  await insertAuditEvent(env.DB, 'account.verify.session', {
+    userId: user.id,
+    payloadSummary: `plan=${resolvedPlanKey}`,
+  });
+
+  const sessionCookie = await createSessionCookie(user.id, env.SESSION_SECRET);
+
+  return new Response(
+    JSON.stringify({
+      authenticated: true,
+      user: { id: user.id, email: user.email, name: user.name },
+    }),
+    {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Set-Cookie': sessionCookie,
+      },
+    },
+  );
+};

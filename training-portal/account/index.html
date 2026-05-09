@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Account — GuideHerd Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter+Tight:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="/css/academy.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-row">
+    <a class="wordmark" href="/">
+      GuideHerd<sup class="wordmark-sup">AI</sup>
+      <span class="wordmark-badge">Academy</span>
+    </a>
+    <nav class="primary-nav" aria-label="Primary">
+      <a href="/academy/">My Courses</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="https://guideherd.ai">Main site</a>
+    </nav>
+    <div class="header-actions">
+      <span id="user-display" style="display:none; font-size: var(--fs-sm); color: var(--ink-soft);"></span>
+    </div>
+  </div>
+</header>
+
+<div class="page-hero" style="border-bottom: 1px solid var(--ink-20); padding-bottom: var(--sp-5);">
+  <p class="page-eyebrow">§ Account</p>
+  <h1 class="page-title" style="font-size: clamp(32px, 4vw, 52px);">Your account</h1>
+</div>
+
+<div class="section" style="max-width: 720px;">
+
+  <!-- Not authenticated -->
+  <div id="account-gate" style="display: none;">
+    <p style="font-size: var(--fs-md); color: var(--ink-soft); margin-bottom: var(--sp-4);">
+      You are not currently logged in.
+    </p>
+    <div style="display: flex; gap: var(--sp-2);">
+      <a class="btn btn-primary" href="/login.html">Log in</a>
+      <a class="btn btn-outline" href="/subscribe.html">Subscribe</a>
+    </div>
+  </div>
+
+  <!-- Authenticated but no subscription -->
+  <div id="account-no-sub" style="display: none;">
+    <p style="font-size: var(--fs-md); color: var(--ink-soft); margin-bottom: var(--sp-4);">
+      You are logged in but do not have an active Academy subscription.
+    </p>
+    <a class="btn btn-primary" href="/subscribe.html">View plans →</a>
+  </div>
+
+  <!-- Active subscriber -->
+  <div id="account-active" style="display: none;">
+    <div style="border-top: 2px solid var(--accent); padding: var(--sp-4); background: var(--cream); margin-bottom: var(--sp-4);">
+      <p style="font-size: var(--fs-xs); letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent-ink); margin-bottom: var(--sp-2); font-weight: 500;">Subscription</p>
+      <p id="account-plan" style="font-family: var(--serif); font-size: var(--fs-xl); margin-bottom: var(--sp-1);">—</p>
+      <p id="account-status" style="font-size: var(--fs-sm); color: var(--ink-soft);">—</p>
+    </div>
+
+    <div style="border-top: 1px solid var(--ink-20); padding: var(--sp-4); background: var(--paper-2); margin-bottom: var(--sp-5);">
+      <p style="font-size: var(--fs-xs); letter-spacing: 0.15em; text-transform: uppercase; color: var(--ink-60); margin-bottom: var(--sp-2); font-weight: 500;">Account</p>
+      <p id="account-email" style="font-size: var(--fs-base); color: var(--ink);">—</p>
+      <p id="account-name"  style="font-size: var(--fs-sm);   color: var(--ink-soft); margin-top: 4px;">—</p>
+    </div>
+
+    <button id="manage-billing-btn" class="btn btn-outline">Manage billing →</button>
+    <a class="btn btn-ghost" href="/academy/" style="margin-left: var(--sp-2);">Back to Academy</a>
+  </div>
+
+  <div id="account-loading" style="color: var(--ink-60); font-size: var(--fs-sm);">Loading…</div>
+
+</div>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a class="wordmark" href="/" style="color: var(--paper); margin-bottom: var(--sp-2); display: inline-flex;">
+        GuideHerd<sup class="wordmark-sup" style="color: var(--accent);">AI</sup>
+      </a>
+      <p>Practical AI workflow training for professional firms.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Academy</h4>
+      <a href="/academy/">My Courses</a>
+      <a href="/pricing.html">Pricing</a>
+    </div>
+    <div class="footer-col">
+      <h4>GuideHerd</h4>
+      <a href="https://guideherd.ai">Main site</a>
+    </div>
+  </div>
+  <div class="footer-meta">
+    <span>© 2026 GuideHerd AI, LLC.</span>
+    <span><a href="https://guideherd.ai/privacy" style="color: inherit;">Privacy</a> · <a href="https://guideherd.ai/terms" style="color: inherit;">Terms</a></span>
+  </div>
+</footer>
+
+<script src="/js/access.js"></script>
+<script src="/js/checkout.js"></script>
+<script>
+(async function () {
+  var loading  = document.getElementById('account-loading');
+  var gate     = document.getElementById('account-gate');
+  var noSub    = document.getElementById('account-no-sub');
+  var active   = document.getElementById('account-active');
+
+  // Load user info and access in parallel
+  var [meRes, accessRes] = await Promise.all([
+    fetch('/api/me').then(function(r) { return r.json(); }).catch(function() { return {}; }),
+    fetch('/api/access').then(function(r) { return r.json(); }).catch(function() { return { authenticated: false, hasAccess: false }; }),
+  ]);
+
+  loading.style.display = 'none';
+
+  if (!accessRes.authenticated) {
+    gate.style.display = 'block';
+    return;
+  }
+
+  if (!accessRes.hasAccess) {
+    noSub.style.display = 'block';
+    return;
+  }
+
+  // Active subscriber
+  active.style.display = 'block';
+
+  var planLabels = {
+    academy_monthly:          'Academy — Monthly',
+    academy_annual:           'Academy — Annual',
+    academy_founding_monthly: 'Academy — Founding Rate',
+    academy_plus_monthly:     'Academy Plus — Monthly',
+    academy_plus_annual:      'Academy Plus — Annual',
+    workflow_support_monthly: 'Workflow Support — Monthly',
+    workflow_support_annual:  'Workflow Support — Annual',
+  };
+
+  var planEl   = document.getElementById('account-plan');
+  var statusEl = document.getElementById('account-status');
+  var emailEl  = document.getElementById('account-email');
+  var nameEl   = document.getElementById('account-name');
+
+  if (planEl)   planEl.textContent   = planLabels[accessRes.plan] || accessRes.plan || 'Academy';
+  if (statusEl) statusEl.textContent = 'Status: ' + (accessRes.subscriptionStatus || 'active');
+  if (meRes.user) {
+    if (emailEl) emailEl.textContent = meRes.user.email || '';
+    if (nameEl)  nameEl.textContent  = meRes.user.name  || '';
+  }
+})();
+</script>
+
+</body>
+</html>

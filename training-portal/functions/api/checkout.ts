@@ -2,7 +2,6 @@ import type { PagesFunction } from '@cloudflare/workers-types';
 import type { Env } from '../_lib/types.js';
 import { jsonError, jsonOk } from '../_lib/types.js';
 import { isValidPlanKey, getPriceId } from '../_lib/plans.js';
-import { getStripe } from '../_lib/stripe.js';
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let body: { planKey?: unknown; email?: unknown };
@@ -23,29 +22,47 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return jsonError(`Price ID not configured for plan: ${planKey}`, 500);
   }
 
+  if (!env.STRIPE_SECRET_KEY) {
+    return jsonError('Stripe secret key is not configured', 500);
+  }
+
   const baseUrl = env.PUBLIC_SITE_URL || 'https://training.guideherd.ai';
 
-  try {
-    const stripe = getStripe(env);
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${baseUrl}/account/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/pricing.html?checkout=cancelled`,
-      ...(email && typeof email === 'string' ? { customer_email: email } : {}),
-      metadata: { plan_key: planKey },
-    });
+  const params = new URLSearchParams({
+    mode: 'subscription',
+    'line_items[0][price]': priceId,
+    'line_items[0][quantity]': '1',
+    success_url: `${baseUrl}/account/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${baseUrl}/pricing.html?checkout=cancelled`,
+    'metadata[plan_key]': planKey,
+  });
 
-    if (!session.url) {
-      return jsonError('Stripe did not return a checkout URL', 500);
-    }
+  if (email && typeof email === 'string') {
+    params.set('customer_email', email);
+  }
 
-    return jsonOk({ checkoutUrl: session.url });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Stripe error';
-    console.error('[checkout] Stripe error:', msg);
+  const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error('[checkout] Stripe error:', res.status, text.slice(0, 500));
     return jsonError('Failed to create checkout session', 502);
   }
+
+  const data = await res.json() as { url?: string };
+
+  if (!data.url) {
+    return jsonError('Stripe did not return a checkout URL', 500);
+  }
+
+  return jsonOk({ checkoutUrl: data.url });
 };
 
 export const onRequestGet: PagesFunction<Env> = async () =>

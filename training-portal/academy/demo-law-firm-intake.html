@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo: Law Firm Intake — GuideHerd Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter+Tight:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="/css/academy.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-row">
+    <a class="wordmark" href="/">
+      GuideHerd<sup class="wordmark-sup">AI</sup>
+      <span class="wordmark-badge">Academy</span>
+    </a>
+    <nav class="primary-nav" aria-label="Primary">
+      <a href="/academy/">My Courses</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="https://guideherd.ai">Main site</a>
+    </nav>
+    <div class="header-actions">
+      <span id="user-display" style="font-size: var(--fs-sm); color: var(--ink-60); display: none; margin-right: var(--sp-2);"></span>
+      <a class="btn btn-ghost btn-sm" href="/login.html">Log in</a>
+      <a class="btn btn-accent btn-sm" href="/subscribe.html">Subscribe</a>
+    </div>
+  </div>
+</header>
+
+<div class="academy-layout">
+
+  <aside class="module-sidebar">
+    <a class="sidebar-back" href="/academy/">← My Courses</a>
+    <p class="sidebar-module-label">Package 2</p>
+    <p class="sidebar-module-title">AI-Assisted Intake Workflow</p>
+    <nav class="sidebar-nav" aria-label="Package lessons">
+      <a href="/academy/start-here.html" class="sidebar-link">1. Start Here</a>
+      <a href="/academy/intake-workflow.html" class="sidebar-link">2. Intake Workflow Basics</a>
+      <a href="/academy/prompt-templates.html" class="sidebar-link">3. Prompt Templates</a>
+      <a href="/academy/workflow-builder.html" class="sidebar-link">4. Workflow Builder Kit</a>
+      <a href="/academy/demo-law-firm-intake.html" class="sidebar-link active">5. Demo: Law Firm Intake</a>
+    </nav>
+  </aside>
+
+  <main class="lesson-main">
+    <p class="lesson-eyebrow">Package 2 · Lesson 5 of 5 · Demo</p>
+    <h1 class="lesson-title">Demo: Law Firm Intake</h1>
+    <div class="lesson-meta">
+      <span>~20 min</span>
+      <span>·</span>
+      <span>Fictional scenario — for training only</span>
+    </div>
+
+    <!-- PAYWALL GATE -->
+    <div id="paywall-gate" class="paywall-gate visible">
+      <p class="paywall-eyebrow">GuideHerd Academy</p>
+      <h2 class="paywall-title">Subscribe to access this training package.</h2>
+      <p class="paywall-desc">GuideHerd Academy gives your whole firm access to AI workflow training, prompt libraries, and workflow kits — updated as the tools evolve.</p>
+      <div class="paywall-actions">
+        <a class="btn btn-primary" href="/subscribe.html">View plans →</a>
+        <a class="btn btn-ghost" href="/login.html">Log in</a>
+      </div>
+    </div>
+
+    <!-- LESSON CONTENT -->
+    <div id="lesson-content" class="lesson-content">
+      <div class="lesson-body">
+
+        <div class="callout">
+          <p><strong>This is a fictional training scenario.</strong> All names, contact details, dates, firms, and facts in this demo are invented. They do not represent any real person, firm, case, or legal matter. This demo exists solely to illustrate how the prompts and workflow in this training package function in practice. Nothing in this demo constitutes legal advice, legal analysis, or a model for handling any specific real-world situation.</p>
+        </div>
+
+        <h2>The scenario</h2>
+        <p>Meridian Law Group is a small three-attorney firm that handles employment and civil litigation matters. Their intake coordinator, Jordan, manages all incoming inquiries. The firm uses an online intake form and accepts email inquiries.</p>
+        <p>On a Tuesday morning, Jordan opens the inbox and finds a new intake form submission. There are two other intakes already queued from the day before. Jordan will use the AI-assisted intake workflow to process this new submission efficiently before routing it to the responsible attorney.</p>
+        <p>What follows shows each step of the workflow — the raw intake, each prompt run, the AI output, and the human review action taken.</p>
+
+        <!-- ================================================================ -->
+        <h2>Step 1 — The raw intake</h2>
+        <p>This is what was submitted via the firm's intake form. Jordan reads it in full before running any prompts.</p>
+
+        <div class="lesson-example">
+          <p class="lesson-example-label">Raw intake form submission — fictional</p>
+          <p><strong>Name:</strong> Marcus Webb<br>
+          <strong>Email:</strong> mwebb_personal@mailexample.net<br>
+          <strong>Phone:</strong> 555-0147<br>
+          <strong>How did you hear about us:</strong> Google search<br>
+          <strong>Describe your situation:</strong><br>
+          I was terminated from my job at Hargrove Distribution on March 14th. I had been there for six years. My manager told me it was a performance issue but I had never received any written warnings and my last review (January) was rated "meets expectations." I believe the real reason was that I filed a complaint with HR in February about my supervisor making comments about my age — I'm 58. I have copies of the HR complaint and the January review. I need to know if I have a case. There is a deadline I read about online — I think I need to file something within 180 days or 300 days? I'm not sure which applies. I need to talk to someone soon.<br>
+          <strong>Have you spoken to any other attorneys about this matter:</strong> No<br>
+          <strong>Is this matter urgent:</strong> Yes<br>
+          <strong>Anything else we should know:</strong> I still have my badge and some work equipment at home that the company asked me to return. I haven't done that yet.</p>
+        </div>
+
+        <!-- ================================================================ -->
+        <h2>Step 2 — AI intake summary</h2>
+        <p>Jordan pastes the intake form text into Prompt 1 (Intake Summarizer). The AI produces this output. Jordan reads it against the original before doing anything with it.</p>
+
+        <div class="lesson-example">
+          <p class="lesson-example-label">AI output — intake summary (draft for review)</p>
+          <p>INTAKE SUMMARY<br>
+          ---<br>
+          <strong>Contact name:</strong> Marcus Webb<br>
+          <strong>Contact method:</strong> Online intake form<br>
+          <strong>Date of inquiry:</strong> Not provided (form submission date)<br>
+          <strong>Matter type:</strong> Employment — potential wrongful termination / age discrimination<br>
+          <strong>Key dates mentioned:</strong> Termination date: March 14; January performance review (prior to termination); HR complaint filed in February; Filing deadline: prospective client is uncertain — references 180-day or 300-day window<br>
+          <strong>Parties identified:</strong> Marcus Webb (prospective client); Hargrove Distribution (employer); unnamed supervisor (subject of HR complaint); unnamed HR department<br>
+          <strong>Summary of inquiry:</strong> Prospective client was terminated from a six-year employment after filing an internal HR complaint about age-related comments from his supervisor. He was given a performance rationale but reports no prior written warnings and a recent positive review. He believes the termination was retaliatory or discriminatory based on age and is seeking to understand his legal options.<br>
+          <strong>What they want from the firm:</strong> Evaluate whether he has a legal case; understand applicable filing deadlines.</p>
+        </div>
+
+        <div class="lesson-example">
+          <p class="lesson-example-label">Jordan's human review action</p>
+          <p>Jordan reads the summary against the original intake. Confirms names, dates, and the matter description are accurate. Notes that the intake form submission date was not captured by the AI because the form did not include it — Jordan adds today's date manually. Summary is accurate and ready to route.</p>
+        </div>
+
+        <!-- ================================================================ -->
+        <h2>Step 3 — Missing information flags</h2>
+        <p>Jordan pastes the reviewed intake summary into Prompt 2 (Missing Information Detector). The firm's required intake fields have been added to the prompt.</p>
+
+        <div class="lesson-example">
+          <p class="lesson-example-label">AI output — missing information (draft for review)</p>
+          <p>1. <strong>Date of inquiry not recorded.</strong> Standard intake field — needed for file dating and deadline tracking.<br>
+          2. <strong>Exact termination date not confirmed in the form.</strong> Prospective client referenced March 14 in narrative text; this should be confirmed and entered as a formal date field.<br>
+          3. <strong>Filing deadline not confirmed.</strong> Prospective client is uncertain whether 180-day or 300-day window applies. This is a critical gap for triage — the responsible attorney should assess which applies based on jurisdiction and agency. (Note: this determination is for a qualified professional, not for AI.)<br>
+          4. <strong>No alternate contact method confirmed.</strong> Only one email and phone number provided — no confirmation of preferred contact method or best time to reach.</p>
+        </div>
+
+        <div class="lesson-example">
+          <p class="lesson-example-label">Jordan's human review action</p>
+          <p>Jordan notes items 1 and 2 to correct in the file. Flags item 3 for the attorney — the deadline question is a professional determination, not something Jordan will address. Item 4: Jordan will ask about preferred contact when scheduling the consultation call.</p>
+        </div>
+
+        <!-- ================================================================ -->
+        <h2>Step 4 — Urgency flags</h2>
+        <p>Jordan runs Prompt 3 (Urgency Flagging) on the intake notes. The attorney will make the actual triage decision.</p>
+
+        <div class="lesson-example">
+          <p class="lesson-example-label">AI output — urgency scan (draft for review)</p>
+          <p>URGENCY SCAN RESULTS<br>
+          ---<br>
+          <strong>Urgency language found:</strong> Yes<br><br>
+          Flags:<br>
+          — "I need to file something within 180 days or 300 days" — prospective client references an administrative filing deadline and is uncertain which applies. If either window began at termination (March 14), a near-term deadline may exist depending on jurisdiction.<br>
+          — "I need to talk to someone soon" — explicit urgency statement from prospective client.<br>
+          — Prospective client marked the intake field "Is this matter urgent: Yes."<br><br>
+          Note: This is a flag for human review only. Whether a deadline is imminent and which window applies is a determination for a qualified attorney.</p>
+        </div>
+
+        <div class="lesson-example">
+          <p class="lesson-example-label">Jordan's human review action</p>
+          <p>Jordan routes this intake to the responsible attorney as priority — same day — based on the potential filing deadline language. Jordan does not make a determination about whether the matter is actually urgent or which deadline applies. That decision goes to the attorney.</p>
+        </div>
+
+        <!-- ================================================================ -->
+        <h2>Step 5 — Conflict-screening preparation</h2>
+        <p>Jordan produces a conflict-screening prep list from the intake to support the attorney's conflict review. The attorney will run the actual conflict check against the firm's records.</p>
+
+        <div class="lesson-example">
+          <p class="lesson-example-label">AI output — conflict-screening prep list (draft for attorney review)</p>
+          <p>CONFLICT-SCREENING PREPARATION LIST — FOR ATTORNEY REVIEW ONLY<br>
+          This is an organized extract of names and entities from the intake. It supports the attorney's conflict review and does not constitute a conflict check or conflict clearance.<br><br>
+          <strong>Prospective client:</strong> Marcus Webb<br>
+          <strong>Employer / adverse party:</strong> Hargrove Distribution<br>
+          <strong>Other individuals mentioned:</strong> Unnamed supervisor (subject of HR complaint); unnamed HR department representative<br>
+          <strong>Matter type:</strong> Employment — potential wrongful termination / age discrimination<br>
+          <strong>Note:</strong> No additional parties, co-claimants, or related entities identified in the intake notes.</p>
+        </div>
+
+        <div class="lesson-example">
+          <p class="lesson-example-label">Attorney's action</p>
+          <p>Attorney runs a conflict check against the firm's client records for Marcus Webb and Hargrove Distribution. The attorney makes all conflict determinations. This step is not part of the AI workflow — it is a professional responsibility that belongs to the attorney.</p>
+        </div>
+
+        <!-- ================================================================ -->
+        <h2>Step 6 — Draft acknowledgment</h2>
+        <p>Assuming no conflict is identified and the matter is appropriate for the firm, Jordan runs Prompt 5 (Draft Acknowledgment). The attorney reviews and approves before it is sent.</p>
+
+        <div class="lesson-example">
+          <p class="lesson-example-label">AI output — draft acknowledgment (for attorney review and approval)</p>
+          <p>DRAFT — REQUIRES HUMAN REVIEW AND APPROVAL BEFORE SENDING<br><br>
+          Subject: We received your inquiry — Meridian Law Group<br><br>
+          Dear Marcus,<br><br>
+          Thank you for reaching out to Meridian Law Group. We have received your inquiry regarding an employment matter and will be in touch within one business day to discuss next steps.<br><br>
+          Please note that this message confirms receipt of your inquiry only. It does not constitute legal advice, establish an attorney-client relationship, or represent a commitment to represent you.<br><br>
+          We look forward to speaking with you.<br><br>
+          Warmly,<br>
+          Jordan Calloway<br>
+          Intake Coordinator, Meridian Law Group</p>
+        </div>
+
+        <div class="lesson-example">
+          <p class="lesson-example-label">Attorney review and approval action</p>
+          <p>The attorney reads the draft in full. Confirms it does not commit to representation, does not contain legal advice, and does not reference specific case facts inappropriately. Makes one edit: changes "one business day" to "two business days" based on current caseload. Approves. Jordan sends.</p>
+        </div>
+
+        <!-- ================================================================ -->
+        <h2>What this demo shows</h2>
+        <p>Across six steps, the AI produced structured, useful outputs that Jordan could review quickly and route accurately. The AI did not make any professional decisions. It did not assess whether the matter was urgent. It did not run a conflict check. It did not send any communication. It did not provide legal advice.</p>
+        <p>Jordan reviewed every output. The attorney reviewed the conflict prep list and the draft acknowledgment. That is the pattern — AI handles structure and drafting; people handle judgment and approval.</p>
+
+        <div class="callout">
+          <p><strong>Final reminder:</strong> This demo uses a fictional scenario involving employment law concepts. Nothing in this demo is legal advice, a model for handling any real employment matter, or guidance on how any specific legal claim should be evaluated. All professional decisions — including urgency determination, conflict review, and client communication — belong to qualified professionals at your firm.</p>
+        </div>
+
+      </div><!-- /.lesson-body -->
+
+      <!-- REVIEW CHECKLIST -->
+      <div class="lesson-checklist">
+        <h3>Review checklist — Demo: Law Firm Intake</h3>
+        <div class="checklist-items">
+          <div class="checklist-item">
+            <input type="checkbox" id="c1" name="c1">
+            <label for="c1">I can describe what the AI produced at each of the six workflow steps in this demo.</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="c2" name="c2">
+            <label for="c2">I understand that the attorney — not the AI — ran the conflict check and made all conflict determinations.</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="c3" name="c3">
+            <label for="c3">I understand that Jordan routed the intake as priority based on urgency flags, but a professional made the actual urgency determination.</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="c4" name="c4">
+            <label for="c4">I understand that the draft acknowledgment was edited and approved by the attorney before it was sent.</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="c5" name="c5">
+            <label for="c5">I am ready to adapt these prompts and this workflow for my firm's intake process.</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- LESSON NAV -->
+      <div class="lesson-nav">
+        <div class="lesson-nav-link">
+          <span class="lesson-nav-label">← Previous</span>
+          <a class="lesson-nav-title" href="/academy/workflow-builder.html">Workflow Builder Kit</a>
+        </div>
+        <div class="lesson-nav-link next">
+          <span class="lesson-nav-label">Done</span>
+          <a class="lesson-nav-title" href="/academy/">Back to My Courses</a>
+        </div>
+      </div>
+
+    </div><!-- /#lesson-content -->
+  </main>
+
+</div><!-- /.academy-layout -->
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a class="wordmark" href="/" style="color: var(--paper); margin-bottom: var(--sp-2); display: inline-flex;">
+        GuideHerd<sup class="wordmark-sup">AI</sup>
+        <span class="wordmark-badge" style="background: rgba(47,164,160,0.2);">Academy</span>
+      </a>
+      <p>Practical AI workflow training for professional firms.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Package 2</h4>
+      <a href="/academy/start-here.html">Start Here</a>
+      <a href="/academy/intake-workflow.html">Intake Workflow Basics</a>
+      <a href="/academy/prompt-templates.html">Prompt Templates</a>
+      <a href="/academy/workflow-builder.html">Workflow Builder Kit</a>
+      <a href="/academy/demo-law-firm-intake.html">Demo: Law Firm Intake</a>
+    </div>
+    <div class="footer-col">
+      <h4>GuideHerd</h4>
+      <a href="/academy/">My Courses</a>
+      <a href="https://guideherd.ai">Main site</a>
+      <a href="mailto:hello@guideherd.ai">Contact</a>
+    </div>
+  </div>
+  <div class="footer-meta">
+    <span>© 2026 GuideHerd AI, LLC.</span>
+    <span><a href="#">Privacy</a> · <a href="#">Terms</a></span>
+  </div>
+</footer>
+
+<script src="/js/access.js"></script>
+</body>
+</html>

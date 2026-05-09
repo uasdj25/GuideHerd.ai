@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workflow Builder Kit — GuideHerd Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter+Tight:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="/css/academy.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-row">
+    <a class="wordmark" href="/">
+      GuideHerd<sup class="wordmark-sup">AI</sup>
+      <span class="wordmark-badge">Academy</span>
+    </a>
+    <nav class="primary-nav" aria-label="Primary">
+      <a href="/academy/">My Courses</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="https://guideherd.ai">Main site</a>
+    </nav>
+    <div class="header-actions">
+      <span id="user-display" style="font-size: var(--fs-sm); color: var(--ink-60); display: none; margin-right: var(--sp-2);"></span>
+      <a class="btn btn-ghost btn-sm" href="/login.html">Log in</a>
+      <a class="btn btn-accent btn-sm" href="/subscribe.html">Subscribe</a>
+    </div>
+  </div>
+</header>
+
+<div class="academy-layout">
+
+  <aside class="module-sidebar">
+    <a class="sidebar-back" href="/academy/">← My Courses</a>
+    <p class="sidebar-module-label">Package 2</p>
+    <p class="sidebar-module-title">AI-Assisted Intake Workflow</p>
+    <nav class="sidebar-nav" aria-label="Package lessons">
+      <a href="/academy/start-here.html" class="sidebar-link">1. Start Here</a>
+      <a href="/academy/intake-workflow.html" class="sidebar-link">2. Intake Workflow Basics</a>
+      <a href="/academy/prompt-templates.html" class="sidebar-link">3. Prompt Templates</a>
+      <a href="/academy/workflow-builder.html" class="sidebar-link active">4. Workflow Builder Kit</a>
+      <a href="/academy/demo-law-firm-intake.html" class="sidebar-link">5. Demo: Law Firm Intake</a>
+    </nav>
+  </aside>
+
+  <main class="lesson-main">
+    <p class="lesson-eyebrow">Package 2 · Lesson 4 of 5</p>
+    <h1 class="lesson-title">Workflow Builder Kit</h1>
+    <div class="lesson-meta">
+      <span>~20 min</span>
+      <span>·</span>
+      <span>AI-Assisted Intake Workflow</span>
+    </div>
+
+    <!-- PAYWALL GATE -->
+    <div id="paywall-gate" class="paywall-gate visible">
+      <p class="paywall-eyebrow">GuideHerd Academy</p>
+      <h2 class="paywall-title">Subscribe to access this training package.</h2>
+      <p class="paywall-desc">GuideHerd Academy gives your whole firm access to AI workflow training, prompt libraries, and workflow kits — updated as the tools evolve.</p>
+      <div class="paywall-actions">
+        <a class="btn btn-primary" href="/subscribe.html">View plans →</a>
+        <a class="btn btn-ghost" href="/login.html">Log in</a>
+      </div>
+    </div>
+
+    <!-- LESSON CONTENT -->
+    <div id="lesson-content" class="lesson-content">
+      <div class="lesson-body">
+
+        <p>This kit gives you four practical tools for mapping and operating your AI-assisted intake workflow. Use the worksheet to design your process, then the three checklists to run it consistently. Print them, copy them into a shared doc, or adapt them into your practice management system.</p>
+
+        <div class="callout">
+          <p><strong>How to use this kit:</strong> Work through the intake workflow worksheet first — it helps you define your firm's specific version of the process. Then use the three checklists as operating tools for each intake you run.</p>
+        </div>
+
+        <!-- ================================================================ -->
+        <h2>Tool 1 — Intake Workflow Worksheet</h2>
+        <p>Answer these questions to map how AI-assisted intake will work at your firm. There are no universal answers — this is about making the workflow explicit for your context.</p>
+
+        <div class="lesson-example">
+          <p class="lesson-example-label">Section A — Intake channels</p>
+          <p>Which channels do prospective clients use to reach your firm? (Check all that apply and note who handles each.)</p>
+        </div>
+
+        <div class="lesson-checklist" style="margin-top: var(--sp-3);">
+          <div class="checklist-items">
+            <div class="checklist-item">
+              <input type="checkbox" id="w1" name="w1">
+              <label for="w1">Online intake form — handled by: _______________</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="w2" name="w2">
+              <label for="w2">Email inquiry — handled by: _______________</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="w3" name="w3">
+              <label for="w3">Phone call (with notes or transcript) — handled by: _______________</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="w4" name="w4">
+              <label for="w4">Referral with intake notes — handled by: _______________</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="w5" name="w5">
+              <label for="w5">Other: _______________ — handled by: _______________</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="lesson-example" style="margin-top: var(--sp-4);">
+          <p class="lesson-example-label">Section B — Required intake fields</p>
+          <p>List the information your firm requires before routing a matter internally. These become the checklist for the Missing Information Detector (Prompt 2).</p>
+          <p style="margin-top: var(--sp-2);">Required fields for our firm:</p>
+          <p>1. _______________ &nbsp; 2. _______________ &nbsp; 3. _______________</p>
+          <p>4. _______________ &nbsp; 5. _______________ &nbsp; 6. _______________</p>
+          <p>7. _______________ &nbsp; 8. _______________ &nbsp; 9. _______________</p>
+        </div>
+
+        <div class="lesson-example" style="margin-top: var(--sp-3);">
+          <p class="lesson-example-label">Section C — Urgency criteria</p>
+          <p>What makes a matter urgent at your firm? List the signals your team should escalate immediately. These become the context for the Urgency Flagging prompt (Prompt 3).</p>
+          <p style="margin-top: var(--sp-2);">Our urgency triggers:</p>
+          <p>1. _______________ &nbsp; 2. _______________ &nbsp; 3. _______________</p>
+          <p>Standard follow-up window for non-urgent matters: _______________</p>
+          <p>Escalation contact for urgent matters: _______________</p>
+        </div>
+
+        <div class="lesson-example" style="margin-top: var(--sp-3);">
+          <p class="lesson-example-label">Section D — Human review assignments</p>
+          <p>Who is responsible for each review step in your intake process?</p>
+          <p style="margin-top: var(--sp-2);">
+            Intake summary review: _______________<br>
+            Missing information follow-up: _______________<br>
+            Urgency triage decision: _______________<br>
+            Conflict-screening prep review: _______________<br>
+            Conflict check (attorney): _______________<br>
+            Draft acknowledgment approval: _______________<br>
+            Final send authorization: _______________
+          </p>
+        </div>
+
+        <div class="lesson-example" style="margin-top: var(--sp-3);">
+          <p class="lesson-example-label">Section E — AI tool selection</p>
+          <p>Which AI tool will your firm use for intake prompts, and has your firm confirmed an appropriate data use policy for that tool?</p>
+          <p style="margin-top: var(--sp-2);">
+            AI tool selected: _______________<br>
+            Data policy confirmed: ☐ Yes &nbsp; ☐ No — do not proceed until confirmed<br>
+            Confirmed by (name and date): _______________
+          </p>
+        </div>
+
+        <!-- ================================================================ -->
+        <h2>Tool 2 — Automation Readiness Checklist</h2>
+        <p>Complete this checklist before running your first AI-assisted intake. All items should be checked before you go live.</p>
+
+        <div class="lesson-checklist">
+          <h3>Before your first AI-assisted intake</h3>
+          <div class="checklist-items">
+            <div class="checklist-item">
+              <input type="checkbox" id="r1" name="r1">
+              <label for="r1">We have identified which AI tool we will use and confirmed it is appropriate for this use under our firm's data policies.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="r2" name="r2">
+              <label for="r2">We have defined our required intake fields (Section B above) and customized Prompt 2 accordingly.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="r3" name="r3">
+              <label for="r3">We have defined our urgency triggers (Section C above) and confirmed who handles escalation.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="r4" name="r4">
+              <label for="r4">We have assigned a human reviewer for every step in the intake workflow (Section D above).</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="r5" name="r5">
+              <label for="r5">Everyone who will use these prompts has read Lessons 1–3 of this training package.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="r6" name="r6">
+              <label for="r6">We have agreed that no AI-generated draft acknowledgment will be sent without human review and approval.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="r7" name="r7">
+              <label for="r7">We have tested each prompt using fictional or anonymized intake data (not real client information).</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="r8" name="r8">
+              <label for="r8">We have a plan for what to do if the AI tool is unavailable — the manual intake process remains in place.</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================================ -->
+        <h2>Tool 3 — Human Review Checklist</h2>
+        <p>Use this checklist when reviewing each piece of AI output during an intake. Run it for every summary, flag list, or handoff note the AI produces.</p>
+
+        <div class="lesson-checklist">
+          <h3>For each AI output — intake summary, flag list, or handoff note</h3>
+          <div class="checklist-items">
+            <div class="checklist-item">
+              <input type="checkbox" id="h1" name="h1">
+              <label for="h1">I have read the source intake material (original form, email, or notes) before reviewing the AI output.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="h2" name="h2">
+              <label for="h2">Every fact in the AI output matches the source material — no invented names, dates, or details.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="h3" name="h3">
+              <label for="h3">The AI has not provided legal advice, a legal opinion, or a conflict determination in this output.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="h4" name="h4">
+              <label for="h4">Urgency flags (if any) have been reviewed and a triage decision made by a qualified person.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="h5" name="h5">
+              <label for="h5">Missing information flags (if any) have been reviewed and a follow-up plan is in place.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="h6" name="h6">
+              <label for="h6">I have run the Guardrail Check (Prompt 6) on any output that will leave my desk.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="h7" name="h7">
+              <label for="h7">This output is ready to route internally — or I have noted what corrections are needed.</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================================ -->
+        <h2>Tool 4 — Draft Communication Approval Checklist</h2>
+        <p>Run this checklist before any AI-generated draft acknowledgment is sent to a prospective client. All items must be checked by the approving staff member or attorney.</p>
+
+        <div class="lesson-checklist">
+          <h3>Before sending any AI-drafted client communication</h3>
+          <div class="checklist-items">
+            <div class="checklist-item">
+              <input type="checkbox" id="a1" name="a1">
+              <label for="a1">I have read the full draft, not just skimmed it.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="a2" name="a2">
+              <label for="a2">The recipient's name is correct and spelled correctly.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="a3" name="a3">
+              <label for="a3">The draft does not commit to representation or imply the firm will take the matter.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="a4" name="a4">
+              <label for="a4">The draft does not create or imply an attorney-client relationship.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="a5" name="a5">
+              <label for="a5">The draft does not contain legal advice, a legal opinion, or analysis of the prospective client's situation.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="a6" name="a6">
+              <label for="a6">The timeline referenced in the draft (e.g., "we will follow up within 2 business days") is accurate and achievable.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="a7" name="a7">
+              <label for="a7">The signing name and title are correct for this communication.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="a8" name="a8">
+              <label for="a8">I have made any necessary edits and I am satisfied this communication is accurate and appropriate to send.</label>
+            </div>
+            <div class="checklist-item">
+              <input type="checkbox" id="a9" name="a9">
+              <label for="a9">I am authorized to approve and send this communication on behalf of the firm.</label>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /.lesson-body -->
+
+      <!-- LESSON NAV -->
+      <div class="lesson-nav">
+        <div class="lesson-nav-link">
+          <span class="lesson-nav-label">← Previous</span>
+          <a class="lesson-nav-title" href="/academy/prompt-templates.html">Prompt Templates</a>
+        </div>
+        <div class="lesson-nav-link next">
+          <span class="lesson-nav-label">Next →</span>
+          <a class="lesson-nav-title" href="/academy/demo-law-firm-intake.html">Demo: Law Firm Intake</a>
+        </div>
+      </div>
+
+    </div><!-- /#lesson-content -->
+  </main>
+
+</div><!-- /.academy-layout -->
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a class="wordmark" href="/" style="color: var(--paper); margin-bottom: var(--sp-2); display: inline-flex;">
+        GuideHerd<sup class="wordmark-sup">AI</sup>
+        <span class="wordmark-badge" style="background: rgba(47,164,160,0.2);">Academy</span>
+      </a>
+      <p>Practical AI workflow training for professional firms.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Package 2</h4>
+      <a href="/academy/start-here.html">Start Here</a>
+      <a href="/academy/intake-workflow.html">Intake Workflow Basics</a>
+      <a href="/academy/prompt-templates.html">Prompt Templates</a>
+      <a href="/academy/workflow-builder.html">Workflow Builder Kit</a>
+      <a href="/academy/demo-law-firm-intake.html">Demo: Law Firm Intake</a>
+    </div>
+    <div class="footer-col">
+      <h4>GuideHerd</h4>
+      <a href="/academy/">My Courses</a>
+      <a href="https://guideherd.ai">Main site</a>
+      <a href="mailto:hello@guideherd.ai">Contact</a>
+    </div>
+  </div>
+  <div class="footer-meta">
+    <span>© 2026 GuideHerd AI, LLC.</span>
+    <span><a href="#">Privacy</a> · <a href="#">Terms</a></span>
+  </div>
+</footer>
+
+<script src="/js/access.js"></script>
+</body>
+</html>

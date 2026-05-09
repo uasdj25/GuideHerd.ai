@@ -10,6 +10,8 @@ import {
   upsertSubscription,
   upsertEntitlement,
   insertAuditEvent,
+  deactivateCheckoutEntitlements,
+  deactivateAllEntitlements,
 } from '../../_lib/db.js';
 
 // Price ID → plan key reverse map built at runtime from env
@@ -43,7 +45,7 @@ async function syncSubscriptionForUser(
   env: Env,
   userId: string,
   stripeCustomerId: string,
-): Promise<{ planKey: string; status: string }> {
+): Promise<{ planKey: string; status: string; productKey: string }> {
   const priceId = sub.items.data[0]?.price?.id ?? '';
   const planKey = priceIdToPlanKey(priceId, env);
   const productKey = getProductKey(isValidPlanKey(planKey) ? planKey : 'academy_monthly');
@@ -62,7 +64,7 @@ async function syncSubscriptionForUser(
 
   await upsertEntitlement(env.DB, userId, productKey, 'full', isActive, 'stripe_subscription', periodEnd(sub));
 
-  return { planKey, status: sub.status };
+  return { planKey, status: sub.status, productKey };
 }
 
 // ── Event handlers ────────────────────────────────────────────────────────────
@@ -88,10 +90,12 @@ async function handleCheckoutCompleted(
   const user = await upsertUser(env.DB, email, name);
   await upsertStripeCustomer(env.DB, user.id, stripeCustomerId);
 
-  // Grant provisional access — will be overwritten if subscription sync succeeds below
+  // Provisional access — expires in 1 hour as a safety net if sync below fails.
+  // The stripe_subscription entitlement created by a successful sync replaces this.
   const resolvedPlanKey = isValidPlanKey(planKey) ? planKey : 'academy_monthly';
   const productKey = getProductKey(resolvedPlanKey);
-  await upsertEntitlement(env.DB, user.id, productKey, 'full', true, 'stripe_checkout', null);
+  const provisionalExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  await upsertEntitlement(env.DB, user.id, productKey, 'full', true, 'stripe_checkout', provisionalExpiresAt);
 
   // Reconcile subscription immediately if available, fixing the race where
   // customer.subscription.created arrives before stripe_customers row exists.
@@ -106,10 +110,16 @@ async function handleCheckoutCompleted(
         userId: user.id,
         payloadSummary: `plan=${synced.planKey} status=${synced.status}`,
       });
+      // Subscription is now active — retire the provisional checkout entitlement
+      await deactivateCheckoutEntitlements(env.DB, user.id, synced.productKey);
+      await insertAuditEvent(env.DB, 'checkout.provisional_access.deactivated', {
+        userId: user.id,
+        payloadSummary: `product=${synced.productKey}`,
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error('[webhook] subscription sync failed after checkout:', msg);
-      // Non-fatal: provisional entitlement already granted above
+      // Non-fatal: provisional entitlement expires in 1 hour
     }
   }
 
@@ -143,12 +153,30 @@ async function handleSubscriptionEvent(
     return;
   }
 
-  const { planKey, status } = await syncSubscriptionForUser(
+  const { planKey, status, productKey } = await syncSubscriptionForUser(
     sub,
     env,
     customerRow.user_id,
     stripeCustomerId,
   );
+
+  if (eventType === 'customer.subscription.deleted') {
+    await deactivateAllEntitlements(env.DB, customerRow.user_id, productKey);
+    await insertAuditEvent(env.DB, 'access.revoked.subscription_deleted', {
+      userId: customerRow.user_id,
+      payloadSummary: `product=${productKey}`,
+    });
+  } else if (
+    eventType === 'customer.subscription.updated' &&
+    status !== 'active' &&
+    status !== 'trialing'
+  ) {
+    await deactivateAllEntitlements(env.DB, customerRow.user_id, productKey);
+    await insertAuditEvent(env.DB, 'access.revoked.subscription_inactive', {
+      userId: customerRow.user_id,
+      payloadSummary: `product=${productKey} status=${status}`,
+    });
+  }
 
   await insertAuditEvent(env.DB, eventType, {
     userId: customerRow.user_id,

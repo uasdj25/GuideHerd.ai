@@ -174,12 +174,24 @@ export async function hasActiveEntitlement(
   userId: string,
   productKey: string,
 ): Promise<{ active: boolean; plan_key: string | null }> {
+  // Access is granted only when backed by a real subscription:
+  //   (a) active stripe_subscription entitlement not past its expires_at, OR
+  //   (b) an active subscriptions row whose current_period_end is in the future.
+  // stripe_checkout entitlements alone are explicitly excluded.
   const row = await db
     .prepare(
       `SELECT ae.active, s.plan_key
        FROM access_entitlements ae
-       LEFT JOIN subscriptions s ON s.user_id = ae.user_id AND s.status = 'active'
+       LEFT JOIN subscriptions s
+         ON s.user_id = ae.user_id
+        AND s.status = 'active'
+        AND (s.current_period_end IS NULL OR s.current_period_end > datetime('now'))
        WHERE ae.user_id = ? AND ae.product_key = ? AND ae.active = 1
+         AND (
+           (ae.source = 'stripe_subscription'
+            AND (ae.expires_at IS NULL OR ae.expires_at > datetime('now')))
+           OR s.id IS NOT NULL
+         )
        LIMIT 1`,
     )
     .bind(userId, productKey)
@@ -187,6 +199,66 @@ export async function hasActiveEntitlement(
 
   if (!row) return { active: false, plan_key: null };
   return { active: row.active === 1, plan_key: row.plan_key };
+}
+
+export async function deactivateCheckoutEntitlements(
+  db: Env['DB'],
+  userId: string,
+  productKey: string,
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE access_entitlements SET active = 0, updated_at = ?
+       WHERE user_id = ? AND product_key = ? AND source = 'stripe_checkout' AND active = 1`,
+    )
+    .bind(now(), userId, productKey)
+    .run();
+}
+
+export async function deactivateAllEntitlements(
+  db: Env['DB'],
+  userId: string,
+  productKey: string,
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE access_entitlements SET active = 0, updated_at = ?
+       WHERE user_id = ? AND product_key = ? AND active = 1`,
+    )
+    .bind(now(), userId, productKey)
+    .run();
+}
+
+// Finds stripe_checkout entitlements with no active subscription behind them
+// (either expired or null expires_at) and deactivates them. Returns the count.
+export async function deactivateStaleCheckoutAccess(db: Env['DB']): Promise<number> {
+  const stale = await db
+    .prepare(
+      `SELECT ae.id, ae.user_id FROM access_entitlements ae
+       WHERE ae.active = 1
+         AND ae.source = 'stripe_checkout'
+         AND ae.product_key = 'academy'
+         AND (ae.expires_at IS NULL OR ae.expires_at <= datetime('now'))
+         AND NOT EXISTS (
+           SELECT 1 FROM subscriptions s
+           WHERE s.user_id = ae.user_id
+             AND s.status = 'active'
+             AND (s.current_period_end IS NULL OR s.current_period_end > datetime('now'))
+         )`,
+    )
+    .all<{ id: string; user_id: string }>();
+
+  if (!stale.results.length) return 0;
+
+  const ts = now();
+  for (const row of stale.results) {
+    await db
+      .prepare(`UPDATE access_entitlements SET active = 0, updated_at = ? WHERE id = ?`)
+      .bind(ts, row.id)
+      .run();
+    await insertAuditEvent(db, 'stale_checkout_access.revoked', { userId: row.user_id });
+  }
+  return stale.results.length;
 }
 
 export async function getActiveSubscription(

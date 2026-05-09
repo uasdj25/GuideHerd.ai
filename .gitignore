@@ -1,0 +1,6 @@
+
+# Local AI/tooling state
+.claude/
+.wrangler/
+**/.claude/
+**/.wrangler/

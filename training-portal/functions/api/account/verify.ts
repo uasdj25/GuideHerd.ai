@@ -62,7 +62,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const resolvedPlanKey = isValidPlanKey(planKey) ? planKey : 'academy_monthly';
   const productKey = getProductKey(resolvedPlanKey);
 
-  await upsertEntitlement(env.DB, user.id, productKey, 'full', true, 'stripe_checkout', null);
+  // Provisional access only — expires in 1 hour. The webhook sync that follows
+  // creates a stripe_subscription entitlement and deactivates this row.
+  const provisionalExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  await upsertEntitlement(env.DB, user.id, productKey, 'full', true, 'stripe_checkout', provisionalExpiresAt);
 
   await insertAuditEvent(env.DB, 'account.verify.session', {
     userId: user.id,

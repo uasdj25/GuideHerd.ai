@@ -23,10 +23,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return jsonError(`Price ID not configured for plan: ${planKey}`, 500);
   }
 
-  const stripe = getStripe(env);
   const baseUrl = env.PUBLIC_SITE_URL || 'https://training.guideherd.ai';
 
   try {
+    const stripe = getStripe(env);
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],

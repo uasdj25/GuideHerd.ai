@@ -32,6 +32,39 @@ function periodEnd(sub: Stripe.Subscription): string | null {
     : null;
 }
 
+// ── Shared subscription persistence ──────────────────────────────────────────
+// Extracted so handleCheckoutCompleted can call it to reconcile the subscription
+// immediately, avoiding the race where customer.subscription.created arrives
+// before the checkout.session.completed handler has written stripe_customers.
+// Does not insert an audit event — callers handle that themselves.
+
+async function syncSubscriptionForUser(
+  sub: Stripe.Subscription,
+  env: Env,
+  userId: string,
+  stripeCustomerId: string,
+): Promise<{ planKey: string; status: string }> {
+  const priceId = sub.items.data[0]?.price?.id ?? '';
+  const planKey = priceIdToPlanKey(priceId, env);
+  const productKey = getProductKey(isValidPlanKey(planKey) ? planKey : 'academy_monthly');
+  const isActive = sub.status === 'active' || sub.status === 'trialing';
+
+  await upsertSubscription(env.DB, {
+    user_id: userId,
+    stripe_customer_id: stripeCustomerId,
+    stripe_subscription_id: sub.id,
+    stripe_price_id: priceId,
+    plan_key: planKey,
+    status: sub.status,
+    current_period_end: periodEnd(sub),
+    cancel_at_period_end: sub.cancel_at_period_end ? 1 : 0,
+  });
+
+  await upsertEntitlement(env.DB, userId, productKey, 'full', isActive, 'stripe_subscription', periodEnd(sub));
+
+  return { planKey, status: sub.status };
+}
+
 // ── Event handlers ────────────────────────────────────────────────────────────
 
 async function handleCheckoutCompleted(
@@ -55,11 +88,32 @@ async function handleCheckoutCompleted(
   const user = await upsertUser(env.DB, email, name);
   await upsertStripeCustomer(env.DB, user.id, stripeCustomerId);
 
-  // Grant provisional access — subscription webhook will confirm status
+  // Grant provisional access — will be overwritten if subscription sync succeeds below
   const resolvedPlanKey = isValidPlanKey(planKey) ? planKey : 'academy_monthly';
   const productKey = getProductKey(resolvedPlanKey);
   await upsertEntitlement(env.DB, user.id, productKey, 'full', true, 'stripe_checkout', null);
 
+  // Reconcile subscription immediately if available, fixing the race where
+  // customer.subscription.created arrives before stripe_customers row exists.
+  const subscriptionId = typeof session.subscription === 'string' ? session.subscription : null;
+  if (subscriptionId) {
+    try {
+      const stripe = getStripe(env);
+      const sub = await stripe.subscriptions.retrieve(subscriptionId);
+      const synced = await syncSubscriptionForUser(sub, env, user.id, stripeCustomerId);
+      // Omit stripeEventId here to avoid collision with the primary audit row below
+      await insertAuditEvent(env.DB, 'checkout.session.completed.subscription_synced', {
+        userId: user.id,
+        payloadSummary: `plan=${synced.planKey} status=${synced.status}`,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[webhook] subscription sync failed after checkout:', msg);
+      // Non-fatal: provisional entitlement already granted above
+    }
+  }
+
+  // Primary audit event — uses stripeEventId for idempotency
   await insertAuditEvent(env.DB, 'checkout.session.completed', {
     userId: user.id,
     stripeEventId,
@@ -89,29 +143,17 @@ async function handleSubscriptionEvent(
     return;
   }
 
-  const userId = customerRow.user_id;
-  const priceId = sub.items.data[0]?.price?.id ?? '';
-  const planKey = priceIdToPlanKey(priceId, env);
-  const productKey = getProductKey(isValidPlanKey(planKey) ? planKey : 'academy_monthly');
-  const isActive = sub.status === 'active' || sub.status === 'trialing';
-
-  await upsertSubscription(env.DB, {
-    user_id: userId,
-    stripe_customer_id: stripeCustomerId,
-    stripe_subscription_id: sub.id,
-    stripe_price_id: priceId,
-    plan_key: planKey,
-    status: sub.status,
-    current_period_end: periodEnd(sub),
-    cancel_at_period_end: sub.cancel_at_period_end ? 1 : 0,
-  });
-
-  await upsertEntitlement(env.DB, userId, productKey, 'full', isActive, 'stripe_subscription', periodEnd(sub));
+  const { planKey, status } = await syncSubscriptionForUser(
+    sub,
+    env,
+    customerRow.user_id,
+    stripeCustomerId,
+  );
 
   await insertAuditEvent(env.DB, eventType, {
-    userId,
+    userId: customerRow.user_id,
     stripeEventId,
-    payloadSummary: `plan=${planKey} status=${sub.status}`,
+    payloadSummary: `plan=${planKey} status=${status}`,
   });
 }
 

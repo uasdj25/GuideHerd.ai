@@ -1,4 +1,4 @@
-import Stripe from 'stripe/lib/stripe.js';
+import Stripe from 'stripe';
 import type { Env } from './types.js';
 
 export function getStripe(env: Env): Stripe {

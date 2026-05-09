@@ -154,6 +154,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       rawBody,
       signature,
       env.STRIPE_WEBHOOK_SECRET,
+      Stripe.createSubtleCryptoProvider(),
     );
   } catch {
     return jsonError('Invalid webhook signature', 400);

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo Script — AI-Assisted Intake Workflow for a Small Law Firm</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter+Tight:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="/css/academy.css">
+<style>
+  @media print {
+    .site-header, .site-footer, .no-print { display: none !important; }
+    body { background: #fff; color: #000; }
+    .page-hero { padding-top: 0; }
+    .step-block { break-inside: avoid; }
+  }
+  .step-block {
+    border-top: 2px solid var(--ink);
+    padding: var(--sp-4) 0;
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: var(--sp-4);
+  }
+  @media (max-width: 700px) {
+    .step-block { grid-template-columns: 1fr; gap: var(--sp-2); }
+  }
+  .step-meta { padding-top: 2px; }
+  .step-time { font-size: var(--fs-xs); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-60); font-weight: 500; }
+  .step-label { font-size: var(--fs-sm); color: var(--accent-ink); font-weight: 500; margin-top: var(--sp-1); }
+  .step-body h3 { font-family: var(--serif); font-size: var(--fs-xl); margin-bottom: var(--sp-3); }
+  .say-block {
+    background: var(--paper-2);
+    border-left: 3px solid var(--accent);
+    padding: var(--sp-3) var(--sp-4);
+    margin: var(--sp-3) 0;
+    font-size: var(--fs-md);
+    color: var(--ink);
+    line-height: 1.65;
+  }
+  .say-label {
+    font-size: var(--fs-xs); letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 500; margin-bottom: var(--sp-2);
+  }
+  .show-block {
+    border: 1px solid var(--ink-20);
+    padding: var(--sp-3) var(--sp-4);
+    margin: var(--sp-3) 0;
+    font-size: var(--fs-sm);
+    color: var(--ink-soft);
+    line-height: 1.6;
+    font-family: monospace;
+    background: var(--paper);
+    white-space: pre-wrap;
+  }
+  .show-label {
+    font-size: var(--fs-xs); letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-60); font-weight: 500; margin-bottom: var(--sp-2);
+    font-family: var(--sans);
+  }
+  .note {
+    font-size: var(--fs-sm);
+    color: var(--ink-60);
+    font-style: italic;
+    line-height: 1.6;
+    margin: var(--sp-2) 0;
+  }
+  .fictional-banner {
+    background: var(--ink);
+    color: var(--paper);
+    padding: var(--sp-2) var(--sp-4);
+    font-size: var(--fs-sm);
+    text-align: center;
+    letter-spacing: 0.05em;
+  }
+</style>
+</head>
+<body>
+
+<div class="fictional-banner no-print">
+  FICTIONAL SCENARIO — All names, firms, and matters are invented. No real client data. No legal advice.
+</div>
+
+<header class="site-header no-print">
+  <div class="header-row">
+    <a class="wordmark" href="/">
+      GuideHerd<sup class="wordmark-sup">AI</sup>
+    </a>
+    <div class="header-actions">
+      <a class="btn btn-ghost btn-sm" href="mailto:hello@guideherd.ai">Contact us</a>
+    </div>
+  </div>
+</header>
+
+<div class="page-hero" style="border-bottom: 1px solid var(--ink-20); padding-bottom: var(--sp-6);">
+  <p class="page-eyebrow">§ Demo Script</p>
+  <h1 class="page-title" style="font-size: clamp(28px, 4.5vw, 52px);">AI-Assisted Intake Workflow<br><em class="serif-italic">for a Small Law Firm</em></h1>
+  <p class="page-lede" style="max-width: 58ch;">Five-minute live demo script. Fictional scenario throughout. All names, firms, and matters are invented. This workflow does not provide legal advice and does not create an attorney-client relationship.</p>
+  <div style="display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-3);">
+    <div style="font-size: var(--fs-sm); color: var(--ink-soft);">Total time: <strong style="color: var(--ink);">~5 minutes</strong></div>
+    <div style="font-size: var(--fs-sm); color: var(--ink-soft);">Format: <strong style="color: var(--ink);">Screen share or live walkthrough</strong></div>
+    <div style="font-size: var(--fs-sm); color: var(--ink-soft);">Audience: <strong style="color: var(--ink);">Firm owner or intake staff</strong></div>
+  </div>
+</div>
+
+<!-- PREP NOTE -->
+<div class="section">
+  <div style="background: var(--paper-2); border: 1px solid var(--ink-20); padding: var(--sp-4); max-width: 700px;">
+    <p style="font-size: var(--fs-sm); font-weight: 500; color: var(--ink); margin-bottom: var(--sp-2);">Before you start</p>
+    <ul style="font-size: var(--fs-sm); color: var(--ink-soft); line-height: 1.75; padding-left: var(--sp-4); margin: 0;">
+      <li>Have the fictional intake email open and ready to paste</li>
+      <li>Have the AI tool (ChatGPT, Claude, or firm-configured tool) open in another tab</li>
+      <li>Have the intake summary prompt ready to paste — do not type live</li>
+      <li>Remind the audience at the start and close that everything is fictional</li>
+      <li>Never use real client names, real matter details, or real case numbers in a live demo</li>
+    </ul>
+  </div>
+</div>
+
+<!-- STEPS -->
+<div class="section" style="padding-top: 0;">
+
+  <!-- 1. Opening -->
+  <div class="step-block">
+    <div class="step-meta">
+      <p class="step-time">0:00 – 0:30</p>
+      <p class="step-label">Opening</p>
+    </div>
+    <div class="step-body">
+      <h3>Set the scene</h3>
+      <div class="say-block">
+        <p class="say-label">Say</p>
+        "What I'm going to show you takes about five minutes. It's a fictional intake scenario — I'll be playing the role of a prospect emailing a law firm for the first time. Everything you see is made up for the demo. The point is to show you how the workflow handles a real intake situation: disorganized, missing information, some urgency, the kind of thing that hits your inbox every week."
+      </div>
+      <p class="note">Pause. Confirm they're ready to follow along. If screen-sharing, share your full screen now.</p>
+    </div>
+  </div>
+
+  <!-- 2. Messy Intake -->
+  <div class="step-block">
+    <div class="step-meta">
+      <p class="step-time">0:30 – 1:30</p>
+      <p class="step-label">The intake</p>
+    </div>
+    <div class="step-body">
+      <h3>Show a realistic, messy intake email</h3>
+      <div class="say-block">
+        <p class="say-label">Say</p>
+        "Here's what came in this morning. This is not unusual — this is what intake actually looks like."
+      </div>
+      <div class="show-block"><span class="show-label">Fictional intake email — paste or display</span>
+From: Marcus Webb &lt;mwebb_personal@email.com&gt;
+Subject: need help asap
+
+Hi — someone gave me your number but I'm not sure if you handle this kind of thing. My company Hargrove Distribution had a contract with a vendor, Meridian Logistics, and they stopped delivering in February without notice. We had to find someone else last minute and it cost us a lot. My business partner thinks we have a case but I'm not sure. We're also worried about some back and forth emails that might be a problem. Also there's another company that I think might also be suing Meridian so I don't know if that matters.
+
+Can someone call me? I'm usually free in the mornings. My number is 555-0182. I think there's some kind of deadline but I don't know what it is.
+
+Thanks
+Marcus</div>
+      <div class="say-block">
+        <p class="say-label">Say</p>
+        "There are at least five things a staff member needs to pull out of that email before they can do anything with it. Name, company, matter type, urgency signals, potential conflict issues. This is the part that takes time — not because it's hard, but because it has to be done carefully every single time."
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Intake Summary -->
+  <div class="step-block">
+    <div class="step-meta">
+      <p class="step-time">1:30 – 2:15</p>
+      <p class="step-label">Intake summary</p>
+    </div>
+    <div class="step-body">
+      <h3>Run the intake summarizer prompt</h3>
+      <div class="say-block">
+        <p class="say-label">Say</p>
+        "I'm going to paste that email into the intake summarizer. This is a prompt we've configured specifically for your firm's intake format. It takes about ten seconds."
+      </div>
+      <p class="note">Paste the intake email into the AI tool using the firm's intake summarization prompt. Wait for output. Do not narrate while it runs.</p>
+      <div class="say-block">
+        <p class="say-label">Say — after output appears</p>
+        "Here's what the AI produced. This is a draft — staff still reviews this before doing anything with it. But notice what it did: it pulled the key facts into a consistent format, the same format every time regardless of how messy the original email was."
+      </div>
+      <div class="show-block"><span class="show-label">Expected AI output (approximate)</span>
+INTAKE SUMMARY — DRAFT FOR STAFF REVIEW
+Generated: [date] | Source: email | Status: pending review
+
+Prospect name: Marcus Webb
+Company: Hargrove Distribution
+Contact: 555-0182 (morning availability)
+Email: mwebb_personal@email.com
+
+Matter type: Commercial contract dispute
+Summary: Prospect's company had a contract with Meridian Logistics. Vendor allegedly stopped delivering in February without notice. Prospect incurred additional costs sourcing alternative. Prospect references emails that may be relevant. Mentions another party potentially in litigation with same vendor.
+
+Urgency signal: Prospect references an unknown deadline. Nature and date not specified.
+Conflict flag: Meridian Logistics — check for existing or prior representation.
+Second party flag: Unknown third company also referenced in potential Meridian dispute.
+
+DRAFT ONLY. Do not act on this summary without staff review and conflict screening.</div>
+    </div>
+  </div>
+
+  <!-- 4. Missing Information -->
+  <div class="step-block">
+    <div class="step-meta">
+      <p class="step-time">2:15 – 2:45</p>
+      <p class="step-label">Missing information</p>
+    </div>
+    <div class="step-body">
+      <h3>Show the missing-info flag output</h3>
+      <div class="say-block">
+        <p class="say-label">Say</p>
+        "The intake prompt also runs a missing-information check. Instead of staff having to remember what to ask for, the AI flags what's absent."
+      </div>
+      <div class="show-block"><span class="show-label">Missing information flags — draft for staff review</span>
+MISSING INFORMATION FLAGS
+
+□ Contract dates — when did the contract begin, and what was the agreed delivery period?
+□ Dollar amount — what were the additional costs incurred?
+□ Deadline specifics — prospect references a deadline but does not name it. Clarify: statute of limitations, contractual notice period, or other?
+□ Third-party identity — name of the other company reportedly in dispute with Meridian?
+□ Relevant emails — prospect mentions emails "that might be a problem." Clarify scope.
+
+Recommended: request this information in the first reply, after conflict screening clears.</div>
+      <div class="say-block">
+        <p class="say-label">Say</p>
+        "Your staff member reviews this, edits anything that doesn't apply, and uses it to draft the follow-up. The AI doesn't send anything — it hands the checklist to a person."
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Urgency Indicators -->
+  <div class="step-block">
+    <div class="step-meta">
+      <p class="step-time">2:45 – 3:15</p>
+      <p class="step-label">Urgency indicators</p>
+    </div>
+    <div class="step-body">
+      <h3>Show urgency flagging</h3>
+      <div class="say-block">
+        <p class="say-label">Say</p>
+        "One more thing the workflow flags: urgency. In this intake, Marcus says 'I think there's some kind of deadline.' That's a signal. A busy intake coordinator might process ten of these in a morning and miss that line. The AI doesn't miss it."
+      </div>
+      <div class="show-block"><span class="show-label">Urgency flags — draft for staff review</span>
+URGENCY FLAGS
+
+⚠  Prospect mentions an unspecified deadline — nature unknown. Treat as time-sensitive until clarified.
+⚠  Alleged breach occurred in February — elapsed time may be relevant to statute of limitations depending on jurisdiction and claim type.
+
+IMPORTANT: This workflow does not evaluate legal deadlines or determine statute of limitations. These flags are for staff attention only. A licensed attorney must review all deadline questions.</div>
+      <div class="say-block">
+        <p class="say-label">Say</p>
+        "Notice the disclaimer at the bottom. The workflow does not interpret legal deadlines. It flags the signal and hands it to someone who can."
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Conflict Screening Prep -->
+  <div class="step-block">
+    <div class="step-meta">
+      <p class="step-time">3:15 – 3:45</p>
+      <p class="step-label">Conflict-screening prep</p>
+    </div>
+    <div class="step-body">
+      <h3>Show the conflict-screening checklist</h3>
+      <div class="say-block">
+        <p class="say-label">Say</p>
+        "The workflow also prepares a conflict-screening checklist. This is not a conflict check — your staff does that. The AI pulls the names from the intake and formats them so the person doing the conflict check doesn't have to."
+      </div>
+      <div class="show-block"><span class="show-label">Conflict-screening prep — complete before proceeding</span>
+CONFLICT-SCREENING CHECKLIST
+
+Names to screen (from intake):
+  □ Marcus Webb (prospect / individual)
+  □ Hargrove Distribution (prospect / company)
+  □ Meridian Logistics (adverse party)
+  □ Unknown third company (referenced — name to be confirmed)
+
+Staff action required:
+  □ Run all names through firm conflict database
+  □ Check for prior representation of Meridian Logistics or related parties
+  □ Confirm third-party identity before screening is complete
+  □ Document screening result before any substantive communication
+
+IMPORTANT: This checklist does not perform a conflict check. The conflict-screening decision is made by firm staff, not by this workflow.</div>
+      <div class="say-block">
+        <p class="say-label">Say</p>
+        "The AI prepared the checklist. A person completes it and signs off. That's the workflow."
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Draft Acknowledgment -->
+  <div class="step-block">
+    <div class="step-meta">
+      <p class="step-time">3:45 – 4:30</p>
+      <p class="step-label">Draft acknowledgment</p>
+    </div>
+    <div class="step-body">
+      <h3>Show the draft acknowledgment</h3>
+      <div class="say-block">
+        <p class="say-label">Say</p>
+        "After conflict screening clears, the workflow can generate a draft acknowledgment. This is the first reply to the prospect. The AI drafts it — staff reads it, edits it if needed, and approves it before it goes anywhere."
+      </div>
+      <div class="show-block"><span class="show-label">Draft acknowledgment — for staff review and approval before sending</span>
+Subject: Re: need help asap
+
+Dear Mr. Webb,
+
+Thank you for reaching out. We received your message and will be in touch shortly to discuss the situation you described involving Hargrove Distribution and Meridian Logistics.
+
+Before we can speak in detail, we need to complete a brief internal review. We will contact you to schedule a time to talk, typically within 1–2 business days.
+
+If your situation is time-sensitive, please let us know by replying to this email.
+
+[Staff name]
+[Firm name]
+
+---
+DRAFT ONLY — review before sending.
+This message does not constitute legal advice and does not create an attorney-client relationship.
+Staff: remove this line before sending.</div>
+      <div class="say-block">
+        <p class="say-label">Say</p>
+        "The disclaimer at the bottom is for your staff — it reminds them this is a draft. They remove it before sending. The AI does not send this. Your staff member reads it, adjusts the tone if needed, fills in the bracketed fields, and hits send."
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. Close -->
+  <div class="step-block" style="border-bottom: 2px solid var(--ink);">
+    <div class="step-meta">
+      <p class="step-time">4:30 – 5:00</p>
+      <p class="step-label">Close</p>
+    </div>
+    <div class="step-body">
+      <h3>Wrap up and invite questions</h3>
+      <div class="say-block">
+        <p class="say-label">Say</p>
+        "That's the full workflow — intake in, structured summary out, flags raised, conflict checklist prepared, draft acknowledgment ready for review. Five steps. Everything reviewed by a person before anything happens. The AI did the organizing. Your staff did the deciding."
+      </div>
+      <div class="say-block">
+        <p class="say-label">Say</p>
+        "To be clear about what this is and isn't: everything I just showed you was a fictional scenario. Marcus Webb, Hargrove Distribution, Meridian Logistics — all invented. And the workflow itself does not provide legal advice, does not make conflict decisions, and does not contact anyone without your approval. It is a tool for your staff, not a replacement for them."
+      </div>
+      <div class="say-block">
+        <p class="say-label">Say</p>
+        "Questions?"
+      </div>
+      <p class="note">Common follow-up topics: what AI tool it uses, how intake arrives (email vs. form), whether it connects to their practice management system, what the setup looks like, and pricing. See the offer sheet for setup details.</p>
+    </div>
+  </div>
+
+</div>
+
+<footer class="site-footer no-print">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a class="wordmark" href="/" style="color: var(--paper); margin-bottom: var(--sp-2); display: inline-flex;">
+        GuideHerd<sup class="wordmark-sup">AI</sup>
+      </a>
+      <p>AI workflow design for small professional firms.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Contact</h4>
+      <a href="mailto:hello@guideherd.ai">hello@guideherd.ai</a>
+      <a href="https://guideherd.ai">guideherd.ai</a>
+    </div>
+    <div class="footer-col">
+      <h4>Sales assets</h4>
+      <a href="/sales/intake-explainer.html">One-page explainer</a>
+      <a href="/sales/offer-sheet.html">Offer sheet</a>
+    </div>
+  </div>
+  <div class="footer-meta">
+    <span>© 2026 GuideHerd AI, LLC. — Internal sales use only.</span>
+    <span>All demo scenarios are fictional. No legal advice. No attorney-client relationship.</span>
+  </div>
+</footer>
+
+</body>
+</html>

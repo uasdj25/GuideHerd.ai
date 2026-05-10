@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GuideHerd AI Intake Workflow Setup — Offer Sheet</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter+Tight:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="/css/academy.css">
+<style>
+  @media print {
+    .site-header, .site-footer, .no-print { display: none !important; }
+    body { background: #fff; color: #000; }
+    .page-hero { padding-top: 0; }
+    .offer-block { break-inside: avoid; }
+  }
+  .offer-block {
+    border-top: 1px solid var(--ink-20);
+    padding: var(--sp-3) 0;
+  }
+  .offer-label {
+    font-size: var(--fs-xs); letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-60); font-weight: 500; margin-bottom: var(--sp-1);
+  }
+  .include-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+  .include-list li {
+    font-size: var(--fs-md); color: var(--ink-soft); line-height: 1.55;
+    padding-left: var(--sp-3); position: relative;
+  }
+  .include-list li::before {
+    content: "✓"; color: var(--accent-ink); position: absolute; left: 0;
+    font-size: var(--fs-xs); top: 4px; font-weight: 600;
+  }
+  .guardrail-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+  .guardrail-list li {
+    font-size: var(--fs-md); color: var(--ink-soft); line-height: 1.55;
+    padding-left: var(--sp-3); position: relative;
+  }
+  .guardrail-list li::before {
+    content: "✕"; color: var(--ink-40); position: absolute; left: 0;
+    font-size: var(--fs-xs); top: 4px;
+  }
+  .price-callout {
+    display: inline-block;
+    font-family: var(--serif);
+    font-size: clamp(36px, 5vw, 56px);
+    color: var(--ink);
+    line-height: 1;
+    margin-bottom: var(--sp-1);
+  }
+  .price-note {
+    font-size: var(--fs-sm);
+    color: var(--ink-60);
+    line-height: 1.55;
+    margin-top: var(--sp-1);
+  }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-5); }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+  .card {
+    border: 1px solid var(--ink-20);
+    padding: var(--sp-4);
+    background: var(--paper);
+  }
+  .card.featured {
+    border-color: var(--accent);
+    border-width: 2px;
+  }
+  .card-tag {
+    font-size: var(--fs-xs); letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-60); font-weight: 500; margin-bottom: var(--sp-2);
+  }
+  .card-title {
+    font-family: var(--serif); font-size: var(--fs-xl);
+    margin-bottom: var(--sp-3); color: var(--ink);
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header no-print">
+  <div class="header-row">
+    <a class="wordmark" href="/">
+      GuideHerd<sup class="wordmark-sup">AI</sup>
+    </a>
+    <div class="header-actions">
+      <a class="btn btn-ghost btn-sm" href="mailto:hello@guideherd.ai">Contact us</a>
+    </div>
+  </div>
+</header>
+
+<div class="page-hero" style="border-bottom: 1px solid var(--ink-20); padding-bottom: var(--sp-6);">
+  <p class="page-eyebrow">§ GuideHerd AI</p>
+  <h1 class="page-title" style="font-size: clamp(32px, 5vw, 52px);">AI Intake Workflow Setup</h1>
+  <p class="page-lede" style="max-width: 58ch;">What's included, what it costs, and what to expect. No long-term contract required to get started.</p>
+</div>
+
+<!-- PRICING -->
+<div class="section">
+  <span class="section-num">§ 01</span>
+  <h2 class="section-kicker">Pricing</h2>
+
+  <div class="two-col" style="max-width: 880px; margin-bottom: var(--sp-5);">
+
+    <div class="card featured">
+      <p class="card-tag">One-time · Most firms start here</p>
+      <p class="card-title">Workflow Setup</p>
+      <p class="price-callout">$2,500–$5,000</p>
+      <p class="price-note">Scoped after a 30-minute intake audit. Most small firm setups land in the $2,500–$3,500 range. Larger scope — multiple practice areas, more intake channels, or more complex handoff requirements — may run up to $5,000.</p>
+      <p class="price-note" style="margin-top: var(--sp-2);">Quoted as a fixed price. No hourly billing.</p>
+    </div>
+
+    <div class="card">
+      <p class="card-tag">Monthly · Optional after setup</p>
+      <p class="card-title">Ongoing Support</p>
+      <p class="price-callout">$200–$500<span style="font-size: var(--fs-lg); color: var(--ink-60);">/mo</span></p>
+      <p class="price-note">Optional. Cancel with 30 days’ notice unless otherwise agreed in writing. Covers prompt updates, workflow adjustments, and one check-in per month. Not required — the setup deliverables are yours to keep and use without a monthly plan.</p>
+    </div>
+
+  </div>
+
+  <div style="background: var(--paper-2); border: 1px solid var(--ink-20); padding: var(--sp-3) var(--sp-4); max-width: 700px;">
+    <p style="font-size: var(--fs-sm); color: var(--ink-soft); line-height: 1.65;"><strong style="color: var(--ink);">How pricing is scoped:</strong> After an initial 30-minute intake audit call, GuideHerd prepares a fixed-price quote based on the number of intake channels, the complexity of your conflict-screening process, the number of matter types, and how many staff will use the workflow. No surprises after the quote is accepted.</p>
+  </div>
+</div>
+
+<!-- WHAT'S INCLUDED: SETUP -->
+<div class="section" style="background: var(--paper-2); max-width: none; padding-left: 0; padding-right: 0;">
+  <div style="max-width: 1280px; margin: 0 auto; padding: 0 var(--sp-4);">
+    <span class="section-num">§ 02</span>
+    <h2 class="section-kicker">What's included in setup</h2>
+    <p style="font-size: var(--fs-md); color: var(--ink-soft); max-width: 56ch; line-height: 1.65; margin-bottom: var(--sp-4);">Setup is a one-time engagement. Everything produced is delivered to you and documented for your staff to use independently.</p>
+
+    <div class="two-col" style="max-width: 900px;">
+      <div>
+        <div class="offer-block" style="border-top: 2px solid var(--ink); padding-top: var(--sp-3);">
+          <p class="offer-label">Intake audit</p>
+          <p style="font-size: var(--fs-md); color: var(--ink-soft); line-height: 1.55; margin-bottom: var(--sp-2);">Review of your current intake process: how inquiries arrive, what information you need at intake, where the handoffs happen, and what delays or errors occur most often.</p>
+        </div>
+        <div class="offer-block">
+          <p class="offer-label">Prompt library</p>
+          <p style="font-size: var(--fs-md); color: var(--ink-soft); line-height: 1.55; margin-bottom: var(--sp-2);">Four to six configured prompts specific to your firm:</p>
+          <ul class="include-list">
+            <li>Intake summarizer</li>
+            <li>Missing-information detector</li>
+            <li>Urgency flagging</li>
+            <li>Conflict-screening prep</li>
+            <li>Draft acknowledgment</li>
+            <li>Guardrail check (for staff use)</li>
+          </ul>
+        </div>
+        <div class="offer-block">
+          <p class="offer-label">Conflict-screening checklist</p>
+          <p style="font-size: var(--fs-md); color: var(--ink-soft); line-height: 1.55;">A structured checklist template for your staff to complete after each intake. Designed around your matter types and practice areas.</p>
+        </div>
+      </div>
+      <div>
+        <div class="offer-block" style="border-top: 2px solid var(--ink); padding-top: var(--sp-3);">
+          <p class="offer-label">Staff SOP</p>
+          <p style="font-size: var(--fs-md); color: var(--ink-soft); line-height: 1.55;">A written standard operating procedure covering how to run the workflow, how to review AI output, how to complete the conflict-screening checklist, and how the approval step works.</p>
+        </div>
+        <div class="offer-block">
+          <p class="offer-label">Staff training session</p>
+          <p style="font-size: var(--fs-md); color: var(--ink-soft); line-height: 1.55;">One 60–90 minute live session with the staff who will use the workflow. Covers the full workflow end-to-end, the human review model, and what to do when AI output looks wrong.</p>
+        </div>
+        <div class="offer-block">
+          <p class="offer-label">Testing against real intakes</p>
+          <p style="font-size: var(--fs-md); color: var(--ink-soft); line-height: 1.55;">Before handoff, prompts are tested against anonymized examples from your actual intake — not generic scenarios. Output is reviewed and prompts are adjusted until results are consistent.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WHAT'S INCLUDED: MONTHLY SUPPORT -->
+<div class="section">
+  <span class="section-num">§ 03</span>
+  <h2 class="section-kicker">What's included in monthly support</h2>
+  <p style="font-size: var(--fs-md); color: var(--ink-soft); max-width: 56ch; line-height: 1.65; margin-bottom: var(--sp-4);">Optional after setup. Most firms start with three to six months of support while the workflow becomes routine, then continue or cancel based on need.</p>
+
+  <ul class="include-list" style="max-width: 56ch;">
+    <li>One 30-minute monthly check-in call — review how the workflow is performing, flag issues</li>
+    <li>Prompt updates when AI model behavior changes or firm intake patterns shift</li>
+    <li>Minor workflow adjustments — new matter type, revised acknowledgment language, updated checklist items</li>
+    <li>Email support for staff questions between check-ins</li>
+    <li>Annual review of SOPs and checklists to confirm they reflect current firm practice</li>
+  </ul>
+
+  <div style="margin-top: var(--sp-4); background: var(--paper-2); border: 1px solid var(--ink-20); padding: var(--sp-3) var(--sp-4); max-width: 600px;">
+    <p style="font-size: var(--fs-sm); color: var(--ink-soft); line-height: 1.65;"><strong style="color: var(--ink);">Not included in support:</strong> Major workflow redesign, new practice area buildout, or additional staff training sessions. These are scoped separately if needed.</p>
+  </div>
+</div>
+
+<!-- GUARDRAILS -->
+<div class="section" style="background: var(--paper-2); max-width: none; padding-left: 0; padding-right: 0;">
+  <div style="max-width: 1280px; margin: 0 auto; padding: 0 var(--sp-4);">
+    <span class="section-num">§ 04</span>
+    <h2 class="section-kicker">What this workflow does not do</h2>
+    <p style="font-size: var(--fs-md); color: var(--ink-soft); max-width: 56ch; line-height: 1.65; margin-bottom: var(--sp-4);">These are not limitations to work around. They are the design. Every output the workflow produces is a draft or checklist for human review — not a decision, not a final product, not a communication.</p>
+    <ul class="guardrail-list" style="max-width: 56ch;">
+      <li>Does not provide legal advice, professional opinions, or compliance guidance</li>
+      <li>Does not make conflict-screening decisions — prepares checklists for staff to complete</li>
+      <li>Does not create an attorney-client relationship</li>
+      <li>Does not send any communication to a client or prospect without human review and approval</li>
+      <li>Does not connect to or modify your practice management system</li>
+      <li>Does not operate automatically — a person runs each workflow step</li>
+      <li>Does not retain or store client data beyond the session it is used in</li>
+    </ul>
+  </div>
+</div>
+
+<!-- BEST STARTING POINT -->
+<div class="section" style="background: var(--ink); max-width: none; padding-left: 0; padding-right: 0;">
+  <div style="max-width: 1280px; margin: 0 auto; padding: var(--sp-6) var(--sp-4);">
+    <span class="section-num" style="color: rgba(245,242,234,0.4);">§ 05</span>
+    <h2 class="section-kicker" style="color: var(--paper);">Best starting point</h2>
+    <p style="font-size: var(--fs-md); color: rgba(245,242,234,0.7); max-width: 52ch; line-height: 1.65; margin-bottom: var(--sp-4);">A 30-minute intake audit call. No charge, no commitment. We review your current intake process, identify where the workflow would help most, confirm fit, and provide a fixed-price quote within two business days.</p>
+    <div style="display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: center;">
+      <a class="btn btn-accent" href="mailto:hello@guideherd.ai?subject=Intake workflow inquiry" style="text-decoration: none;">Email hello@guideherd.ai →</a>
+      <span style="font-size: var(--fs-sm); color: rgba(245,242,234,0.5);">Response within 1–2 business days</span>
+    </div>
+    <div style="margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid rgba(245,242,234,0.15);">
+      <p style="font-size: var(--fs-sm); color: rgba(245,242,234,0.4); max-width: 60ch; line-height: 1.65;">This offer sheet describes a workflow design and training service. It does not constitute legal, financial, or professional advice. All AI outputs produced using GuideHerd-configured workflows are drafts for human review and do not represent the professional judgment of any attorney, accountant, or other licensed professional.</p>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer no-print">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a class="wordmark" href="/" style="color: var(--paper); margin-bottom: var(--sp-2); display: inline-flex;">
+        GuideHerd<sup class="wordmark-sup">AI</sup>
+      </a>
+      <p>AI workflow design for small professional firms.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Contact</h4>
+      <a href="mailto:hello@guideherd.ai">hello@guideherd.ai</a>
+      <a href="https://guideherd.ai">guideherd.ai</a>
+    </div>
+    <div class="footer-col">
+      <h4>Sales assets</h4>
+      <a href="/sales/intake-explainer.html">One-page explainer</a>
+      <a href="/sales/demo-script.html">Demo script</a>
+    </div>
+  </div>
+  <div class="footer-meta">
+    <span>© 2026 GuideHerd AI, LLC.</span>
+    <span><a href="#">Privacy</a> · <a href="#">Terms</a></span>
+  </div>
+</footer>
+
+</body>
+</html>

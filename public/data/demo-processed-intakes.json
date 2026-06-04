@@ -220,5 +220,130 @@
     ],
     "attorney_summary": "INTERNAL — ATTORNEY EYES ONLY — NOT FOR CLIENT DISTRIBUTION\n\n# Intake Summary: Derek Simmons\n**Intake ID:** demo-intake-003\n**Submitted:** April 23, 2025\n**Classification:** Out of Scope — Criminal Defense (88% confidence)\n**Fit Status:** OUT OF_SCOPE\n**Urgency:** EMERGENCY\n\n---\n\n## What the Prospective Client Says\n\nI was arrested last Thursday in Limestone County for DUI, first offense. I took a breathalyzer and blew a 0.09. I have no prior criminal record and I have never been in trouble before. My arraignment is scheduled for May 6th. I need a criminal defense attorney as quickly as possible. I am worried about losing my driver's license and whether this will affect my job.\n\n---\n\n## Classification Rationale\n\nThe matter description appears to involve Out of Scope — Criminal Defense. The classification is based on keyword and context analysis of the intake form. Confidence score: 88/100.\nSecondary areas potentially implicated: Estate Planning.\n\n**This matter appears to be out of scope for this firm.** See referral suggestion below.\n\n### Referral Note\n\nCriminal defense matters are outside this firm's practice. The prospective client should consult a licensed criminal defense attorney in the relevant jurisdiction as soon as possible, particularly given any pending court dates.\n\n---\n\n## Missing Information\n\n- Confirm whether prior counsel was involved on this specific matter.\n\n---\n\n## Conflict-Check Names\n\n*This name list is extracted for conflict-screening purposes only. It may be incomplete or inaccurate. An attorney must conduct a full conflict-of-interest review using the firm's client database before any substantive discussion occurs. This output does not represent a conflict clearance.*\n\n- **Derek Simmons** (client)\n- **State of Alabama** (opposing_party)\n\n---\n\n## Suggested Consultation Questions\n\n- Can you walk me through the timeline of events from beginning to today?\n- Have you been contacted by any other attorney about this matter?\n- Have you signed any documents related to this matter that we should review?\n- NOTE TO ATTORNEY: Matter appears out of scope. Confirm and prepare referral information.\n\n---\n\n## Internal Warnings\n\n- ⚠️ URGENT: Prospective client reports an imminent court date or deadline. Confirm date and prioritize review.\n- ⚠️ OUT OF SCOPE: This matter does not fall within firm practice areas. Prepare referral language. Do not discuss merits.\n\n---\n\n*This summary is a draft prepared by AI-assisted intake processing. It does not constitute legal advice and requires attorney review before any action is taken. No attorney-client relationship has been formed.*",
     "client_acknowledgment": "[DRAFT] — Requires attorney review and approval before sending. Do not send as-is.\n\nSubject: We Received Your Inquiry — Madison Valley Law Group\n\nDear Derek,\n\nThank you for reaching out to Madison Valley Law Group. We have received your inquiry regarding your recent inquiry.\n\nAfter reviewing your inquiry, it appears that this matter may fall outside of our firm's current practice areas. An attorney will follow up with more information, including possible referral resources that may be able to assist you.\n\nAn attorney will review the information you have provided. If your matter falls within our practice areas and no conflicts are identified, we will be in touch to schedule an initial consultation.\n\nPlease note the following:\n\n- This acknowledgment does not create an attorney-client relationship.\n- Submitting an inquiry does not mean the firm has agreed to represent you.\n- Before any attorney-client relationship can be formed, the firm must complete a conflict-of-interest review and both parties must sign a written engagement agreement.\n- No legal advice is provided by this communication.\n\nIf your matter is time-sensitive, please call our office directly at 256-555-0199.\n\nWe appreciate you contacting our firm and will follow up as soon as possible.\n\nWarm regards,\n\n[Attorney Name — to be completed by reviewing attorney]\nMadison Valley Law Group\n256-555-0199\nintake@madisonvalleylaw.example\n\n---\nIMPORTANT NOTICE: This communication is for informational purposes only and does not constitute legal advice. No attorney-client relationship is created by this message or by submitting an intake inquiry. Confidentiality of this communication cannot be assured until a formal engagement agreement is signed by both parties.\n\n[END DRAFT]"
+  },
+  {
+    "intake_id": "demo-intake-004",
+    "processed_at": "2025-04-24T11:20:00Z",
+    "demo_data_only": true,
+    "not_legal_advice": true,
+    "requires_human_approval": true,
+    "firm": {
+      "name": "Madison Valley Law Group",
+      "location": "Madison, Alabama",
+      "phone": "256-555-0199",
+      "email": "intake@madisonvalleylaw.example"
+    },
+    "source_channel": "phone",
+    "voice_provider": "ElevenLabs",
+    "phone_transcript": [
+      {
+        "speaker": "Voice Layer",
+        "text": "Thanks for calling GuideHerd Legal Intake. I can help capture the basics. What is your name and what is this about?"
+      },
+      {
+        "speaker": "Caller",
+        "text": "I'm Sarah Whitfield. I'm calling about my dad, Daniel Whitfield. He died last Sunday, and now there is a mess with his house, his trust, and my stepmother."
+      },
+      {
+        "speaker": "Voice Layer",
+        "text": "I understand. Is there already a probate case or any court hearing scheduled?"
+      },
+      {
+        "speaker": "Caller",
+        "text": "Not that I know of. My stepmother, Lena Whitfield, keeps saying she can handle it, but my cousin Marcus Reed told me she is trying to move money out of a joint account and list the cabin in Limestone County without talking to the rest of us."
+      },
+      {
+        "speaker": "Voice Layer",
+        "text": "Are there any deadlines, emergency hearings, or other family issues we should flag?"
+      },
+      {
+        "speaker": "Caller",
+        "text": "Yes. My mom, Ruth Whitfield, has an emergency guardianship hearing next Tuesday because her dementia has gotten worse. I think there may be a trust issue tied to the deed too. I have a photo of the deed and the account statements, but I don't know what matters most."
+      },
+      {
+        "speaker": "Voice Layer",
+        "text": "That is helpful. Do you know the county or court handling the guardianship hearing, and has anyone already filed anything?"
+      },
+      {
+        "speaker": "Caller",
+        "text": "I only know it is in Limestone County. Nobody has given me a case number yet. I just need someone to tell me who can stop the house sale and whether the trust is valid."
+      }
+    ],
+    "intake": {
+      "first_name": "Sarah",
+      "last_name": "Whitfield",
+      "email": "s.whitfield.demo@example.com",
+      "phone": "256-555-0404",
+      "matter_description": "Phone intake about a family estate matter involving a recent death, a trust question, a deed question, a pending guardianship hearing, and a possible attempt to sell a house from the estate.",
+      "parties_involved": "Sarah Whitfield (caller), Daniel Whitfield (decedent), Lena Whitfield (stepmother), Marcus Reed (cousin), Ruth Whitfield (mother), Limestone County Probate Court",
+      "estimated_value": "Unknown — estate, trust, and property dispute",
+      "urgency_self_reported": "High — emergency guardianship hearing next Tuesday",
+      "prior_attorney": "None",
+      "referral_source": "Phone intake via ElevenLabs voice layer",
+      "submitted_at": "2025-04-24T11:20:00Z"
+    },
+    "classification": "Probate / Trust / Property",
+    "secondary_areas": [
+      "Guardianship",
+      "Real Estate"
+    ],
+    "fit_status": "in_scope",
+    "confidence_score": 91,
+    "urgency": "high",
+    "referral_suggestion": null,
+    "conflict_check_names": {
+      "extracted": [
+        {
+          "name": "Sarah Whitfield",
+          "role": "client"
+        },
+        {
+          "name": "Daniel Whitfield",
+          "role": "decedent"
+        },
+        {
+          "name": "Lena Whitfield",
+          "role": "referenced_third_party"
+        },
+        {
+          "name": "Marcus Reed",
+          "role": "referenced_third_party"
+        },
+        {
+          "name": "Ruth Whitfield",
+          "role": "referenced_third_party"
+        },
+        {
+          "name": "Limestone County Probate Court",
+          "role": "entity"
+        }
+      ],
+      "disclaimer": "This name list is extracted for conflict-screening purposes only. It may be incomplete or inaccurate. An attorney must conduct a full conflict-of-interest review using the firm's client database before any substantive discussion occurs. This output does not represent a conflict clearance."
+    },
+    "missing_information": [
+      "Whether a will exists and where it is stored.",
+      "Whether a probate case has already been filed and in which county.",
+      "Whether an emergency guardianship or injunction filing has already been made.",
+      "Copy of the deed, trust, or other ownership document.",
+      "Case number and hearing details for the guardianship matter.",
+      "Names of any other family members or parties involved."
+    ],
+    "consultation_questions": [
+      "Has anyone already filed a probate case or emergency guardianship request?",
+      "Which county and court are handling the matter?",
+      "Who currently controls the property, trust, or account at issue?",
+      "What deadlines, hearings, or closing dates are already scheduled?",
+      "Do you have copies of the will, deed, trust, or account statements?",
+      "Have you been contacted by any other attorney about this matter?"
+    ],
+    "internal_warnings": [
+      "NORMALIZED FROM PHONE TRANSCRIPT: This record came from a voice call transcript.",
+      "MULTIPLE FAMILY / PROPERTY ISSUES: Estate, guardianship, and property questions are all present.",
+      "EMERGENCY HEARING MENTIONED: Human review should happen promptly.",
+      "CONFLICT NAMES EXTRACTED ONLY: No conflict determination made.",
+      "DRAFT CLIENT COMMUNICATION ONLY: Human approval required."
+    ],
+    "attorney_summary": "INTERNAL — ATTORNEY EYES ONLY — NOT FOR CLIENT DISTRIBUTION\n\nProspective client Sarah Whitfield reports a complex family estate matter involving the recent death of Daniel Whitfield, a possible trust issue, a possible deed / property transfer issue, and an emergency guardianship hearing for Ruth Whitfield next Tuesday. Sarah says her stepmother, Lena Whitfield, may be attempting to move money from a joint account and list a cabin in Limestone County without coordination from the rest of the family. The caller also mentioned Marcus Reed as the family member who relayed concerns about the property.\n\nNo case number has been provided. The caller has not confirmed whether a probate case has already been filed. They mention having photos of the deed and account statements.\n\nClassification: Probate / Trust / Property. In scope. Urgency: High.\n\nNext steps: confirm whether probate or guardianship filings already exist, verify county and court, gather the will / deed / trust / account records, and route to human review before any communication goes out.\n\nThis summary is a draft prepared by AI-assisted intake processing. It does not constitute legal advice and requires attorney review before any action is taken. No attorney-client relationship has been formed.",
+    "client_acknowledgment": "[DRAFT] — Requires attorney review and approval before sending. Do not send as-is.\n\nSubject: We Received Your Inquiry — Madison Valley Law Group\n\nDear Sarah,\n\nThank you for reaching out to Madison Valley Law Group. We have received your inquiry regarding a family estate and property matter.\n\nAn attorney will review the information you have provided. If your matter falls within our practice areas and no conflicts are identified, we will be in touch to schedule an initial consultation.\n\nPlease note the following:\n\n- This acknowledgment does not create an attorney-client relationship.\n- Submitting an inquiry does not mean the firm has agreed to represent you.\n- Before any attorney-client relationship can be formed, the firm must complete a conflict-of-interest review and both parties must sign a written engagement agreement.\n- No legal advice is provided by this communication.\n\nIf your matter is time-sensitive, please call our office directly at 256-555-0199.\n\nWe appreciate you contacting our firm and will follow up as soon as possible.\n\nWarm regards,\n\n[Attorney Name — to be completed by reviewing attorney]\nMadison Valley Law Group\n256-555-0199\nintake@madisonvalleylaw.example\n\n---\nIMPORTANT NOTICE: This communication is for informational purposes only and does not constitute legal advice. No attorney-client relationship is created by this message or by submitting an intake inquiry. Confidentiality of this communication cannot be assured until a formal engagement agreement is signed by both parties.\n\n[END DRAFT]"
   }
 ]

@@ -190,6 +190,54 @@
       border-radius: var(--radius); color: var(--red-flag);
     }
 
+    .phone-grid {
+      display: grid;
+      gap: 10px;
+    }
+    .turn {
+      border: 1px solid var(--ink-10);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      background: var(--paper);
+    }
+    .turn.voice {
+      background: rgba(47,164,160,0.08);
+      border-color: rgba(47,164,160,0.22);
+    }
+    .turn-speaker {
+      display: inline-block;
+      margin-bottom: 6px;
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ink-40);
+    }
+    .phone-form {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .form-field {
+      border: 1px solid var(--ink-10);
+      border-radius: var(--radius);
+      background: #fff;
+      padding: 12px 14px;
+    }
+    .form-field h4 {
+      margin-bottom: 6px;
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ink-40);
+    }
+    .form-field .value {
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--ink);
+    }
+
     /* Name chips */
     .name-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
     .name-chip {
@@ -254,6 +302,7 @@
       .demo-banner { padding: 10px 20px; }
       .page-wrap   { padding: 24px 20px; }
       .detail-grid { grid-template-columns: 1fr; }
+      .phone-form { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -514,6 +563,16 @@
     navigator.clipboard.writeText(text).catch(() => {});
   }
 
+  function renderPhoneTranscript(transcript) {
+    if (!Array.isArray(transcript) || transcript.length === 0) {
+      return '<div style="color:var(--ink-40);font-size:14px;">No phone transcript for this record.</div>';
+    }
+    return `<div class="phone-grid">${transcript.map(turn => {
+      const isVoice = /voice/i.test(turn.speaker || '');
+      return `<div class="turn ${isVoice ? 'voice' : ''}"><div class="turn-speaker">${esc(turn.speaker)}</div><div>${esc(turn.text)}</div></div>`;
+    }).join('')}</div>`;
+  }
+
   // -------------------------------------------------------------------------
   // Render detail view
   // -------------------------------------------------------------------------
@@ -523,6 +582,9 @@
     if (!r) return;
 
     const { intake, conflict_check_names: cc } = r;
+    const phoneTranscript = r.phone_transcript || [];
+    const sourceChannel = r.source_channel || 'web';
+    const voiceProvider = r.voice_provider || '—';
 
     const conflictHtml = cc.extracted.map(e =>
       `<span class="name-chip">${esc(e.name)} <span class="name-chip-role">${esc(e.role.replace('_',' '))}</span></span>`
@@ -576,10 +638,33 @@
             <div class="detail-row"><div class="detail-label">Estimated Value</div><div class="detail-value">${esc(intake.estimated_value || '—')}</div></div>
             <div class="detail-row"><div class="detail-label">Prior Attorney</div><div class="detail-value">${esc(intake.prior_attorney || '—')}</div></div>
             <div class="detail-row"><div class="detail-label">Referral Source</div><div class="detail-value">${esc(intake.referral_source || '—')}</div></div>
+            <div class="detail-row"><div class="detail-label">Source Channel</div><div class="detail-value">${esc(sourceChannel)}</div></div>
+            <div class="detail-row"><div class="detail-label">Voice Layer</div><div class="detail-value">${esc(voiceProvider)}</div></div>
             ${referralHtml}
           </div>
         </div>
       </div>
+
+      ${phoneTranscript.length ? `
+      <div class="detail-grid">
+        <div class="card" style="grid-column: 1 / -1;">
+          <div class="card-title">Phone Conversation</div>
+          <p style="font-size:13px;color:var(--ink-40);margin-bottom:12px;line-height:1.55;">This record was captured through the ElevenLabs voice layer, then normalized into the same intake format shown below.</p>
+          ${renderPhoneTranscript(phoneTranscript)}
+        </div>
+        <div class="card" style="grid-column: 1 / -1;">
+          <div class="card-title">Printed Intake Form</div>
+          <div class="phone-form">
+            <div class="form-field"><h4>Caller</h4><div class="value">${esc(`${intake.first_name} ${intake.last_name}`.trim())}</div></div>
+            <div class="form-field"><h4>Matter Type</h4><div class="value">${esc(r.classification)}</div></div>
+            <div class="form-field"><h4>Source</h4><div class="value">${esc(sourceChannel)}</div></div>
+            <div class="form-field"><h4>Voice Layer</h4><div class="value">${esc(voiceProvider)}</div></div>
+            <div class="form-field" style="grid-column: 1 / -1;"><h4>Summary</h4><div class="value">${esc(intake.matter_description)}</div></div>
+            <div class="form-field" style="grid-column: 1 / -1;"><h4>Parties Involved</h4><div class="value">${esc(intake.parties_involved || '—')}</div></div>
+          </div>
+        </div>
+      </div>
+      ` : ''}
 
       <!-- Row 2: Conflict check + Missing info -->
       <div class="detail-grid">

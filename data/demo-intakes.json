@@ -1,136 +1,44 @@
 [
   {
-    "lead_id": "demo-001",
-    "submitted_at": "2026-05-07T17:40:00Z",
-    "potential_client": "Megan Harper",
-    "matter_type": "Probate / estate dispute",
-    "facts": [
-      "Her father, Robert Harper, died two weeks ago in Madison County.",
-      "A sibling says the will is being challenged.",
-      "The family mentioned a probate court deadline next week.",
-      "Megan wants help sorting out the estate administration and the dispute."
-    ],
-    "named_entities": {
-      "opposing_parties": ["Aaron Harper"],
-      "related_entities": ["Harper Family Estate"],
-      "deceased_persons": ["Robert Harper"],
-      "heirs_or_beneficiaries": ["Megan Harper", "Aaron Harper", "Lydia Harper"],
-      "witnesses_or_other_names": ["Ellen Price"],
-      "opposing_counsel": []
-    }
+    "id": "demo-intake-001",
+    "submitted_at": "2025-04-21T10:14:00Z",
+    "first_name": "Margaret",
+    "last_name": "Holloway",
+    "email": "m.holloway.demo@example.com",
+    "phone": "256-555-0101",
+    "matter_description": "My father, Robert Holloway, passed away on March 3rd of this year. He had a will that was executed about eight years ago naming me as the executor. My sister, Patricia Greer, is now contesting the will. She claims that our father lacked mental capacity when he signed it, and that I unduly influenced him. The estate includes the family home here in Madison (appraised around $280,000) and a joint checking account with about $98,000. There is also a small investment account but we have not gotten a valuation yet. I have the original will and I have already notified the probate court. My sister has hired an attorney. I need to know what to do next and whether I need an attorney to defend the will.",
+    "parties_involved": "Robert Holloway (decedent), Patricia Greer (sister, opposing party), Greer's attorney name unknown",
+    "estimated_value": "Approximately $380,000 plus unvalued investment account",
+    "urgency_self_reported": "High — sister's attorney has sent a demand letter",
+    "prior_attorney": "None",
+    "referral_source": "Friend referral"
   },
   {
-    "lead_id": "demo-002",
-    "submitted_at": "2026-05-07T17:55:00Z",
-    "potential_client": "Luis Ortega, Ortega HVAC Services",
-    "matter_type": "Small business unpaid invoice",
-    "facts": [
-      "Ortega HVAC Services completed a commercial service job for Briarwood Property Management, LLC.",
-      "Invoice #4471 for $8,900 is 38 days overdue.",
-      "A demand email was sent but no payment has arrived.",
-      "Luis wants help understanding options for a payment dispute."
-    ],
-    "named_entities": {
-      "opposing_parties": ["Briarwood Property Management, LLC"],
-      "related_entities": ["Ortega HVAC Services", "Invoice #4471"],
-      "deceased_persons": [],
-      "heirs_or_beneficiaries": [],
-      "witnesses_or_other_names": ["Carla Jennings"],
-      "opposing_counsel": []
-    }
+    "id": "demo-intake-002",
+    "submitted_at": "2025-04-22T14:32:00Z",
+    "first_name": "Carlos",
+    "last_name": "Mendez",
+    "email": "c.mendez.demo@example.com",
+    "phone": "256-555-0202",
+    "matter_description": "I own a landscaping business, Mendez Landscaping LLC. In October 2024 I entered into a written contract with Ridgeline Properties LLC to provide seasonal landscaping services for a commercial property they manage at 400 Commerce Parkway. I completed all work as specified and submitted my final invoice on November 15, 2024 for $28,500. They acknowledged receipt of the invoice but have not paid. I have sent two follow-up emails and left voicemails with their property manager, Jordan Blake, and their accounting contact, Sandra Odom. It has now been over 90 days. I have all the paperwork — the signed contract, the signed completion report, and all invoice and communication records. I want to send a formal demand letter and pursue collection if necessary.",
+    "parties_involved": "Mendez Landscaping LLC (client business), Carlos Mendez (owner), Ridgeline Properties LLC (opposing party), Jordan Blake (property manager), Sandra Odom (accounting contact)",
+    "estimated_value": "$28,500",
+    "urgency_self_reported": "Medium — want to act before further delay",
+    "prior_attorney": "None",
+    "referral_source": "Chamber of Commerce referral"
   },
   {
-    "lead_id": "demo-003",
-    "submitted_at": "2026-05-07T18:05:00Z",
-    "potential_client": "Terry Collins",
-    "matter_type": "Criminal defense",
-    "facts": [
-      "Terry was arrested last night after a traffic stop.",
-      "A hearing is scheduled for tomorrow morning.",
-      "He asked for immediate help with the criminal charge.",
-      "This is outside the firm's stated practice areas."
-    ],
-    "named_entities": {
-      "opposing_parties": ["State of Alabama"],
-      "related_entities": ["Madison County District Court"],
-      "deceased_persons": [],
-      "heirs_or_beneficiaries": [],
-      "witnesses_or_other_names": ["Officer Daniels"],
-      "opposing_counsel": ["Madison County District Attorney's Office"]
-    }
-  },
-  {
-    "lead_id": "demo-004",
-    "submitted_at": "2026-05-07T18:18:00Z",
-    "source_channel": "phone",
-    "voice_provider": "ElevenLabs",
-    "potential_client": "Sarah Whitfield",
-    "matter_type": "Probate / trust / property dispute",
-    "phone_transcript": [
-      {
-        "speaker": "Voice Layer",
-        "text": "Thanks for calling GuideHerd Legal Intake. I can help capture the basics. What is your name and what is this about?"
-      },
-      {
-        "speaker": "Caller",
-        "text": "I'm Sarah Whitfield. I'm calling about my dad, Daniel Whitfield. He died last Sunday, and now there is a mess with his house, his trust, and my stepmother."
-      },
-      {
-        "speaker": "Voice Layer",
-        "text": "I understand. Is there already a probate case or any court hearing scheduled?"
-      },
-      {
-        "speaker": "Caller",
-        "text": "Not that I know of. My stepmother, Lena Whitfield, keeps saying she can handle it, but my cousin Marcus Reed told me she is trying to move money out of a joint account and list the cabin in Limestone County without talking to the rest of us."
-      },
-      {
-        "speaker": "Voice Layer",
-        "text": "Are there any deadlines, emergency hearings, or other family issues we should flag?"
-      },
-      {
-        "speaker": "Caller",
-        "text": "Yes. My mom, Ruth Whitfield, has an emergency guardianship hearing next Tuesday because her dementia has gotten worse. I think there may be a trust issue tied to the deed too. I have a photo of the deed and the account statements, but I don't know what matters most."
-      },
-      {
-        "speaker": "Voice Layer",
-        "text": "That is helpful. Do you know the county or court handling the guardianship hearing, and has anyone already filed anything?"
-      },
-      {
-        "speaker": "Caller",
-        "text": "I only know it is in Limestone County. Nobody has given me a case number yet. I just need someone to tell me who can stop the house sale and whether the trust is valid."
-      }
-    ],
-    "facts": [
-      "Caller reports that Daniel Whitfield died last Sunday.",
-      "The family believes there may be a probate, trust, and deed issue tied to the estate.",
-      "Stepmother Lena Whitfield is allegedly moving money from a joint account and listing a cabin in Limestone County.",
-      "Marcus Reed is a cousin who relayed the concern about the property sale.",
-      "Ruth Whitfield has an emergency guardianship hearing next Tuesday because of worsening dementia.",
-      "The caller has a photo of the deed and account statements but no case number yet."
-    ],
-    "named_entities": {
-      "opposing_parties": [
-        "Lena Whitfield",
-        "Marcus Reed"
-      ],
-      "related_entities": [
-        "Whitfield Family Trust",
-        "Daniel Whitfield Estate",
-        "Limestone County Probate Court",
-        "Limestone County property cabin"
-      ],
-      "deceased_persons": [
-        "Daniel Whitfield"
-      ],
-      "heirs_or_beneficiaries": [
-        "Sarah Whitfield",
-        "Ruth Whitfield"
-      ],
-      "witnesses_or_other_names": [
-        "Limestone County clerk",
-        "unknown family member on the deed"
-      ],
-      "opposing_counsel": []
-    }
+    "id": "demo-intake-003",
+    "submitted_at": "2025-04-23T09:05:00Z",
+    "first_name": "Derek",
+    "last_name": "Simmons",
+    "email": "d.simmons.demo@example.com",
+    "phone": "256-555-0303",
+    "matter_description": "I was arrested last Thursday in Limestone County for DUI, first offense. I took a breathalyzer and blew a 0.09. I have no prior criminal record and I have never been in trouble before. My arraignment is scheduled for May 6th. I need a criminal defense attorney as quickly as possible. I am worried about losing my driver's license and whether this will affect my job.",
+    "parties_involved": "Derek Simmons (prospective client), State of Alabama (opposing party)",
+    "estimated_value": "Unknown — criminal case",
+    "urgency_self_reported": "Emergency — arraignment on May 6th",
+    "prior_attorney": "None",
+    "referral_source": "Google Search"
   }
 ]

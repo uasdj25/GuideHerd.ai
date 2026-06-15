@@ -1,0 +1,136 @@
+[
+  {
+    "lead_id": "demo-001",
+    "submitted_at": "2026-05-07T17:40:00Z",
+    "potential_client": "Megan Harper",
+    "matter_type": "Probate / estate dispute",
+    "facts": [
+      "Her father, Robert Harper, died two weeks ago in Madison County.",
+      "A sibling says the will is being challenged.",
+      "The family mentioned a probate court deadline next week.",
+      "Megan wants help sorting out the estate administration and the dispute."
+    ],
+    "named_entities": {
+      "opposing_parties": ["Aaron Harper"],
+      "related_entities": ["Harper Family Estate"],
+      "deceased_persons": ["Robert Harper"],
+      "heirs_or_beneficiaries": ["Megan Harper", "Aaron Harper", "Lydia Harper"],
+      "witnesses_or_other_names": ["Ellen Price"],
+      "opposing_counsel": []
+    }
+  },
+  {
+    "lead_id": "demo-002",
+    "submitted_at": "2026-05-07T17:55:00Z",
+    "potential_client": "Luis Ortega, Ortega HVAC Services",
+    "matter_type": "Small business unpaid invoice",
+    "facts": [
+      "Ortega HVAC Services completed a commercial service job for Briarwood Property Management, LLC.",
+      "Invoice #4471 for $8,900 is 38 days overdue.",
+      "A demand email was sent but no payment has arrived.",
+      "Luis wants help understanding options for a payment dispute."
+    ],
+    "named_entities": {
+      "opposing_parties": ["Briarwood Property Management, LLC"],
+      "related_entities": ["Ortega HVAC Services", "Invoice #4471"],
+      "deceased_persons": [],
+      "heirs_or_beneficiaries": [],
+      "witnesses_or_other_names": ["Carla Jennings"],
+      "opposing_counsel": []
+    }
+  },
+  {
+    "lead_id": "demo-003",
+    "submitted_at": "2026-05-07T18:05:00Z",
+    "potential_client": "Terry Collins",
+    "matter_type": "Criminal defense",
+    "facts": [
+      "Terry was arrested last night after a traffic stop.",
+      "A hearing is scheduled for tomorrow morning.",
+      "He asked for immediate help with the criminal charge.",
+      "This is outside the firm's stated practice areas."
+    ],
+    "named_entities": {
+      "opposing_parties": ["State of Alabama"],
+      "related_entities": ["Madison County District Court"],
+      "deceased_persons": [],
+      "heirs_or_beneficiaries": [],
+      "witnesses_or_other_names": ["Officer Daniels"],
+      "opposing_counsel": ["Madison County District Attorney's Office"]
+    }
+  },
+  {
+    "lead_id": "demo-004",
+    "submitted_at": "2026-05-07T18:18:00Z",
+    "source_channel": "phone",
+    "voice_provider": "ElevenLabs",
+    "potential_client": "Sarah Whitfield",
+    "matter_type": "Probate / trust / property dispute",
+    "phone_transcript": [
+      {
+        "speaker": "Voice Layer",
+        "text": "Thanks for calling GuideHerd Legal Intake. I can help capture the basics. What is your name and what is this about?"
+      },
+      {
+        "speaker": "Caller",
+        "text": "I'm Sarah Whitfield. I'm calling about my dad, Daniel Whitfield. He died last Sunday, and now there is a mess with his house, his trust, and my stepmother."
+      },
+      {
+        "speaker": "Voice Layer",
+        "text": "I understand. Is there already a probate case or any court hearing scheduled?"
+      },
+      {
+        "speaker": "Caller",
+        "text": "Not that I know of. My stepmother, Lena Whitfield, keeps saying she can handle it, but my cousin Marcus Reed told me she is trying to move money out of a joint account and list the cabin in Limestone County without talking to the rest of us."
+      },
+      {
+        "speaker": "Voice Layer",
+        "text": "Are there any deadlines, emergency hearings, or other family issues we should flag?"
+      },
+      {
+        "speaker": "Caller",
+        "text": "Yes. My mom, Ruth Whitfield, has an emergency guardianship hearing next Tuesday because her dementia has gotten worse. I think there may be a trust issue tied to the deed too. I have a photo of the deed and the account statements, but I don't know what matters most."
+      },
+      {
+        "speaker": "Voice Layer",
+        "text": "That is helpful. Do you know the county or court handling the guardianship hearing, and has anyone already filed anything?"
+      },
+      {
+        "speaker": "Caller",
+        "text": "I only know it is in Limestone County. Nobody has given me a case number yet. I just need someone to tell me who can stop the house sale and whether the trust is valid."
+      }
+    ],
+    "facts": [
+      "Caller reports that Daniel Whitfield died last Sunday.",
+      "The family believes there may be a probate, trust, and deed issue tied to the estate.",
+      "Stepmother Lena Whitfield is allegedly moving money from a joint account and listing a cabin in Limestone County.",
+      "Marcus Reed is a cousin who relayed the concern about the property sale.",
+      "Ruth Whitfield has an emergency guardianship hearing next Tuesday because of worsening dementia.",
+      "The caller has a photo of the deed and account statements but no case number yet."
+    ],
+    "named_entities": {
+      "opposing_parties": [
+        "Lena Whitfield",
+        "Marcus Reed"
+      ],
+      "related_entities": [
+        "Whitfield Family Trust",
+        "Daniel Whitfield Estate",
+        "Limestone County Probate Court",
+        "Limestone County property cabin"
+      ],
+      "deceased_persons": [
+        "Daniel Whitfield"
+      ],
+      "heirs_or_beneficiaries": [
+        "Sarah Whitfield",
+        "Ruth Whitfield"
+      ],
+      "witnesses_or_other_names": [
+        "Limestone County clerk",
+        "unknown family member on the deed"
+      ],
+      "opposing_counsel": []
+    }
+  }
+]

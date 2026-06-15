@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GuideHerd Legal Intake Copilot Output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "lead_id",
+    "submitted_at",
+    "potential_client",
+    "matter_type",
+    "fit_status",
+    "urgency",
+    "urgency_reason",
+    "summary_for_attorney",
+    "conflict_check",
+    "missing_information",
+    "recommended_next_action",
+    "consultation_questions",
+    "client_acknowledgment_draft",
+    "internal_warnings",
+    "not_legal_advice",
+    "requires_human_approval"
+  ],
+  "properties": {
+    "lead_id": { "type": "string" },
+    "submitted_at": { "type": "string" },
+    "potential_client": { "type": "string" },
+    "matter_type": { "type": "string" },
+    "fit_status": { "type": "string" },
+    "urgency": { "type": "string" },
+    "urgency_reason": { "type": "string" },
+    "summary_for_attorney": { "type": "string" },
+    "conflict_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "potential_client",
+        "opposing_parties",
+        "related_entities",
+        "deceased_persons",
+        "heirs_or_beneficiaries",
+        "witnesses_or_other_names",
+        "opposing_counsel"
+      ],
+      "properties": {
+        "potential_client": { "type": "array", "items": { "type": "string" } },
+        "opposing_parties": { "type": "array", "items": { "type": "string" } },
+        "related_entities": { "type": "array", "items": { "type": "string" } },
+        "deceased_persons": { "type": "array", "items": { "type": "string" } },
+        "heirs_or_beneficiaries": { "type": "array", "items": { "type": "string" } },
+        "witnesses_or_other_names": { "type": "array", "items": { "type": "string" } },
+        "opposing_counsel": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "missing_information": { "type": "array", "items": { "type": "string" } },
+    "recommended_next_action": { "type": "string" },
+    "consultation_questions": { "type": "array", "items": { "type": "string" } },
+    "client_acknowledgment_draft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject", "body"],
+      "properties": {
+        "subject": { "type": "string" },
+        "body": { "type": "string" }
+      }
+    },
+    "internal_warnings": { "type": "array", "items": { "type": "string" } },
+    "not_legal_advice": { "const": true },
+    "requires_human_approval": { "const": true }
+  }
+}
+

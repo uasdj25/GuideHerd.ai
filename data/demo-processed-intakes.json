@@ -1,0 +1,340 @@
+[
+  {
+    "lead_id": "demo-001",
+    "submitted_at": "2026-05-07T17:40:00Z",
+    "potential_client": "Megan Harper",
+    "matter_type": "Probate / estate dispute",
+    "fit_status": "likely_fit",
+    "urgency": "high",
+    "urgency_reason": "Probate court deadline was mentioned, so the matter needs prompt human review.",
+    "summary_for_attorney": "Potential probate / estate dispute involving the death of Robert Harper, a sibling challenge, and a pending probate deadline.",
+    "conflict_check": {
+      "potential_client": [
+        "Megan Harper"
+      ],
+      "opposing_parties": [
+        "Aaron Harper"
+      ],
+      "related_entities": [
+        "Harper Family Estate"
+      ],
+      "deceased_persons": [
+        "Robert Harper"
+      ],
+      "heirs_or_beneficiaries": [
+        "Megan Harper",
+        "Aaron Harper",
+        "Lydia Harper"
+      ],
+      "witnesses_or_other_names": [
+        "Ellen Price"
+      ],
+      "opposing_counsel": []
+    },
+    "missing_information": [
+      "Whether a will exists",
+      "Whether a probate case has already been filed",
+      "Court and case number",
+      "Executor or personal representative name"
+    ],
+    "recommended_next_action": "DRAFT: route to human review, confirm fit/conflicts, and prepare a non-advisory acknowledgment.",
+    "consultation_questions": [
+      "Has a probate case been filed already?",
+      "Who is serving as executor or personal representative?",
+      "What court and case number are involved?",
+      "Are any deadlines already pending?"
+    ],
+    "client_acknowledgment_draft": {
+      "subject": "DRAFT — We received your intake form",
+      "body": "Thank you for contacting Madison Valley Law Group. We received your intake submission and are reviewing it for fit and conflict screening. This message is administrative only and does not mean we represent you. Please do not send sensitive documents unless we specifically ask for them in a human-approved follow-up. This is a DRAFT message and requires human approval before use."
+    },
+    "source_channel": "web",
+    "voice_provider": null,
+    "phone_intake_capture": {
+      "source_channel": "web",
+      "voice_provider": null,
+      "call_type": "web form",
+      "caller_name": "Megan Harper",
+      "matter_type": "Probate / estate dispute",
+      "fit_status": "likely_fit",
+      "urgency": "high",
+      "summary_for_staff": "Potential probate / estate dispute involving the death of Robert Harper, a sibling challenge, and a pending probate deadline.",
+      "key_people": [
+        "Megan Harper",
+        "Aaron Harper",
+        "Harper Family Estate",
+        "Robert Harper"
+      ],
+      "transcript": []
+    },
+    "internal_warnings": [
+      "Probate deadline mentioned",
+      "Conflict names extracted only; no conflict decision made",
+      "DRAFT client communication only",
+      "Human review recommended immediately"
+    ],
+    "not_legal_advice": true,
+    "requires_human_approval": true
+  },
+  {
+    "lead_id": "demo-002",
+    "submitted_at": "2026-05-07T17:55:00Z",
+    "potential_client": "Luis Ortega, Ortega HVAC Services",
+    "matter_type": "Small business unpaid invoice",
+    "fit_status": "likely_fit",
+    "urgency": "medium",
+    "urgency_reason": "A business payment dispute is in scope, but no emergency facts were provided.",
+    "summary_for_attorney": "Commercial invoice dispute involving Luis Ortega, Ortega HVAC Services and Briarwood Property Management, LLC. The unpaid invoice appears overdue.",
+    "conflict_check": {
+      "potential_client": [
+        "Luis Ortega, Ortega HVAC Services"
+      ],
+      "opposing_parties": [
+        "Briarwood Property Management, LLC"
+      ],
+      "related_entities": [
+        "Ortega HVAC Services",
+        "Invoice #4471"
+      ],
+      "deceased_persons": [],
+      "heirs_or_beneficiaries": [],
+      "witnesses_or_other_names": [
+        "Carla Jennings"
+      ],
+      "opposing_counsel": []
+    },
+    "missing_information": [
+      "Underlying contract or work order reference",
+      "Whether a demand letter was sent",
+      "Whether any payment plan was offered",
+      "Any prior disputes on the account"
+    ],
+    "recommended_next_action": "DRAFT: route to human review, confirm fit/conflicts, and prepare a non-advisory acknowledgment.",
+    "consultation_questions": [
+      "What contract or work order governs the job?",
+      "Has a written demand been sent?",
+      "What payment terms were agreed to?",
+      "Has the other side disputed the invoice amount?"
+    ],
+    "client_acknowledgment_draft": {
+      "subject": "DRAFT — We received your intake form",
+      "body": "Thank you for contacting Madison Valley Law Group. We received your intake submission and are reviewing it for fit and conflict screening. This message is administrative only and does not mean we represent you. Please do not send sensitive documents unless we specifically ask for them in a human-approved follow-up. This is a DRAFT message and requires human approval before use."
+    },
+    "source_channel": "web",
+    "voice_provider": null,
+    "phone_intake_capture": {
+      "source_channel": "web",
+      "voice_provider": null,
+      "call_type": "web form",
+      "caller_name": "Luis Ortega, Ortega HVAC Services",
+      "matter_type": "Small business unpaid invoice",
+      "fit_status": "likely_fit",
+      "urgency": "medium",
+      "summary_for_staff": "Commercial invoice dispute involving Luis Ortega, Ortega HVAC Services and Briarwood Property Management, LLC. The unpaid invoice appears overdue.",
+      "key_people": [
+        "Luis Ortega, Ortega HVAC Services",
+        "Briarwood Property Management, LLC",
+        "Ortega HVAC Services",
+        "Invoice #4471"
+      ],
+      "transcript": []
+    },
+    "internal_warnings": [
+      "Conflict names extracted only; no conflict decision made",
+      "DRAFT client communication only"
+    ],
+    "not_legal_advice": true,
+    "requires_human_approval": true
+  },
+  {
+    "lead_id": "demo-003",
+    "submitted_at": "2026-05-07T18:05:00Z",
+    "potential_client": "Terry Collins",
+    "matter_type": "Criminal defense",
+    "fit_status": "refer_out",
+    "urgency": "high",
+    "urgency_reason": "An arrest and next-day hearing were mentioned, so this should be escalated immediately.",
+    "summary_for_attorney": "Out-of-scope criminal defense request with arrest and hearing facts. This should be referred out immediately.",
+    "conflict_check": {
+      "potential_client": [
+        "Terry Collins"
+      ],
+      "opposing_parties": [
+        "State of Alabama"
+      ],
+      "related_entities": [
+        "Madison County District Court"
+      ],
+      "deceased_persons": [],
+      "heirs_or_beneficiaries": [],
+      "witnesses_or_other_names": [
+        "Officer Daniels"
+      ],
+      "opposing_counsel": [
+        "Madison County District Attorney's Office"
+      ]
+    },
+    "missing_information": [
+      "Case number",
+      "Exact court date and time",
+      "Whether the client has retained criminal counsel already"
+    ],
+    "recommended_next_action": "DRAFT: mark out of scope, escalate to a human immediately, and prepare a non-committal referral response if needed.",
+    "consultation_questions": [],
+    "client_acknowledgment_draft": {
+      "subject": "DRAFT — We received your intake form",
+      "body": "Thank you for contacting Madison Valley Law Group. We received your intake submission and are reviewing it for fit and conflict screening. This message is administrative only and does not mean we represent you. Please do not send sensitive documents unless we specifically ask for them in a human-approved follow-up. This is a DRAFT message and requires human approval before use."
+    },
+    "source_channel": "web",
+    "voice_provider": null,
+    "phone_intake_capture": {
+      "source_channel": "web",
+      "voice_provider": null,
+      "call_type": "web form",
+      "caller_name": "Terry Collins",
+      "matter_type": "Criminal defense",
+      "fit_status": "refer_out",
+      "urgency": "high",
+      "summary_for_staff": "Out-of-scope criminal defense request with arrest and hearing facts. This should be referred out immediately.",
+      "key_people": [
+        "Terry Collins",
+        "State of Alabama",
+        "Madison County District Court"
+      ],
+      "transcript": []
+    },
+    "internal_warnings": [
+      "Out of scope: criminal defense",
+      "Arrest and next-day hearing mentioned",
+      "Conflict names extracted only; no conflict decision made",
+      "DRAFT client communication only",
+      "Human review recommended immediately"
+    ],
+    "not_legal_advice": true,
+    "requires_human_approval": true
+  },
+  {
+    "lead_id": "demo-004",
+    "submitted_at": "2026-05-07T18:18:00Z",
+    "potential_client": "Sarah Whitfield",
+    "matter_type": "Probate / trust / property dispute",
+    "fit_status": "likely_fit",
+    "urgency": "high",
+    "urgency_reason": "Multiple family and property issues were mentioned, so this needs prompt human review.",
+    "summary_for_attorney": "Complex family estate / guardianship dispute involving Daniel Whitfield, a disputed property or trust issue, and multiple family members.",
+    "conflict_check": {
+      "potential_client": [
+        "Sarah Whitfield"
+      ],
+      "opposing_parties": [
+        "Lena Whitfield",
+        "Marcus Reed"
+      ],
+      "related_entities": [
+        "Whitfield Family Trust",
+        "Daniel Whitfield Estate",
+        "Limestone County Probate Court",
+        "Limestone County property cabin"
+      ],
+      "deceased_persons": [
+        "Daniel Whitfield"
+      ],
+      "heirs_or_beneficiaries": [
+        "Sarah Whitfield",
+        "Ruth Whitfield"
+      ],
+      "witnesses_or_other_names": [
+        "Limestone County clerk",
+        "unknown family member on the deed"
+      ],
+      "opposing_counsel": []
+    },
+    "missing_information": [
+      "Whether a will exists",
+      "Whether a probate case has already been filed",
+      "Court and case number",
+      "Executor or personal representative name",
+      "Whether an emergency guardianship or injunction filing has already been made",
+      "County and court where the matter is pending",
+      "Copy of the deed, trust, or other ownership document",
+      "Names of any other family members or parties involved"
+    ],
+    "recommended_next_action": "DRAFT: route to human review, confirm fit/conflicts, and prepare a non-advisory acknowledgment.",
+    "consultation_questions": [
+      "Has anyone already filed an emergency guardianship or injunction request?",
+      "Which county and court are handling the matter?",
+      "Who currently controls the property, trust, or account at issue?",
+      "What deadlines, hearings, or closing dates are already scheduled?"
+    ],
+    "client_acknowledgment_draft": {
+      "subject": "DRAFT — We received your intake form",
+      "body": "Thank you for contacting Madison Valley Law Group. We received your intake submission and are reviewing it for fit and conflict screening. This message is administrative only and does not mean we represent you. Please do not send sensitive documents unless we specifically ask for them in a human-approved follow-up. This is a DRAFT message and requires human approval before use."
+    },
+    "source_channel": "phone",
+    "voice_provider": "ElevenLabs",
+    "phone_intake_capture": {
+      "source_channel": "phone",
+      "voice_provider": "ElevenLabs",
+      "call_type": "voice call",
+      "caller_name": "Sarah Whitfield",
+      "matter_type": "Probate / trust / property dispute",
+      "fit_status": "likely_fit",
+      "urgency": "high",
+      "summary_for_staff": "Complex family estate / guardianship dispute involving Daniel Whitfield, a disputed property or trust issue, and multiple family members.",
+      "key_people": [
+        "Sarah Whitfield",
+        "Lena Whitfield",
+        "Marcus Reed",
+        "Whitfield Family Trust",
+        "Daniel Whitfield Estate",
+        "Limestone County Probate Court",
+        "Limestone County property cabin",
+        "Daniel Whitfield"
+      ],
+      "transcript": [
+        {
+          "speaker": "Voice Layer",
+          "text": "Thanks for calling GuideHerd Legal Intake. I can help capture the basics. What is your name and what is this about?"
+        },
+        {
+          "speaker": "Caller",
+          "text": "I'm Sarah Whitfield. I'm calling about my dad, Daniel Whitfield. He died last Sunday, and now there is a mess with his house, his trust, and my stepmother."
+        },
+        {
+          "speaker": "Voice Layer",
+          "text": "I understand. Is there already a probate case or any court hearing scheduled?"
+        },
+        {
+          "speaker": "Caller",
+          "text": "Not that I know of. My stepmother, Lena Whitfield, keeps saying she can handle it, but my cousin Marcus Reed told me she is trying to move money out of a joint account and list the cabin in Limestone County without talking to the rest of us."
+        },
+        {
+          "speaker": "Voice Layer",
+          "text": "Are there any deadlines, emergency hearings, or other family issues we should flag?"
+        },
+        {
+          "speaker": "Caller",
+          "text": "Yes. My mom, Ruth Whitfield, has an emergency guardianship hearing next Tuesday because her dementia has gotten worse. I think there may be a trust issue tied to the deed too. I have a photo of the deed and the account statements, but I don't know what matters most."
+        },
+        {
+          "speaker": "Voice Layer",
+          "text": "That is helpful. Do you know the county or court handling the guardianship hearing, and has anyone already filed anything?"
+        },
+        {
+          "speaker": "Caller",
+          "text": "I only know it is in Limestone County. Nobody has given me a case number yet. I just need someone to tell me who can stop the house sale and whether the trust is valid."
+        }
+      ]
+    },
+    "internal_warnings": [
+      "Normalized from phone transcript",
+      "Multiple estate / guardianship facts mentioned",
+      "Probate deadline mentioned",
+      "Conflict names extracted only; no conflict decision made",
+      "DRAFT client communication only",
+      "Human review recommended immediately"
+    ],
+    "not_legal_advice": true,
+    "requires_human_approval": true
+  }
+]

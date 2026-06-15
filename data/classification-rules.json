@@ -1,0 +1,33 @@
+{
+  "version": "1.0",
+  "firm": "Madison Valley Law Group",
+  "rules": [
+    {
+      "match_any": ["probate", "estate", "will", "executor", "beneficiary"],
+      "fit_status": "likely_fit",
+      "matter_type": "Probate / estate planning",
+      "urgency_default": "medium"
+    },
+    {
+      "match_any": ["invoice", "unpaid", "contract", "payment dispute", "breach"],
+      "fit_status": "likely_fit",
+      "matter_type": "Small business dispute / contract review",
+      "urgency_default": "medium"
+    },
+    {
+      "match_any": ["arrest", "criminal", "charge", "hearing", "bond"],
+      "fit_status": "refer_out",
+      "matter_type": "Criminal defense",
+      "urgency_default": "high"
+    }
+  ],
+  "urgency_escalators": [
+    "court deadline",
+    "hearing",
+    "arrest",
+    "eviction",
+    "imminent loss of rights",
+    "emergency"
+  ]
+}
+

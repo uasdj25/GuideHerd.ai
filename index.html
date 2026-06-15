@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GuideHerd AI</title>
+  <meta name="description" content="GuideHerd AI — AI consulting and intake workflow demos for customer presentations." />
+  <style>
+    :root {
+      --ink: #0E2A3F;
+      --ink-soft: #1C3A52;
+      --ink-60: rgba(14, 42, 63, 0.60);
+      --paper: #F5F2EA;
+      --cream: #FBF8F1;
+      --accent: #2FA4A0;
+      --border: rgba(14, 42, 63, 0.14);
+      --shadow: 0 18px 40px rgba(14, 42, 63, 0.08);
+      --font-sans: "Inter Tight", "Inter", system-ui, sans-serif;
+      --font-serif: "Fraunces", Georgia, serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      background: var(--paper);
+      color: var(--ink);
+      line-height: 1.6;
+    }
+    a { color: inherit; }
+    .nav {
+      position: sticky; top: 0; z-index: 10;
+      background: rgba(245, 242, 234, 0.94);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner, .wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    .nav-inner { min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .brand { font-family: var(--font-serif); font-weight: 600; text-decoration: none; letter-spacing: -0.02em; }
+    .nav a.link { color: var(--ink-soft); text-decoration: none; font-size: 0.92rem; }
+    .hero { padding: 72px 0 30px; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 10px; font-size: 0.75rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-60); }
+    .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--accent); display: inline-block; }
+    h1 {
+      font-family: var(--font-serif);
+      font-weight: 400;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      max-width: 14ch;
+      margin: 14px 0 12px;
+    }
+    .lede { max-width: 58ch; color: var(--ink-soft); font-size: 1.08rem; }
+    .card {
+      margin-top: 28px; background: #fff; border: 1px solid var(--border); border-radius: 16px;
+      box-shadow: var(--shadow); padding: 22px;
+    }
+    .card h2 { font-family: var(--font-serif); font-weight: 500; margin: 0 0 10px; }
+    .links { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 10px;
+      text-decoration: none; border: 1px solid var(--border); background: var(--cream); color: var(--ink);
+    }
+    .btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .tiny { margin-top: 16px; color: var(--ink-60); font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="./">GuideHerd AI</a>
+      <a class="link" href="legal-intake-demo.html">Demo</a>
+    </div>
+  </nav>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow"><span class="dot"></span> GuideHerd demo site</div>
+      <h1>AI consulting and workflow demos for customers.</h1>
+      <p class="lede">This static demo site shows the GuideHerd style and includes a Legal Intake Copilot sample for small-firm intake prep. All demo data is fake.</p>
+
+      <div class="card">
+        <h2>Open the Legal Intake Copilot</h2>
+        <p>Static demo page with intake selector, attorney review panels, conflict extraction, and DRAFT client acknowledgment.</p>
+        <div class="links">
+          <a class="btn primary" href="/demo/">Open demo page</a>
+          <a class="btn" href="/demo/">View static page</a>
+        </div>
+        <div class="tiny">Fake demo data only. No legal advice. No attorney-client relationship. Human approval required for outbound messages.</div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

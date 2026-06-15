@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GuideHerd Legal Intake Demo</title>
+  <meta name="description" content="Try the GuideHerd intake workflow by submitting your own fake demo intake and seeing the summary output." />
+  <style>
+    :root {
+      --ink: #0E2A3F;
+      --ink-soft: #1C3A52;
+      --ink-60: rgba(14, 42, 63, 0.60);
+      --paper: #F5F2EA;
+      --cream: #FBF8F1;
+      --accent: #2FA4A0;
+      --accent-2: #F4B860;
+      --border: rgba(14, 42, 63, 0.14);
+      --shadow: 0 18px 40px rgba(14, 42, 63, 0.08);
+      --font-sans: "Inter Tight", "Inter", system-ui, sans-serif;
+      --font-serif: "Fraunces", Georgia, serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      background:
+        radial-gradient(circle at top left, rgba(47, 164, 160, 0.14), transparent 34%),
+        radial-gradient(circle at 80% 0%, rgba(244, 184, 96, 0.14), transparent 30%),
+        var(--paper);
+      color: var(--ink);
+      line-height: 1.6;
+    }
+    a { color: inherit; }
+    .nav {
+      position: sticky; top: 0; z-index: 10;
+      background: rgba(245, 242, 234, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner, .wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+    .nav-inner {
+      min-height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand {
+      font-family: var(--font-serif);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      text-decoration: none;
+    }
+    .nav-link {
+      color: var(--ink-soft);
+      text-decoration: none;
+      font-size: 0.92rem;
+    }
+    .hero { padding: 64px 0 24px; }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.75rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-60);
+    }
+    .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--accent); display: inline-block; }
+    h1 {
+      font-family: var(--font-serif);
+      font-weight: 400;
+      letter-spacing: -0.03em;
+      line-height: 1.02;
+      font-size: clamp(2.6rem, 6vw, 4.8rem);
+      margin: 16px 0 12px;
+      max-width: 13ch;
+    }
+    .subhead {
+      max-width: 64ch;
+      font-size: 1.08rem;
+      color: var(--ink-soft);
+      margin-bottom: 14px;
+    }
+    .notice {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      font-size: 0.92rem;
+    }
+    .notice strong { color: #0E6D6A; }
+    .intro-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin: 28px 0 8px;
+    }
+    .intro-card {
+      background: rgba(255, 255, 255, 0.86);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+    .intro-card h2 {
+      margin: 0 0 10px;
+      font-family: var(--font-serif);
+      font-weight: 500;
+      font-size: 1.18rem;
+      letter-spacing: -0.02em;
+    }
+    .intro-card p {
+      margin: 0;
+      color: var(--ink-soft);
+    }
+    .example-row {
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--cream);
+    }
+    .example-row strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.76rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-60);
+    }
+    .example-row p {
+      margin: 0;
+      color: var(--ink-soft);
+    }
+    .layout {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: minmax(0, 1.02fr) minmax(320px, 0.98fr);
+      margin: 26px 0 36px;
+    }
+    .panel {
+      background: rgba(255, 255, 255, 0.86);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+    .panel h2 {
+      margin: 0 0 10px;
+      font-family: var(--font-serif);
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      font-size: 1.5rem;
+    }
+    .panel p { margin-top: 0; color: var(--ink-soft); }
+    .field-grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .field.full { grid-column: 1 / -1; }
+    label {
+      font-size: 0.76rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-60);
+      font-weight: 700;
+    }
+    input, select, textarea, button {
+      font: inherit;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--cream);
+      color: var(--ink);
+      padding: 12px 14px;
+    }
+    textarea { min-height: 110px; resize: vertical; }
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 6px;
+    }
+    .primary {
+      background: var(--ink);
+      color: #fff;
+      border-color: var(--ink);
+      cursor: pointer;
+    }
+    .secondary {
+      background: rgba(255, 255, 255, 0.82);
+      cursor: pointer;
+    }
+    .summary-grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .card {
+      border-radius: 14px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.86);
+    }
+    .card h3 {
+      margin: 0 0 10px;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--ink-60);
+    }
+    .value { color: var(--ink); font-size: 1rem; }
+    .wide { grid-column: 1 / -1; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .fit-likely_fit { background: #DCFCE7; color: #166534; }
+    .fit-refer_out { background: #FEE2E2; color: #991B1B; }
+    .fit-uncertain { background: #FEF3C7; color: #92400E; }
+    .fit-unlikely_fit { background: #E0E7FF; color: #3730A3; }
+    .section-title {
+      margin: 34px 0 12px;
+      font-family: var(--font-serif);
+      font-weight: 500;
+      font-size: 1.45rem;
+      letter-spacing: -0.02em;
+    }
+    .subgrid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
+    }
+    li { margin: 4px 0; }
+    .muted { color: var(--ink-60); }
+    .small { font-size: 0.88rem; }
+    .draft-box {
+      border: 1px dashed #a3a3a3;
+      border-radius: 14px;
+      background: #fcfcfc;
+      padding: 16px;
+    }
+    .draft-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #111827;
+      color: #fff;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .draft-note { color: #991B1B; font-weight: 600; margin-bottom: 10px; }
+    .phone-slot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 20px;
+      border-radius: 16px;
+      border: 1px dashed rgba(14, 42, 63, 0.22);
+      background: rgba(255, 255, 255, 0.62);
+      margin-top: 18px;
+    }
+    .phone-slot button {
+      border-radius: 999px;
+      padding: 12px 16px;
+      background: rgba(14, 42, 63, 0.12);
+      color: var(--ink);
+      cursor: not-allowed;
+      white-space: nowrap;
+    }
+    .footer {
+      margin: 36px 0 54px;
+      color: var(--ink-60);
+      font-size: 0.92rem;
+    }
+    @media (max-width: 980px) {
+      .layout, .summary-grid, .subgrid, .field-grid, .intro-grid { grid-template-columns: 1fr; }
+      .nav-inner { flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px; }
+      .phone-slot { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="./">GuideHerd AI</a>
+      <a class="nav-link" href="./">Overview</a>
+    </div>
+  </nav>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow"><span class="dot"></span> Try-me demo</div>
+      <h1>Submit an intake and watch the summary get built.</h1>
+      <p class="subhead">
+        This page is intentionally plain. Lawyers can enter a client intake, see the summary output,
+        inspect the conflict names, and review a draft acknowledgment before anything goes out.
+      </p>
+      <div class="notice">
+        <strong>Fake demo data only.</strong>
+        <span>No legal advice.</span>
+        <span>No attorney-client relationship.</span>
+      </div>
+    </section>
+
+    <section class="intro-grid" aria-label="Examples">
+      <div class="intro-card">
+        <h2>Text-based intake</h2>
+        <p>Show a lawyer what happens when a client submits a plain text intake through the form.</p>
+        <div class="example-row">
+          <strong>What the client entered</strong>
+          <p>“My father died, there is a probate deadline next week, and my sibling is challenging the will.”</p>
+        </div>
+        <div class="example-row">
+          <strong>What GuideHerd outputs</strong>
+          <p>Probate / estate dispute, urgent review recommended, missing facts noted, and a draft acknowledgment ready for human approval.</p>
+        </div>
+      </div>
+      <div class="intro-card">
+        <h2>Voice-based intake</h2>
+        <p>Show the same workflow when the client called in and the conversation was transcribed.</p>
+        <div class="example-row">
+          <strong>Transcript snippet</strong>
+          <p>“I need help with a property and trust issue. There is an emergency guardianship hearing next Tuesday.”</p>
+        </div>
+        <div class="example-row">
+          <strong>What GuideHerd outputs</strong>
+          <p>Normalized intake capture, extracted names for conflict review, attorney summary, and a clear next-step checklist.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="layout">
+      <form class="panel" id="intakeForm">
+        <h2>Intake form</h2>
+        <p>Fill this out like a lawyer would. The summary below updates from your input.</p>
+        <div class="field-grid">
+          <div class="field">
+            <label for="clientName">Client name</label>
+            <input id="clientName" name="clientName" type="text" placeholder="Sarah Whitfield" />
+          </div>
+          <div class="field">
+            <label for="matterType">Matter type</label>
+            <input id="matterType" name="matterType" type="text" placeholder="Probate / trust / property dispute" />
+          </div>
+          <div class="field">
+            <label for="sourceChannel">Intake source</label>
+            <select id="sourceChannel" name="sourceChannel">
+              <option value="web">Text / web intake</option>
+              <option value="phone">Phone call / transcript</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="urgency">Urgency</label>
+            <select id="urgency" name="urgency">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label for="intakeNotes">Client intake notes</label>
+            <textarea id="intakeNotes" name="intakeNotes" placeholder="Describe what the client said in plain language."></textarea>
+          </div>
+          <div class="field full">
+            <label for="transcript">Phone transcript or call notes</label>
+            <textarea id="transcript" name="transcript" placeholder="Optional transcript. Use this for voice-based intakes."></textarea>
+          </div>
+          <div class="field">
+            <label for="opposingParties">Opposing parties</label>
+            <input id="opposingParties" name="opposingParties" type="text" placeholder="Lena Whitfield, Marcus Reed" />
+          </div>
+          <div class="field">
+            <label for="relatedEntities">Related entities</label>
+            <input id="relatedEntities" name="relatedEntities" type="text" placeholder="Whitfield Family Trust, Probate Court" />
+          </div>
+          <div class="field full">
+            <label for="otherNames">Other names to flag</label>
+            <input id="otherNames" name="otherNames" type="text" placeholder="Executor, witnesses, companies, institutions" />
+          </div>
+        </div>
+        <div class="buttons">
+          <button class="primary" type="submit">Generate summary</button>
+          <button class="secondary" type="button" id="resetBtn">Load example</button>
+        </div>
+      </form>
+
+      <aside class="panel" id="phone-workflow">
+        <h2>Phone workflow placeholder</h2>
+        <p>This is where the ElevenLabs phone button will live once the call flow is wired up.</p>
+        <div class="phone-slot">
+          <div>
+            <strong>Leave room for a live call button.</strong>
+            <div class="muted small">The lawyer should eventually be able to start a phone intake and hear the automated system collect the basics.</div>
+          </div>
+          <button type="button" aria-disabled="true">Phone button coming soon</button>
+        </div>
+        <div class="card" style="margin-top:18px;">
+          <h3>What this page proves</h3>
+          <ul>
+            <li>Text intake can be turned into a usable summary.</li>
+            <li>Voice intake can be normalized from transcript into the same workflow.</li>
+            <li>Conflicts and acknowledgments stay human-approved.</li>
+          </ul>
+        </div>
+      </aside>
+    </section>
+
+    <h2 class="section-title">Generated output</h2>
+    <section class="panel">
+      <div class="summary-grid" id="summaryGrid"></div>
+    </section>
+
+    <h2 class="section-title">Attorney review</h2>
+    <section class="panel">
+      <div class="subgrid">
+        <div class="card wide"><h3>Summary for attorney</h3><div class="value" id="attorneySummary"></div></div>
+        <div class="card"><h3>Fit status</h3><div class="value" id="fitStatus"></div></div>
+        <div class="card"><h3>Urgency reason</h3><div class="value" id="urgencyReason"></div></div>
+        <div class="card"><h3>Missing information</h3><div id="missingInformation"></div></div>
+        <div class="card"><h3>Consultation questions</h3><div id="consultationQuestions"></div></div>
+        <div class="card wide"><h3>Internal warnings</h3><div id="internalWarnings"></div></div>
+      </div>
+    </section>
+
+    <h2 class="section-title">Conflict-check</h2>
+    <section class="panel">
+      <div class="subgrid" id="conflictGrid"></div>
+    </section>
+
+    <h2 class="section-title">DRAFT client acknowledgment</h2>
+    <section class="panel">
+      <div class="draft-box">
+        <div class="draft-badge">DRAFT</div>
+        <div class="draft-note">Human approval required before use.</div>
+        <div class="card" style="margin-bottom:12px;">
+          <h3>Subject</h3>
+          <div class="value" id="ackSubject"></div>
+        </div>
+        <div class="card">
+          <h3>Body</h3>
+          <div class="value" id="ackBody"></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      No legal advice. No attorney-client relationship. Outbound client messages stay human-approved.
+    </footer>
+  </main>
+
+  <script>
+    const seed = {
+      clientName: 'Sarah Whitfield',
+      matterType: 'Probate / trust / property dispute',
+      sourceChannel: 'phone',
+      urgency: 'high',
+      intakeNotes: 'My father died last Sunday. My stepmother is trying to move money from a joint account and list the cabin. There may also be a guardianship hearing next Tuesday.',
+      transcript: 'Thanks for calling GuideHerd Legal Intake. I can help capture the basics. My father died last Sunday, there is a trust issue, and we may need to stop a property sale.',
+      opposingParties: 'Lena Whitfield, Marcus Reed',
+      relatedEntities: 'Whitfield Family Trust, Daniel Whitfield Estate, Limestone County Probate Court',
+      otherNames: 'Daniel Whitfield, Ruth Whitfield, Limestone County clerk',
+    };
+
+    const els = {
+      form: document.getElementById('intakeForm'),
+      resetBtn: document.getElementById('resetBtn'),
+      clientName: document.getElementById('clientName'),
+      matterType: document.getElementById('matterType'),
+      sourceChannel: document.getElementById('sourceChannel'),
+      urgency: document.getElementById('urgency'),
+      intakeNotes: document.getElementById('intakeNotes'),
+      transcript: document.getElementById('transcript'),
+      opposingParties: document.getElementById('opposingParties'),
+      relatedEntities: document.getElementById('relatedEntities'),
+      otherNames: document.getElementById('otherNames'),
+      summaryGrid: document.getElementById('summaryGrid'),
+      attorneySummary: document.getElementById('attorneySummary'),
+      fitStatus: document.getElementById('fitStatus'),
+      urgencyReason: document.getElementById('urgencyReason'),
+      missingInformation: document.getElementById('missingInformation'),
+      consultationQuestions: document.getElementById('consultationQuestions'),
+      internalWarnings: document.getElementById('internalWarnings'),
+      conflictGrid: document.getElementById('conflictGrid'),
+      ackSubject: document.getElementById('ackSubject'),
+      ackBody: document.getElementById('ackBody'),
+    };
+
+    function esc(v) {
+      return String(v ?? '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    function splitList(value) {
+      return String(value || '')
+        .split(/[\n,;]+/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .filter((item, idx, arr) => arr.indexOf(item) === idx);
+    }
+
+    function valueOrBlank(value, fallback) {
+      return String(value || fallback || '').trim() || fallback;
+    }
+
+    function inferMatterType(matterType, notes, transcript) {
+      const text = `${matterType} ${notes} ${transcript}`.toLowerCase();
+      if (text.includes('criminal') || text.includes('arrest') || text.includes('charge')) return 'Criminal defense';
+      if (text.includes('divorce') || text.includes('custody')) return 'Family law';
+      if (text.includes('immigration')) return 'Immigration';
+      if (text.includes('bankruptcy')) return 'Bankruptcy';
+      if (text.includes('probate') || text.includes('estate') || text.includes('trust') || text.includes('deed') || text.includes('guardianship')) {
+        return 'Probate / trust / property dispute';
+      }
+      if (text.includes('invoice') || text.includes('contract') || text.includes('payment') || text.includes('business')) {
+        return 'Small business dispute';
+      }
+      return valueOrBlank(matterType, 'General intake');
+    }
+
+    function inferFitStatus(matterType, notes, transcript) {
+      const text = `${matterType} ${notes} ${transcript}`.toLowerCase();
+      if (text.includes('criminal') || text.includes('divorce') || text.includes('custody') || text.includes('immigration') || text.includes('bankruptcy') || text.includes('tax controversy') || text.includes('personal injury')) {
+        return 'refer_out';
+      }
+      if (text.includes('probate') || text.includes('estate') || text.includes('trust') || text.includes('invoice') || text.includes('contract') || text.includes('business') || text.includes('property')) {
+        return 'likely_fit';
+      }
+      return 'uncertain';
+    }
+
+    function inferUrgency(urgency, notes, transcript) {
+      const text = `${notes} ${transcript}`.toLowerCase();
+      if (text.includes('hearing') || text.includes('deadline') || text.includes('tomorrow') || text.includes('next week') || text.includes('emergency') || text.includes('arrest')) {
+        return 'high';
+      }
+      return urgency || 'medium';
+    }
+
+    function buildSummary(clientName, matterType, notes, fitStatus, urgency, sourceChannel) {
+      const channelWord = sourceChannel === 'phone' ? 'voice intake' : 'text intake';
+      const text = `${matterType} ${notes}`.toLowerCase();
+      if (fitStatus === 'refer_out') {
+        return `Out-of-scope ${matterType.toLowerCase()} request from ${clientName}. This should be referred out immediately after human review.`;
+      }
+      if (text.includes('probate') || text.includes('estate') || text.includes('trust') || text.includes('guardianship') || text.includes('deed')) {
+        return `Potential probate / trust / property dispute for ${clientName}. The ${channelWord} suggests urgent human review, conflict screening, and a follow-up on missing estate facts.`;
+      }
+      if (text.includes('invoice') || text.includes('contract') || text.includes('payment') || text.includes('business')) {
+        return `Commercial dispute for ${clientName}. The ${channelWord} points to a likely-fit business matter with documentation and payment issues to sort out.`;
+      }
+      return `Demo intake for ${clientName} with ${matterType.toLowerCase()} and ${urgency} urgency.`;
+    }
+
+    function buildMissing(matterType, notes, transcript) {
+      const text = `${matterType} ${notes} ${transcript}`.toLowerCase();
+      const missing = [];
+      if (text.includes('probate') || text.includes('estate')) {
+        missing.push('Whether a will exists', 'Whether a probate case has already been filed', 'Court and case number', 'Executor or personal representative name');
+      }
+      if (text.includes('trust') || text.includes('guardianship') || text.includes('deed')) {
+        missing.push('Whether an emergency filing has already been made', 'County and court where the matter is pending', 'Copy of the deed, trust, or other ownership document', 'Names of any other family members or parties involved');
+      }
+      if (text.includes('invoice') || text.includes('contract') || text.includes('payment') || text.includes('business')) {
+        missing.push('Underlying contract or work order reference', 'Whether a demand letter was sent', 'Whether any payment plan was offered', 'Any prior disputes on the account');
+      }
+      if (text.includes('criminal') || text.includes('arrest')) {
+        missing.push('Case number', 'Exact court date and time', 'Whether the client has retained criminal counsel already');
+      }
+      if (!missing.length) {
+        missing.push('Basic timeline', 'Names of any opposing parties', 'Any deadline or hearing already set');
+      }
+      return [...new Set(missing)];
+    }
+
+    function buildQuestions(matterType, notes, fitStatus) {
+      if (fitStatus === 'refer_out') {
+        return ['What date is the court hearing?', 'Has anyone already been retained?', 'Is there an immediate deadline or release issue?'];
+      }
+      const text = `${matterType} ${notes}`.toLowerCase();
+      if (text.includes('probate') || text.includes('estate') || text.includes('trust') || text.includes('guardianship') || text.includes('deed')) {
+        return ['Has a probate case been filed already?', 'Who is serving as executor or personal representative?', 'What county and court are involved?', 'Are any deadlines already pending?'];
+      }
+      if (text.includes('invoice') || text.includes('contract') || text.includes('payment') || text.includes('business')) {
+        return ['What contract or work order governs the job?', 'Has a written demand been sent?', 'What payment terms were agreed to?', 'Has the other side disputed the amount?'];
+      }
+      return ['What is the basic timeline?', 'What documents matter most?', 'Is there any deadline or hearing already set?'];
+    }
+
+    function buildWarnings(fitStatus, sourceChannel, transcript) {
+      const warnings = ['Conflict names extracted only; no conflict decision made', 'DRAFT client communication only'];
+      if (sourceChannel === 'phone' || transcript.trim()) warnings.unshift('Normalized from phone transcript');
+      if (fitStatus === 'refer_out') warnings.unshift('Out of scope for the firm');
+      warnings.push('Human review required before any outbound message');
+      return [...new Set(warnings)];
+    }
+
+    function buildConflictList(value) {
+      const items = splitList(value);
+      return items.length ? items : ['None provided'];
+    }
+
+    function renderList(items) {
+      return `<ul>${items.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`;
+    }
+
+    function renderValue(text) {
+      return `<div class="value">${esc(text)}</div>`;
+    }
+
+    function updatePreview() {
+      const clientName = valueOrBlank(els.clientName.value, 'Unnamed client');
+      const matterTypeInput = valueOrBlank(els.matterType.value, 'General intake');
+      const sourceChannel = els.sourceChannel.value;
+      const urgencyInput = els.urgency.value;
+      const notes = els.intakeNotes.value.trim();
+      const transcript = els.transcript.value.trim();
+      const opposingParties = buildConflictList(els.opposingParties.value);
+      const relatedEntities = buildConflictList(els.relatedEntities.value);
+      const otherNames = buildConflictList(els.otherNames.value);
+
+      const matterType = inferMatterType(matterTypeInput, notes, transcript);
+      const fitStatus = inferFitStatus(matterTypeInput, notes, transcript);
+      const urgency = inferUrgency(urgencyInput, notes, transcript);
+      const summary = buildSummary(clientName, matterType, notes, fitStatus, urgency, sourceChannel);
+      const missing = buildMissing(matterTypeInput, notes, transcript);
+      const questions = buildQuestions(matterTypeInput, notes, fitStatus);
+      const warnings = buildWarnings(fitStatus, sourceChannel, transcript);
+      const ack = {
+        subject: 'DRAFT — We received your intake form',
+        body: 'Thank you for contacting GuideHerd AI. We received your intake submission and are reviewing it for fit and conflict screening. This message is administrative only and does not mean we represent you. Please do not send sensitive documents unless we specifically ask for them in a human-approved follow-up. This is a DRAFT message and requires human approval before use.',
+      };
+
+      els.summaryGrid.innerHTML = `
+        <div class="card"><h3>Client</h3>${renderValue(clientName)}</div>
+        <div class="card"><h3>Matter type</h3>${renderValue(matterType)}</div>
+        <div class="card"><h3>Source</h3>${renderValue(sourceChannel === 'phone' ? 'Phone / transcript' : 'Text / web intake')}</div>
+        <div class="card"><h3>Urgency</h3>${renderValue(urgency)}</div>
+        <div class="card"><h3>Fit status</h3><div class="value"><span class="pill fit-${fitStatus}">${esc(fitStatus)}</span></div></div>
+        <div class="card"><h3>Next step</h3>${renderValue(fitStatus === 'refer_out' ? 'Human review and referral-out' : 'Human review and follow-up questions')}</div>
+        <div class="card wide"><h3>Recommended next action</h3>${renderValue(fitStatus === 'refer_out' ? 'Mark out of scope, escalate to a human immediately, and prepare a non-committal referral response if needed.' : 'Route to human review, confirm fit/conflicts, and prepare a non-advisory acknowledgment.')}</div>
+      `;
+
+      els.attorneySummary.textContent = summary;
+      els.fitStatus.innerHTML = `<span class="pill fit-${fitStatus}">${esc(fitStatus)}</span>`;
+      els.urgencyReason.textContent = urgency === 'high'
+        ? 'A deadline, hearing, or emergency-style fact was mentioned, so this should be reviewed promptly.'
+        : 'No immediate emergency fact was detected from the intake.';
+      els.missingInformation.innerHTML = renderList(missing);
+      els.consultationQuestions.innerHTML = renderList(questions);
+      els.internalWarnings.innerHTML = renderList(warnings);
+
+      els.conflictGrid.innerHTML = `
+        <div class="card"><h3>Potential client</h3>${renderList([clientName])}</div>
+        <div class="card"><h3>Opposing parties</h3>${renderList(opposingParties)}</div>
+        <div class="card"><h3>Related entities</h3>${renderList(relatedEntities)}</div>
+        <div class="card"><h3>Other names</h3>${renderList(otherNames)}</div>
+      `;
+
+      els.ackSubject.textContent = ack.subject;
+      els.ackBody.textContent = ack.body;
+    }
+
+    function loadSeed() {
+      els.clientName.value = seed.clientName;
+      els.matterType.value = seed.matterType;
+      els.sourceChannel.value = seed.sourceChannel;
+      els.urgency.value = seed.urgency;
+      els.intakeNotes.value = seed.intakeNotes;
+      els.transcript.value = seed.transcript;
+      els.opposingParties.value = seed.opposingParties;
+      els.relatedEntities.value = seed.relatedEntities;
+      els.otherNames.value = seed.otherNames;
+      updatePreview();
+    }
+
+    els.form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      updatePreview();
+    });
+
+    els.resetBtn.addEventListener('click', loadSeed);
+    els.form.addEventListener('input', () => updatePreview());
+
+    loadSeed();
+  </script>
+</body>
+</html>

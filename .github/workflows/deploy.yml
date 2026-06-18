@@ -29,6 +29,7 @@ jobs:
           mkdir -p _site
           cp index.html legal-intake-demo.html _site/
           cp -R demo _site/
+          cp CNAME _site/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

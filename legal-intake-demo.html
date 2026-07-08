@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GuideHerd Legal Intake Copilot — Private, On-Premise AI Intake</title>
-  <meta name="description" content="GuideHerd Legal Intake Copilot — a private, on-premise AI intake associate that runs entirely inside your firm. No client data ever leaves your network. Demo only. No legal advice." />
+  <title>GuideHerd Legal Intake Copilot — From First Call to Open File</title>
+  <meta name="description" content="GuideHerd Legal Intake Copilot — an AI agent that fields your calls, vets prospects, schedules consults on your Outlook calendar, and turns scanned intake notes into an Orion import and a client folder on your share drive. Demo only. No legal advice." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -46,486 +46,238 @@
 
     html { scroll-behavior: smooth; }
     body {
-      font-family: var(--sans);
-      background: var(--paper);
-      color: var(--ink);
-      font-size: 15px;
-      line-height: 1.5;
-      -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
+      font-family: var(--sans); background: var(--paper); color: var(--ink);
+      font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; overflow-x: hidden;
     }
     a { color: inherit; text-decoration: none; }
 
     /* ---------- Header ---------- */
     .site-header {
-      background: rgba(245,242,234,0.92);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--ink-10);
-      padding: 0 40px; height: 72px;
-      display: flex; align-items: center; justify-content: space-between;
-      position: sticky; top: 0; z-index: 50;
+      background: rgba(245,242,234,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--ink-10); padding: 0 40px; height: 72px;
+      display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50;
     }
     .site-header-brand { display: flex; align-items: center; gap: 12px; }
     .wordmark { font-family: var(--serif); font-size: 20px; font-weight: 700; color: var(--ink); letter-spacing: -0.03em; }
     .badge-copilot {
-      background: var(--accent); color: var(--white);
-      font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
-      padding: 3px 9px; border-radius: var(--radius-pill); margin-left: 6px; vertical-align: middle;
+      background: var(--accent); color: var(--white); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 9px; border-radius: var(--radius-pill);
+      margin-left: 6px; vertical-align: middle;
     }
     .header-right { display: flex; align-items: center; gap: 16px; }
-
-    /* Live network status pill (the sovereignty signal) */
-    .net-status {
-      display: inline-flex; align-items: center; gap: 8px;
-      font-family: var(--mono); font-size: 11.5px; font-weight: 500;
-      color: var(--green); background: var(--green-bg);
-      border: 1px solid rgba(45,122,80,0.25);
-      padding: 5px 12px; border-radius: var(--radius-pill);
+    .infra-pill {
+      display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono);
+      font-size: 11.5px; font-weight: 500; color: var(--accent-dk); background: var(--accent-bg);
+      border: 1px solid rgba(47,164,160,0.25); padding: 5px 12px; border-radius: var(--radius-pill);
     }
-    .net-dot {
-      width: 8px; height: 8px; border-radius: 50%; background: var(--green);
-      box-shadow: 0 0 0 0 rgba(45,122,80,0.6);
-      animation: pulse 2.4s infinite;
-    }
-    @keyframes pulse {
-      0%   { box-shadow: 0 0 0 0 rgba(45,122,80,0.5); }
-      70%  { box-shadow: 0 0 0 7px rgba(45,122,80,0); }
-      100% { box-shadow: 0 0 0 0 rgba(45,122,80,0); }
-    }
+    .net-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 rgba(47,164,160,0.6); animation: pulse 2.4s infinite; }
+    @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(47,164,160,0.5);} 70%{box-shadow:0 0 0 7px rgba(47,164,160,0);} 100%{box-shadow:0 0 0 0 rgba(47,164,160,0);} }
     .back-home {
-      font-size: 13px; color: var(--ink-40); font-weight: 500;
-      padding: 6px 14px; border-radius: var(--radius-pill);
-      border: 1px solid var(--ink-20); transition: all 0.15s;
+      font-size: 13px; color: var(--ink-40); font-weight: 500; padding: 6px 14px;
+      border-radius: var(--radius-pill); border: 1px solid var(--ink-20); transition: all 0.15s;
     }
     .back-home:hover { color: var(--ink); border-color: var(--ink-80); }
 
     /* ---------- Hero ---------- */
-    .hero {
-      position: relative;
-      padding: 70px 40px 56px;
-      max-width: 1180px; margin: 0 auto;
-      text-align: center;
-    }
+    .hero { position: relative; padding: 70px 40px 40px; max-width: 1180px; margin: 0 auto; text-align: center; }
     .hero-eyebrow {
-      display: inline-flex; align-items: center; gap: 8px;
-      font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
-      color: var(--accent-dk); background: var(--accent-bg);
-      border: 1px solid rgba(47,164,160,0.25);
-      padding: 6px 14px; border-radius: var(--radius-pill); margin-bottom: 22px;
+      display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-dk); background: var(--accent-bg);
+      border: 1px solid rgba(47,164,160,0.25); padding: 6px 14px; border-radius: var(--radius-pill); margin-bottom: 22px;
     }
     .hero h1 {
-      font-family: var(--serif); font-weight: 800;
-      font-size: clamp(34px, 5vw, 56px); line-height: 1.07; letter-spacing: -0.03em;
-      color: var(--ink); max-width: 880px; margin: 0 auto;
+      font-family: var(--serif); font-weight: 800; font-size: clamp(34px, 5vw, 56px);
+      line-height: 1.07; letter-spacing: -0.03em; color: var(--ink); max-width: 900px; margin: 0 auto;
     }
     .hero h1 em { font-style: normal; color: var(--accent-dk); }
-    .hero-sub {
-      font-size: clamp(16px, 2vw, 19px); color: var(--ink-80);
-      max-width: 660px; margin: 22px auto 0; line-height: 1.55;
-    }
+    .hero-sub { font-size: clamp(16px, 2vw, 19px); color: var(--ink-80); max-width: 700px; margin: 22px auto 0; line-height: 1.55; }
     .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 32px; }
     .btn-primary {
-      font-family: var(--sans); font-size: 15px; font-weight: 600; cursor: pointer;
-      background: var(--ink); color: var(--white); border: 1.5px solid var(--ink);
-      padding: 13px 26px; border-radius: var(--radius-pill); transition: all 0.15s;
+      font-family: var(--sans); font-size: 15px; font-weight: 600; cursor: pointer; background: var(--ink);
+      color: var(--white); border: 1.5px solid var(--ink); padding: 13px 26px; border-radius: var(--radius-pill); transition: all 0.15s;
     }
     .btn-primary:hover { background: var(--accent-dk); border-color: var(--accent-dk); transform: translateY(-1px); }
     .btn-ghost {
-      font-family: var(--sans); font-size: 15px; font-weight: 500; cursor: pointer;
-      background: transparent; color: var(--ink); border: 1.5px solid var(--ink-20);
-      padding: 13px 26px; border-radius: var(--radius-pill); transition: all 0.15s;
+      font-family: var(--sans); font-size: 15px; font-weight: 500; cursor: pointer; background: transparent;
+      color: var(--ink); border: 1.5px solid var(--ink-20); padding: 13px 26px; border-radius: var(--radius-pill); transition: all 0.15s;
     }
     .btn-ghost:hover { border-color: var(--ink); }
 
-    /* Trust strip */
-    .trust-strip {
-      display: flex; flex-wrap: wrap; justify-content: center; gap: 14px;
-      max-width: 1180px; margin: 0 auto; padding: 0 40px 8px;
-    }
-    .trust-chip {
-      display: inline-flex; align-items: center; gap: 9px;
-      background: var(--white); border: 1px solid var(--ink-10); box-shadow: var(--shadow);
-      padding: 11px 18px; border-radius: var(--radius-pill);
-      font-size: 13.5px; font-weight: 500; color: var(--ink-80);
-    }
-    .trust-chip .ti { color: var(--accent); font-size: 16px; }
-
     /* ---------- Section scaffolding ---------- */
-    .section { max-width: 1180px; margin: 0 auto; padding: 64px 40px; }
-    .section-head { margin-bottom: 32px; max-width: 760px; }
-    .section-kicker {
-      font-size: 12px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
-      color: var(--accent-dk); margin-bottom: 10px;
-    }
+    .section { max-width: 1180px; margin: 0 auto; padding: 56px 40px; }
+    .section-head { margin-bottom: 32px; max-width: 800px; }
+    .section-kicker { font-size: 12px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent-dk); margin-bottom: 10px; }
     .section-title { font-family: var(--serif); font-weight: 700; font-size: clamp(26px, 3.4vw, 38px); letter-spacing: -0.025em; line-height: 1.14; }
     .section-lede { font-size: 16.5px; color: var(--ink-80); margin-top: 12px; line-height: 1.6; }
 
-    /* ---------- Security / sovereignty section ---------- */
-    .secure-band { background: var(--ink); color: var(--paper); }
-    .secure-band .section-kicker { color: var(--accent); }
-    .secure-band .section-title, .secure-band .section-lede { color: var(--paper); }
-    .secure-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 40px; align-items: center; }
+    /* ---------- Before / After lanes ---------- */
+    .lanes { display: flex; flex-direction: column; gap: 16px; }
+    .lane { background: var(--white); border: 1px solid var(--ink-10); border-radius: var(--radius-lg); padding: 20px 22px; box-shadow: var(--shadow); }
+    .lane-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .lane-today .lane-label { color: var(--ink-40); }
+    .lane-agent { border-color: rgba(47,164,160,0.35); box-shadow: 0 0 0 1px rgba(47,164,160,0.12), var(--shadow); }
+    .lane-agent .lane-label { color: var(--accent-dk); }
+    .lane-flow { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
+    .lane-step {
+      flex: 1; min-width: 130px; display: flex; flex-direction: column; gap: 4px;
+      background: var(--paper); border: 1px solid var(--ink-10); border-radius: var(--radius); padding: 11px 13px;
+    }
+    .lane-step .ls-role { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-40); }
+    .lane-step .ls-txt { font-size: 13px; font-weight: 500; line-height: 1.35; }
+    .lane-step.by-agent { background: var(--accent-bg); border-color: rgba(47,164,160,0.3); }
+    .lane-step.by-agent .ls-role { color: var(--accent-dk); font-weight: 600; }
+    .lane-step.by-human { background: var(--amber-bg); border-color: rgba(138,88,0,0.22); }
+    .lane-step.by-human .ls-role { color: var(--amber); font-weight: 600; }
+    .lane-arrow { align-self: center; color: var(--ink-20); font-size: 14px; }
 
-    .arch-diagram {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.14);
-      border-radius: var(--radius-lg); padding: 28px;
-    }
-    .arch-firm-label {
-      font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
-      color: var(--accent); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
-    }
-    .arch-flow { display: flex; flex-direction: column; gap: 10px; }
-    .arch-node {
-      display: flex; align-items: center; gap: 14px;
-      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
-      border-radius: var(--radius); padding: 14px 16px;
-    }
-    .arch-node .an-ico {
-      width: 38px; height: 38px; flex-shrink: 0; border-radius: 8px;
-      background: var(--accent-bg); border: 1px solid rgba(47,164,160,0.4);
-      display: flex; align-items: center; justify-content: center; font-size: 18px;
-    }
-    .arch-node .an-title { font-weight: 600; font-size: 14.5px; color: var(--paper); }
-    .arch-node .an-sub { font-size: 12px; color: rgba(245,242,234,0.6); }
-    .arch-arrow { text-align: center; color: var(--accent); font-size: 14px; height: 6px; line-height: 0; }
-    .arch-fence {
-      margin-top: 16px; padding: 12px 14px; border-radius: var(--radius);
-      background: rgba(166,59,42,0.14); border: 1px dashed rgba(255,144,144,0.5);
-      font-family: var(--mono); font-size: 11.5px; color: #ffb3a3;
-      display: flex; align-items: center; gap: 10px;
-    }
-    .secure-points { display: flex; flex-direction: column; gap: 18px; }
-    .sp-item { display: flex; gap: 14px; }
-    .sp-ico {
-      width: 40px; height: 40px; flex-shrink: 0; border-radius: 10px;
-      background: var(--accent-bg); border: 1px solid rgba(47,164,160,0.4);
-      display: flex; align-items: center; justify-content: center; font-size: 19px;
-    }
-    .sp-item h4 { font-size: 16px; font-weight: 600; color: var(--paper); margin-bottom: 3px; }
-    .sp-item p { font-size: 14px; color: rgba(245,242,234,0.72); line-height: 1.55; }
-
-    /* Live network monitor */
-    .net-monitor {
-      margin-top: 24px; background: rgba(0,0,0,0.28);
-      border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius);
-      padding: 14px 16px; font-family: var(--mono); font-size: 12px;
-    }
-    .nm-row { display: flex; justify-content: space-between; padding: 3px 0; color: rgba(245,242,234,0.78); }
-    .nm-row .nm-val { color: var(--accent); }
-    .nm-row .nm-zero { color: #7fe3a0; font-weight: 500; }
-
-    /* ---------- Console / demo app ---------- */
-    .console {
-      background: var(--white); border: 1px solid var(--ink-10);
-      border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden;
-    }
-    .console-bar {
-      display: flex; align-items: center; gap: 14px;
-      padding: 14px 20px; border-bottom: 1px solid var(--ink-10);
-      background: var(--paper-dark);
-    }
+    /* ---------- Pipeline console ---------- */
+    .console { background: var(--white); border: 1px solid var(--ink-10); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden; }
+    .console-bar { display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid var(--ink-10); background: var(--paper-dark); }
     .console-dots { display: flex; gap: 6px; }
     .console-dots span { width: 11px; height: 11px; border-radius: 50%; background: var(--ink-20); }
     .console-title { font-family: var(--mono); font-size: 12.5px; color: var(--ink-60); }
-    .console-runtime {
-      margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--green);
-      display: inline-flex; align-items: center; gap: 7px;
-    }
+    .console-runtime { margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--accent-dk); display: inline-flex; align-items: center; gap: 7px; }
 
-    /* Input channel tabs */
-    .channels { display: flex; gap: 6px; padding: 18px 22px 0; flex-wrap: wrap; }
-    .channel-tab {
-      font-family: var(--sans); font-size: 14px; font-weight: 500; cursor: pointer;
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 10px 18px; border-radius: var(--radius) var(--radius) 0 0;
-      border: 1px solid transparent; border-bottom: none; color: var(--ink-60);
-      background: transparent; transition: all 0.15s;
+    /* Pipeline nav */
+    .pipeline { display: flex; gap: 0; padding: 20px 22px 0; overflow-x: auto; }
+    .pipe-step {
+      flex: 1; min-width: 128px; cursor: pointer; background: none; border: none; font-family: var(--sans);
+      text-align: center; padding: 0 6px 18px; position: relative; color: var(--ink-40); transition: color 0.15s;
     }
-    .channel-tab:hover { color: var(--ink); }
-    .channel-tab.active { background: var(--paper); border-color: var(--ink-10); color: var(--ink); font-weight: 600; }
+    .pipe-step:hover { color: var(--ink-80); }
+    .pipe-line { position: absolute; top: 15px; left: -50%; width: 100%; height: 2px; background: var(--ink-10); z-index: 0; }
+    .pipe-step:first-child .pipe-line { display: none; }
+    .pipe-dot {
+      position: relative; z-index: 1; width: 32px; height: 32px; margin: 0 auto 8px; border-radius: 50%;
+      background: var(--white); border: 2px solid var(--ink-20); display: flex; align-items: center; justify-content: center;
+      font-size: 15px; transition: all 0.2s;
+    }
+    .pipe-step.done .pipe-line { background: var(--accent); }
+    .pipe-step.done .pipe-dot { border-color: var(--accent); background: var(--accent-bg); }
+    .pipe-step.active .pipe-dot { border-color: var(--accent); background: var(--accent); color: var(--white); box-shadow: 0 0 0 4px rgba(47,164,160,0.18); }
+    .pipe-step.active { color: var(--ink); }
+    .pipe-label { font-size: 12.5px; font-weight: 600; line-height: 1.25; display: block; }
+    .pipe-owner { font-family: var(--mono); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 3px; display: block; }
+    .pipe-step.owner-agent .pipe-owner { color: var(--accent-dk); }
+    .pipe-step.owner-human .pipe-owner { color: var(--amber); }
 
-    .channel-body { padding: 22px; border-top: 1px solid var(--ink-10); }
-    .channel-pane { display: none; }
-    .channel-pane.active { display: block; }
+    .console-body { display: grid; grid-template-columns: 1fr 300px; gap: 0; border-top: 1px solid var(--ink-10); }
+    .stage-panel { padding: 24px; min-height: 440px; border-right: 1px solid var(--ink-10); }
+    .stage-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+    .stage-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--accent-bg); border: 1px solid rgba(47,164,160,0.4); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+    .stage-h { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; }
+    .stage-sub { font-size: 13px; color: var(--ink-60); margin-bottom: 18px; }
+    .stage-content { animation: fade 0.35s ease; }
+    @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-    .field-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-40); margin-bottom: 8px; display: block; }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-    .input, .textarea {
-      width: 100%; font-family: var(--sans); font-size: 14px; color: var(--ink);
-      background: var(--paper); border: 1px solid var(--ink-20); border-radius: var(--radius);
-      padding: 11px 13px; transition: border-color 0.15s;
-    }
-    .input:focus, .textarea:focus { outline: none; border-color: var(--accent); }
-    .textarea { resize: vertical; min-height: 150px; line-height: 1.6; }
+    /* Controls */
+    .stage-controls { display: flex; align-items: center; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+    .btn-step { font-family: var(--sans); font-size: 13.5px; font-weight: 600; cursor: pointer; padding: 9px 18px; border-radius: var(--radius-pill); border: 1.5px solid var(--ink-20); background: var(--white); color: var(--ink-80); transition: all 0.15s; }
+    .btn-step:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-dk); }
+    .btn-step:disabled { opacity: 0.4; cursor: default; }
+    .btn-step.primary { background: var(--ink); color: var(--white); border-color: var(--ink); }
+    .btn-step.primary:hover { background: var(--accent-dk); border-color: var(--accent-dk); color: var(--white); }
 
-    .sample-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 0; align-items: center; }
-    .sample-label { font-size: 12.5px; color: var(--ink-40); margin-right: 4px; }
-    .sample-btn {
-      font-family: var(--sans); font-size: 12.5px; font-weight: 500; cursor: pointer;
-      padding: 6px 13px; border-radius: var(--radius-pill);
-      border: 1px solid var(--ink-20); background: var(--white); color: var(--ink-80); transition: all 0.15s;
-    }
-    .sample-btn:hover { border-color: var(--accent); color: var(--accent); }
+    /* Transcript */
+    .call-meta { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12px; color: var(--green); background: var(--green-bg); border: 1px solid rgba(45,122,80,0.25); padding: 5px 12px; border-radius: var(--radius-pill); margin-bottom: 16px; }
+    .transcript { display: flex; flex-direction: column; gap: 10px; }
+    .bubble { max-width: 82%; padding: 10px 14px; border-radius: 12px; font-size: 13.5px; line-height: 1.55; opacity: 0; animation: rise 0.4s ease forwards; }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .bubble .who { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; display: block; }
+    .bubble.ava { align-self: flex-start; background: var(--accent-bg); border: 1px solid rgba(47,164,160,0.25); border-bottom-left-radius: 3px; }
+    .bubble.ava .who { color: var(--accent-dk); }
+    .bubble.caller { align-self: flex-end; background: var(--paper-dark); border: 1px solid var(--ink-10); border-bottom-right-radius: 3px; }
+    .bubble.caller .who { color: var(--ink-40); }
+    .bubble.system { align-self: center; background: transparent; border: 1px dashed var(--ink-20); color: var(--ink-60); font-family: var(--mono); font-size: 11.5px; max-width: 100%; }
 
-    .run-row { display: flex; align-items: center; gap: 14px; margin-top: 18px; flex-wrap: wrap; }
-    .run-note { font-family: var(--mono); font-size: 11.5px; color: var(--ink-40); }
+    /* Info blocks */
+    .kv { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: 14px; }
+    .kv dt { color: var(--ink-40); font-weight: 500; }
+    .kv dd { color: var(--ink); font-weight: 500; }
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: var(--radius-pill); font-size: 11.5px; font-weight: 600; }
+    .badge-green { background: var(--green-bg); color: var(--green); }
+    .badge-amber { background: var(--amber-bg); color: var(--amber); }
+    .badge-red { background: var(--red-bg); color: var(--red-flag); }
+    .badge-blue { background: var(--blue-bg); color: var(--blue); }
+    .name-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .name-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-bg); color: var(--accent-dk); border: 1px solid rgba(47,164,160,0.25); padding: 4px 11px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 500; }
+    .name-chip .role { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-40); }
+    .panel-box { background: var(--paper); border: 1px solid var(--ink-10); border-radius: var(--radius); padding: 16px; margin-top: 14px; }
+    .panel-box + .panel-box { margin-top: 12px; }
+    .box-title { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-40); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
 
-    /* Phone call lane */
-    .phone-card {
-      background: var(--paper); border: 1px solid var(--ink-10); border-radius: var(--radius);
-      padding: 18px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-    }
-    .phone-wave { display: flex; align-items: flex-end; gap: 3px; height: 34px; }
-    .phone-wave span { width: 3px; background: var(--accent); border-radius: 2px; animation: wave 1.1s ease-in-out infinite; }
-    @keyframes wave { 0%,100%{height:8px;} 50%{height:32px;} }
-    .transcript-box {
-      margin-top: 16px; background: var(--paper); border: 1px solid var(--ink-10);
-      border-radius: var(--radius); padding: 16px; font-size: 14px; line-height: 1.7; display: none;
-    }
-    .transcript-box.show { display: block; }
-    .transcript-box .tb-tag { font-family: var(--mono); font-size: 11px; color: var(--green); display: block; margin-bottom: 8px; }
+    /* Calendar availability */
+    .cal { display: grid; grid-template-columns: 90px repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+    .cal-cell { font-size: 12px; padding: 8px 6px; border-radius: var(--radius); text-align: center; border: 1px solid var(--ink-10); }
+    .cal-head { font-weight: 700; color: var(--ink-60); background: var(--paper-dark); }
+    .cal-atty { font-weight: 600; color: var(--ink); background: var(--paper-dark); text-align: left; }
+    .cal-busy { background: var(--red-bg); color: var(--red-flag); }
+    .cal-open { background: var(--white); color: var(--ink-40); }
+    .cal-pick { background: var(--green-bg); color: var(--green); border-color: rgba(45,122,80,0.4); font-weight: 700; box-shadow: 0 0 0 2px rgba(45,122,80,0.15); }
 
-    /* Processing overlay */
-    .processing { text-align: center; padding: 50px 20px; display: none; }
-    .processing.show { display: block; }
-    .proc-spinner {
-      width: 42px; height: 42px; margin: 0 auto 18px; border-radius: 50%;
-      border: 3px solid var(--ink-10); border-top-color: var(--accent); animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .proc-steps { font-family: var(--mono); font-size: 13px; color: var(--ink-60); line-height: 2; }
-    .proc-steps .done { color: var(--green); }
+    /* Outlook event card */
+    .event-card { background: var(--white); border: 1px solid var(--ink-10); border-left: 4px solid var(--blue); border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow); }
+    .event-app { font-family: var(--mono); font-size: 11px; color: var(--blue); font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .event-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
 
-    /* ---------- Results ---------- */
-    #results { display: none; padding: 0 22px 24px; }
-    #results.show { display: block; }
-    .results-banner {
-      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-      background: var(--accent-bg); border: 1px solid rgba(47,164,160,0.25);
-      border-radius: var(--radius); padding: 12px 16px; margin-bottom: 18px;
-      font-size: 13.5px; color: var(--accent-dk);
-    }
-    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .card {
-      background: var(--white); border: 1px solid var(--ink-10);
-      border-radius: var(--radius); padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow);
-    }
-    .card-title {
-      font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
-      color: var(--ink-40); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
-    }
-    .client-name { font-family: var(--serif); font-size: 24px; font-weight: 700; letter-spacing: -0.025em; margin-bottom: 4px; }
-    .client-meta { font-size: 13px; color: var(--ink-40); margin-bottom: 14px; }
-    .description-text {
-      background: var(--paper); border: 1px solid var(--ink-10); border-radius: var(--radius);
-      padding: 14px 16px; font-size: 14px; line-height: 1.7; color: var(--ink);
-      max-height: 200px; overflow-y: auto;
-    }
+    /* Scanner / terminal */
+    .terminal { background: #0b1e2c; border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius); padding: 16px 18px; font-family: var(--mono); font-size: 12.5px; line-height: 1.9; color: #cfe8e6; }
+    .terminal .t-dim { color: rgba(207,232,230,0.55); }
+    .terminal .t-ok { color: #7fe3a0; }
+    .terminal .t-key { color: #6fd6d2; }
+    .folder-card { display: flex; flex-direction: column; gap: 8px; }
+    .folder-path { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--ink); background: var(--paper-dark); border: 1px solid var(--ink-10); border-radius: var(--radius); padding: 10px 12px; }
+    .file-row { display: flex; align-items: center; gap: 10px; font-size: 13.5px; padding: 9px 12px; background: var(--white); border: 1px solid var(--ink-10); border-radius: var(--radius); }
+    .file-row .fi { font-size: 16px; }
+    .file-row .fi-meta { margin-left: auto; font-size: 11.5px; color: var(--ink-40); font-family: var(--mono); }
 
-    .badge {
-      display: inline-flex; align-items: center; gap: 4px;
-      padding: 3px 10px; border-radius: var(--radius-pill);
-      font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap;
-    }
-    .badge-in-scope    { background: var(--green-bg); color: var(--green); }
-    .badge-out-scope   { background: var(--red-bg); color: var(--red-flag); }
-    .badge-needs-review{ background: var(--amber-bg); color: var(--amber); }
-    .badge-low         { background: var(--green-bg); color: var(--green); }
-    .badge-medium      { background: var(--amber-bg); color: var(--amber); }
-    .badge-high        { background: var(--red-bg); color: var(--red-flag); }
-    .badge-emergency   { background: #3a0000; color: #ff9090; }
+    /* Activity log rail */
+    .activity { padding: 24px 20px; background: var(--paper); }
+    .activity-title { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-40); margin-bottom: 14px; }
+    .log { list-style: none; display: flex; flex-direction: column; }
+    .log li { display: flex; gap: 11px; padding: 9px 0; font-size: 12.5px; line-height: 1.4; border-bottom: 1px solid var(--ink-06); animation: fade 0.3s ease; }
+    .log li:last-child { border-bottom: none; }
+    .log .lg-ico { flex-shrink: 0; color: var(--accent-dk); }
+    .log .lg-actor { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-40); display: block; margin-top: 2px; }
+    .log-empty { font-size: 12.5px; color: var(--ink-40); font-style: italic; }
 
-    .classification-label { font-family: var(--serif); font-size: 20px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 10px; }
+    /* Integrations */
+    .integrations { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+    .intg { background: var(--white); border: 1px solid var(--ink-10); border-radius: var(--radius-lg); padding: 18px; box-shadow: var(--shadow); }
+    .intg .ig-ico { font-size: 22px; }
+    .intg h4 { font-size: 14.5px; font-weight: 700; margin: 8px 0 3px; }
+    .intg p { font-size: 12.5px; color: var(--ink-60); line-height: 1.45; }
+    .intg .ig-tag { font-family: var(--mono); font-size: 10px; color: var(--accent-dk); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 8px; display: block; }
 
-    /* Explainable confidence */
-    .conf-band {
-      display: inline-flex; align-items: center; gap: 7px;
-      font-size: 12.5px; font-weight: 600; padding: 4px 12px; border-radius: var(--radius-pill); margin-bottom: 10px;
-    }
-    .conf-high   { background: var(--green-bg); color: var(--green); }
-    .conf-medium { background: var(--amber-bg); color: var(--amber); }
-    .conf-low    { background: var(--red-bg); color: var(--red-flag); }
-    .why-label { font-size: 12px; color: var(--ink-40); margin: 4px 0 6px; }
-    .why-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 14px; }
-    .why-chip {
-      font-family: var(--mono); font-size: 11.5px; color: var(--accent-dk);
-      background: var(--accent-bg); border: 1px solid rgba(47,164,160,0.3);
-      padding: 2px 9px; border-radius: var(--radius-pill);
-    }
+    /* Trust note */
+    .trust-note { background: var(--ink); color: var(--paper); border-radius: var(--radius-lg); padding: 26px 28px; display: flex; gap: 18px; align-items: flex-start; }
+    .trust-note .tn-ico { font-size: 26px; flex-shrink: 0; }
+    .trust-note h4 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+    .trust-note p { font-size: 14px; color: rgba(245,242,234,0.8); line-height: 1.6; }
 
-    .detail-row { display: flex; flex-direction: column; gap: 3px; margin-bottom: 12px; }
-    .detail-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-40); }
-    .detail-value { font-size: 14px; color: var(--ink); }
-
-    .info-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
-    .info-list li {
-      display: flex; gap: 10px; align-items: flex-start; font-size: 14px; padding: 9px 12px;
-      background: var(--paper); border: 1px solid var(--ink-10); border-radius: var(--radius);
-    }
-    .info-list li .icon { flex-shrink: 0; color: var(--accent); }
-    .warning-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
-    .warning-list li {
-      display: flex; gap: 10px; align-items: flex-start; font-size: 14px; padding: 9px 12px;
-      background: var(--red-bg); border: 1px solid rgba(166,59,42,0.18); border-radius: var(--radius); color: var(--red-flag);
-    }
-
-    .name-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-    .name-chip {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: var(--accent-bg); color: var(--accent-dk); border: 1px solid rgba(47,164,160,0.25);
-      padding: 4px 11px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 500;
-    }
-    .name-chip-role { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-40); }
-
-    .referral-box {
-      background: var(--blue-bg); border: 1px solid rgba(26,74,138,0.18); border-radius: var(--radius);
-      padding: 14px 16px; font-size: 14px; color: var(--blue); margin-top: 12px;
-    }
-
-    .draft-label {
-      display: inline-block; background: var(--red-bg); color: var(--red-flag);
-      font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: var(--radius); margin-bottom: 6px; letter-spacing: 0.05em;
-    }
-    .draft-box {
-      background: var(--paper); border: 1px solid var(--ink-20); border-radius: var(--radius);
-      padding: 18px 20px; font-size: 13.5px; line-height: 1.75; white-space: pre-wrap;
-      max-height: 320px; overflow-y: auto; color: var(--ink);
-    }
-
-    /* Approval gate */
-    .approval-card { border: 1.5px solid var(--amber); background: var(--amber-bg); }
-    .approval-card.approved { border-color: var(--green); background: var(--green-bg); }
-    .approval-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
-    .approval-head h4 { font-size: 16px; font-weight: 600; color: var(--ink); }
-    .approval-head p { font-size: 13px; color: var(--ink-60); margin-top: 3px; }
-    .btn-approve {
-      font-family: var(--sans); font-size: 14px; font-weight: 600; cursor: pointer;
-      background: var(--amber); color: var(--white); border: none;
-      padding: 11px 22px; border-radius: var(--radius-pill); transition: all 0.15s; white-space: nowrap;
-    }
-    .btn-approve:hover { filter: brightness(1.08); }
-    .btn-approve.done { background: var(--green); cursor: default; }
-
-    /* Export */
-    .export-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
-    .export-btn {
-      display: flex; align-items: center; gap: 12px; text-align: left;
-      font-family: var(--sans); font-size: 14px; font-weight: 500; cursor: pointer;
-      background: var(--white); border: 1.5px solid var(--ink-20); border-radius: var(--radius);
-      padding: 14px 16px; color: var(--ink); transition: all 0.15s; position: relative;
-    }
-    .export-btn:not(:disabled):hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow); }
-    .export-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-    .export-btn .ex-ico { width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
-    .ex-gdocs  { background: rgba(26,115,232,0.12); color: #1a73e8; }
-    .ex-filevine { background: rgba(47,164,160,0.14); color: var(--accent-dk); }
-    .ex-clio   { background: rgba(16,98,180,0.12); color: #1062b4; }
-    .ex-pdf    { background: rgba(166,59,42,0.12); color: var(--red-flag); }
-    .export-btn .ex-title { font-weight: 600; }
-    .export-btn .ex-sub { font-size: 11.5px; color: var(--ink-40); }
-    .export-lock-note { font-family: var(--mono); font-size: 11.5px; color: var(--amber); margin-bottom: 12px; }
-
-    /* Audit log */
-    .audit-log { list-style: none; display: flex; flex-direction: column; gap: 0; }
-    .audit-log li {
-      display: flex; gap: 12px; align-items: flex-start; padding: 10px 0;
-      border-bottom: 1px solid var(--ink-06); font-size: 13.5px;
-    }
-    .audit-log li:last-child { border-bottom: none; }
-    .audit-time { font-family: var(--mono); font-size: 11.5px; color: var(--ink-40); flex-shrink: 0; width: 74px; }
-    .audit-actor { font-weight: 600; }
-
-    /* Toast */
-    #toast {
-      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(120%);
-      background: var(--ink); color: var(--paper); padding: 14px 22px; border-radius: var(--radius-pill);
-      font-size: 14px; font-weight: 500; box-shadow: var(--shadow-lg); z-index: 100;
-      transition: transform 0.3s cubic-bezier(.2,.8,.2,1); display: flex; align-items: center; gap: 10px;
-    }
-    #toast.show { transform: translateX(-50%) translateY(0); }
-    #toast .toast-ico { color: var(--accent); }
-
-    /* ---------- Config section ---------- */
-    .config-card { background: var(--white); border: 1px solid var(--ink-10); border-radius: var(--radius-lg); padding: 28px; box-shadow: var(--shadow); }
-    .config-areas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
-    .area-toggle {
-      display: inline-flex; align-items: center; gap: 9px; cursor: pointer; user-select: none;
-      padding: 9px 16px; border-radius: var(--radius-pill); font-size: 13.5px; font-weight: 500;
-      border: 1.5px solid var(--ink-20); background: var(--white); color: var(--ink-60); transition: all 0.15s;
-    }
-    .area-toggle.on { background: var(--green-bg); border-color: rgba(45,122,80,0.4); color: var(--green); }
-    .area-toggle .at-state { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
-    .config-hint { font-size: 13px; color: var(--ink-40); margin-top: 16px; font-style: italic; }
-
-    /* ---------- CTA ---------- */
+    /* CTA */
     .cta-band { background: var(--ink); color: var(--paper); text-align: center; }
     .cta-band .section-title, .cta-band .section-lede { color: var(--paper); }
     .cta-band .section-head { margin: 0 auto 28px; }
 
-    /* ---------- Footer ---------- */
-    .disclaimer-footer {
-      max-width: 1180px; margin: 0 auto; padding: 36px 40px 60px;
-      border-top: 1px solid var(--ink-10); font-size: 12.5px; color: var(--ink-40); line-height: 1.65;
-    }
+    /* Footer */
+    .disclaimer-footer { max-width: 1180px; margin: 0 auto; padding: 36px 40px 60px; border-top: 1px solid var(--ink-10); font-size: 12.5px; color: var(--ink-40); line-height: 1.65; }
 
-    /* ---------- Filevine walkthrough ---------- */
-    .flow-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; align-items: stretch; }
-    .flow-step { display: flex; flex-direction: column; }
-    .flow-badge {
-      display: inline-flex; align-items: center; gap: 9px; margin-bottom: 14px;
-      font-size: 13px; font-weight: 600; color: var(--ink);
-    }
-    .flow-num {
-      width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
-      background: var(--ink); color: var(--white); font-size: 13px; font-weight: 700;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .flow-mock {
-      flex: 1; background: var(--white); border: 1px solid var(--ink-10); border-radius: var(--radius-lg);
-      box-shadow: var(--shadow); padding: 18px; display: flex; flex-direction: column; gap: 10px;
-    }
-    .mock-bar {
-      display: flex; align-items: center; gap: 8px; padding-bottom: 10px; margin-bottom: 2px;
-      border-bottom: 1px solid var(--ink-06); font-size: 12px; color: var(--ink-40); font-weight: 600;
-    }
-    .mock-dots { display: flex; gap: 5px; }
-    .mock-dots span { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-20); }
-    .mock-cta {
-      display: inline-flex; align-items: center; justify-content: space-between; gap: 10px;
-      background: var(--ink); color: var(--white); font-weight: 600; font-size: 14px;
-      padding: 12px 16px; border-radius: var(--radius); cursor: default;
-    }
-    .mock-menu { display: flex; flex-direction: column; gap: 7px; }
-    .mock-opt {
-      display: flex; align-items: center; gap: 11px; padding: 11px 13px;
-      border: 1.5px solid var(--ink-10); border-radius: var(--radius); font-size: 13.5px; font-weight: 500;
-      background: var(--paper); color: var(--ink-60);
-    }
-    .mock-opt.sel { border-color: var(--accent); background: var(--accent-bg); color: var(--accent-dk); font-weight: 600; box-shadow: 0 0 0 3px rgba(47,164,160,0.12); }
-    .mock-opt .mo-ico { width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
-    .mock-opt .mo-check { margin-left: auto; color: var(--accent); font-weight: 700; }
-    .mock-success {
-      display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--green);
-      background: var(--green-bg); border: 1px solid rgba(45,122,80,0.25); border-radius: var(--radius); padding: 9px 12px;
-    }
-    .mock-field { display: flex; justify-content: space-between; font-size: 13px; padding: 7px 0; border-bottom: 1px solid var(--ink-06); }
-    .mock-field:last-child { border-bottom: none; }
-    .mock-field .mf-k { color: var(--ink-40); }
-    .mock-field .mf-v { color: var(--ink); font-weight: 500; text-align: right; }
-    .mock-pill { font-family: var(--mono); font-size: 11px; background: var(--ink-06); color: var(--ink-60); padding: 2px 8px; border-radius: var(--radius-pill); }
+    #toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(120%); background: var(--ink); color: var(--paper); padding: 14px 22px; border-radius: var(--radius-pill); font-size: 14px; font-weight: 500; box-shadow: var(--shadow-lg); z-index: 100; transition: transform 0.3s cubic-bezier(.2,.8,.2,1); display: flex; align-items: center; gap: 10px; }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+    #toast .toast-ico { color: var(--accent); }
 
-    @media (max-width: 860px) {
-      .secure-grid { grid-template-columns: 1fr; }
-      .detail-grid { grid-template-columns: 1fr; }
-      .form-row { grid-template-columns: 1fr; }
-      .flow-steps { grid-template-columns: 1fr; }
+    @media (max-width: 900px) {
+      .console-body { grid-template-columns: 1fr; }
+      .stage-panel { border-right: none; border-bottom: 1px solid var(--ink-10); }
     }
     @media (max-width: 760px) {
       .site-header { padding: 0 18px; height: 60px; }
-      .net-status { display: none; }
+      .infra-pill { display: none; }
       .section { padding-left: 20px; padding-right: 20px; }
-      .hero { padding: 48px 20px 40px; }
+      .hero { padding: 48px 20px 32px; }
+      .lane-flow { flex-direction: column; }
+      .lane-arrow { transform: rotate(90deg); }
     }
   </style>
 </head>
@@ -536,263 +288,128 @@
   <div class="site-header-brand">
     <span class="wordmark">GuideHerd<span class="badge-copilot">Copilot</span></span>
   </div>
+  <div class="header-right">
+    <span class="infra-pill"><span class="net-dot"></span>Runs on your firm's infrastructure</span>
+    <a class="back-home" href="/">← Back to site</a>
+  </div>
 </header>
 
 <!-- Hero -->
 <section class="hero">
-  <h1>The intake associate that lives <em>inside</em> your firm —<br>not in someone else's cloud.</h1>
+  <span class="hero-eyebrow">📞 AI reception → 📅 scheduling → 🗂️ open file</span>
+  <h1>From the first phone call to an <em>open client file</em> — handled.</h1>
   <p class="hero-sub">
-    GuideHerd Legal Intake Copilot turns every web form and phone call into a review-ready matter file:
-    classified, conflict-screened, summarized, and exported straight into Google Docs, Filevine, or Clio.
-    All on a private model running on your own hardware.
+    GuideHerd's agent answers the call, vets the caller against your practice areas, books the consult on your
+    attorneys' Outlook calendars, and — once the intake is scanned — builds the Orion import and the client's
+    share-drive folder for you. Your lawyers just take the meeting.
   </p>
   <div class="hero-cta">
-    <button class="btn-primary" onclick="document.getElementById('try').scrollIntoView()">Try it on your own intake →</button>
-    <button class="btn-ghost" onclick="document.getElementById('security').scrollIntoView()">See how your data stays private</button>
+    <button class="btn-primary" onclick="document.getElementById('flow').scrollIntoView()">▶ Watch the workflow</button>
+    <button class="btn-ghost" onclick="document.getElementById('fit').scrollIntoView()">See where it fits</button>
   </div>
 </section>
 
-<div class="trust-strip">
-  <span class="trust-chip"><span class="ti">🔒</span> No data leaves your network</span>
-  <span class="trust-chip"><span class="ti">📞</span> Forms &amp; phone calls</span>
-  <span class="trust-chip"><span class="ti">🔍</span> Explainable classifications</span>
-  <span class="trust-chip"><span class="ti">📤</span> One-click to Filevine, Clio &amp; Docs</span>
-  <span class="trust-chip"><span class="ti">✋</span> Attorney approves everything</span>
-</div>
-
-<!-- ===================== SECURITY / SOVEREIGNTY ===================== -->
-<section class="secure-band" id="security">
-  <div class="section" style="padding-top:64px;padding-bottom:64px;">
-    <div class="section-head">
-      <div class="section-kicker">Data Sovereignty</div>
-      <h2 class="section-title">Privileged client facts never touch the internet.</h2>
-      <p class="section-lede">
-        Most legal AI tools quietly ship your clients' confidences to a third-party cloud. GuideHerd doesn't.
-        The model, the data, and the processing all live on a server inside your firm. There is no API key,
-        no outbound request, nothing to leak.
-      </p>
-    </div>
-
-    <div class="secure-grid">
-      <!-- Architecture diagram -->
-      <div class="arch-diagram">
-        <div class="arch-firm-label">⌂ Inside your firm's network</div>
-        <div class="arch-flow">
-          <div class="arch-node">
-            <div class="an-ico">📥</div>
-            <div><div class="an-title">Intake form &amp; phone call</div><div class="an-sub">Web form, recorded call, or paste-in</div></div>
-          </div>
-          <div class="arch-arrow">↓</div>
-          <div class="arch-node">
-            <div class="an-ico">🧠</div>
-            <div><div class="an-title">Local AI model</div><div class="an-sub">Runs on your on-prem server / workstation</div></div>
-          </div>
-          <div class="arch-arrow">↓</div>
-          <div class="arch-node">
-            <div class="an-ico">🗄️</div>
-            <div><div class="an-title">Firm database</div><div class="an-sub">Matter file, conflict names, audit log</div></div>
-          </div>
-          <div class="arch-arrow">↓</div>
-          <div class="arch-node">
-            <div class="an-ico">📤</div>
-            <div><div class="an-title">Export to your tools</div><div class="an-sub">Google Docs · Filevine · Clio · PDF</div></div>
-          </div>
-        </div>
-        <div class="arch-fence">⛔ Firewall boundary — nothing crosses to the public internet</div>
-      </div>
-
-      <!-- Points + live monitor -->
-      <div>
-        <div class="secure-points">
-          <div class="sp-item">
-            <div class="sp-ico">🔒</div>
-            <div><h4>Zero data egress</h4><p>No third-party API, no telemetry, no training on your data. What's said in intake stays in your office.</p></div>
-          </div>
-          <div class="sp-item">
-            <div class="sp-ico">🏛️</div>
-            <div><h4>Built for Rule 1.6</h4><p>Confidentiality by architecture, not by policy promise. Defensible to your bar, your clients, and your insurer.</p></div>
-          </div>
-          <div class="sp-item">
-            <div class="sp-ico">📋</div>
-            <div><h4>Timestamped audit trail</h4><p>Every review, edit, approval, and export is logged with the attorney's name — your malpractice paper trail.</p></div>
-          </div>
-        </div>
-
-        <div class="net-monitor">
-          <div class="nm-row"><span>// live network monitor</span><span class="nm-val">this session</span></div>
-          <div class="nm-row"><span>Outbound requests</span><span class="nm-zero">0</span></div>
-          <div class="nm-row"><span>Third-party API calls</span><span class="nm-zero">0</span></div>
-          <div class="nm-row"><span>Bytes sent to cloud</span><span class="nm-zero">0 B</span></div>
-          <div class="nm-row"><span>Model location</span><span class="nm-val">localhost</span></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ===================== TRY IT (the console) ===================== -->
-<section class="section" id="try">
+<!-- ===================== WHERE IT FITS (before/after) ===================== -->
+<section class="section" id="fit">
   <div class="section-head">
-    <div class="section-kicker">Live Demo</div>
-    <h2 class="section-title">Hand it a real, messy intake. Watch it build the file.</h2>
+    <div class="section-kicker">Where the agent fits</div>
+    <h2 class="section-title">The same intake chain — minus the handoffs and re-keying.</h2>
     <p class="section-lede">
-      Paste your own scenario, load a sample, or transcribe a phone call. The Copilot classifies the matter,
-      explains <em>why</em>, flags what's missing, extracts conflict-check names, and drafts an acknowledgment —
-      then waits for your approval before anything moves.
+      Your process works. It just leaks time at every handoff: reception, scheduling, manual Orion entry, and filing.
+      GuideHerd takes the repetitive links so your team is left with the one that needs a lawyer: the meeting.
+    </p>
+  </div>
+
+  <div class="lanes">
+    <div class="lane lane-today">
+      <div class="lane-label">Today · manual</div>
+      <div class="lane-flow">
+        <div class="lane-step"><span class="ls-role">Receptionist</span><span class="ls-txt">Answers &amp; vets the call</span></div>
+        <span class="lane-arrow">→</span>
+        <div class="lane-step"><span class="ls-role">Scheduler</span><span class="ls-txt">Checks calendars, books consult</span></div>
+        <span class="lane-arrow">→</span>
+        <div class="lane-step"><span class="ls-role">Lawyer</span><span class="ls-txt">Meets, takes notes + intake form</span></div>
+        <span class="lane-arrow">→</span>
+        <div class="lane-step"><span class="ls-role">Lawyer</span><span class="ls-txt">Keys client into Orion</span></div>
+        <span class="lane-arrow">→</span>
+        <div class="lane-step"><span class="ls-role">Paralegal</span><span class="ls-txt">Scans docs → folder / Filevine</span></div>
+      </div>
+    </div>
+
+    <div class="lane lane-agent">
+      <div class="lane-label">With GuideHerd</div>
+      <div class="lane-flow">
+        <div class="lane-step by-agent"><span class="ls-role">◆ Agent</span><span class="ls-txt">Answers &amp; vets the call (ElevenLabs voice)</span></div>
+        <span class="lane-arrow">→</span>
+        <div class="lane-step by-agent"><span class="ls-role">◆ Agent</span><span class="ls-txt">Checks Outlook calendars &amp; books</span></div>
+        <span class="lane-arrow">→</span>
+        <div class="lane-step by-human"><span class="ls-role">You</span><span class="ls-txt">Meet, take notes + intake form</span></div>
+        <span class="lane-arrow">→</span>
+        <div class="lane-step by-agent"><span class="ls-role">◆ Agent</span><span class="ls-txt">Picks up the scan automatically</span></div>
+        <span class="lane-arrow">→</span>
+        <div class="lane-step by-agent"><span class="ls-role">◆ Agent</span><span class="ls-txt">Builds Orion import + client folder</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== THE WORKFLOW (interactive) ===================== -->
+<section class="section" id="flow" style="padding-top:8px;">
+  <div class="section-head">
+    <div class="section-kicker">Live walkthrough</div>
+    <h2 class="section-title">Follow one caller from “hello” to an open matter.</h2>
+    <p class="section-lede">
+      Step through each stage, or hit play. This traces a real probate call end to end — the voice reception is
+      simulated with a transcript (ElevenLabs integration is in progress); scheduling, Orion, and the share drive
+      are shown as the agent would produce them.
     </p>
   </div>
 
   <div class="console">
     <div class="console-bar">
       <div class="console-dots"><span></span><span></span><span></span></div>
-      <span class="console-title">intake-copilot · madison valley law group</span>
-      <span class="console-runtime"><span class="net-dot"></span>local model · ready</span>
+      <span class="console-title">guideherd-agent · madison valley law group</span>
+      <span class="console-runtime"><span class="net-dot"></span>agent online</span>
     </div>
 
-    <!-- Channels -->
-    <div class="channels">
-      <button class="channel-tab active" data-pane="pane-paste">✍️ Paste / Try your own</button>
-      <button class="channel-tab" data-pane="pane-form">📝 Intake form</button>
-      <button class="channel-tab" data-pane="pane-phone">📞 Phone call</button>
-    </div>
+    <!-- Pipeline nav -->
+    <div class="pipeline" id="pipeline"></div>
 
-    <div class="channel-body">
-      <!-- Paste pane -->
-      <div class="channel-pane active" id="pane-paste">
-        <label class="field-label" for="client-name">Prospective client name</label>
-        <input class="input" id="client-name" placeholder="e.g. Margaret Holloway" style="margin-bottom:16px;max-width:340px;" />
-        <label class="field-label" for="intake-text">Describe the matter (in their words — messy is fine)</label>
-        <textarea class="textarea" id="intake-text" placeholder="Paste an intake message, voicemail transcript, or email here…"></textarea>
-        <div class="sample-row">
-          <span class="sample-label">Or load a sample:</span>
-          <button class="sample-btn" data-sample="probate">Contested probate</button>
-          <button class="sample-btn" data-sample="business">Unpaid invoice (LLC)</button>
-          <button class="sample-btn" data-sample="criminal">DUI (out of scope)</button>
-          <button class="sample-btn" data-sample="ambiguous">Ambiguous / multi-issue</button>
-        </div>
-        <div class="run-row">
-          <button class="btn-primary" id="run-btn">⚡ Process locally</button>
-          <span class="run-note">// POST → localhost · no external calls</span>
-        </div>
-      </div>
-
-      <!-- Form pane -->
-      <div class="channel-pane" id="pane-form">
-        <div class="form-row">
-          <div><label class="field-label">First name</label><input class="input" id="f-first" value="Margaret" /></div>
-          <div><label class="field-label">Last name</label><input class="input" id="f-last" value="Holloway" /></div>
-          <div><label class="field-label">Phone</label><input class="input" id="f-phone" value="256-555-0101" /></div>
-        </div>
-        <label class="field-label">What can we help you with?</label>
-        <textarea class="textarea" id="f-desc">My father, Robert Holloway, passed away in March. He had a will naming me as executor. My sister, Patricia Greer, is now contesting it — she claims he lacked capacity and that I unduly influenced him. The estate includes the family home (~$280,000) and a joint checking account (~$98,000). Her attorney just sent a demand letter.</textarea>
-        <div class="run-row">
-          <button class="btn-primary" id="run-form-btn">⚡ Process form locally</button>
-          <span class="run-note">// mirrors the web form your clients fill out</span>
-        </div>
-      </div>
-
-      <!-- Phone pane -->
-      <div class="channel-pane" id="pane-phone">
-        <div class="phone-card">
-          <div class="phone-wave"><span style="animation-delay:0s"></span><span style="animation-delay:.15s"></span><span style="animation-delay:.3s"></span><span style="animation-delay:.45s"></span><span style="animation-delay:.6s"></span></div>
-          <div style="flex:1;min-width:200px;">
-            <div style="font-weight:600;font-size:14.5px;">incoming-call-2026-06-16.wav</div>
-            <div style="font-size:12.5px;color:var(--ink-40);">3:42 · transcribed on-device — audio never uploaded</div>
-          </div>
-          <button class="btn-primary" id="transcribe-btn">🎙️ Transcribe locally</button>
-        </div>
-        <div class="transcript-box" id="transcript">
-          <span class="tb-tag">▶ LOCAL TRANSCRIPT · whisper-class model on firm hardware</span>
-          Hi, my name is Carlos Mendez, I own Mendez Landscaping LLC. Back in October I signed a contract with
-          Ridgeline Properties for seasonal landscaping at their Commerce Parkway site. I finished everything and
-          sent my final invoice — twenty-eight thousand five hundred — on November fifteenth. They said they got it
-          but they still haven't paid. I've called their property manager Jordan Blake and emailed Sandra Odom in
-          accounting twice. It's been over ninety days now. I've got the signed contract and the completion report.
-        </div>
-        <div class="run-row" id="phone-run-row" style="display:none;">
-          <button class="btn-primary" id="run-phone-btn">⚡ Process transcript locally</button>
-          <span class="run-note">// transcript → local model · audio discarded</span>
-        </div>
+    <div class="console-body">
+      <div class="stage-panel" id="stage-panel"></div>
+      <div class="activity">
+        <div class="activity-title">📋 Activity log</div>
+        <ul class="log" id="log"><li class="log-empty">Nothing yet — start the workflow.</li></ul>
       </div>
     </div>
-
-    <!-- Processing -->
-    <div class="processing" id="processing">
-      <div class="proc-spinner"></div>
-      <div class="proc-steps" id="proc-steps"></div>
-    </div>
-
-    <!-- Results -->
-    <div id="results"></div>
   </div>
 </section>
 
-<!-- ===================== CONFIGURABILITY ===================== -->
-<section class="section" id="config" style="padding-top:8px;">
+<!-- ===================== INTEGRATIONS ===================== -->
+<section class="section" style="padding-top:8px;">
   <div class="section-head">
-    <div class="section-kicker">Tuned to your firm</div>
-    <h2 class="section-title">Your practice areas. Your scope rules.</h2>
-    <p class="section-lede">
-      Tell the Copilot what your firm does and doesn't take. It routes in-scope matters to intake and politely
-      refers the rest. Toggle an area below, then re-run a sample above — watch the same matter change verdict.
-    </p>
+    <div class="section-kicker">Fits your stack</div>
+    <h2 class="section-title">It plugs into the tools you already run.</h2>
   </div>
-  <div class="config-card">
-    <label class="field-label">Practice areas this firm accepts</label>
-    <div class="config-areas" id="config-areas"></div>
-    <p class="config-hint">Try turning <strong>Criminal Defense</strong> on, then re-run the “DUI” sample — it flips from <em>Out of Scope</em> to <em>In Scope</em>.</p>
-  </div>
-</section>
-
-<!-- ===================== FILEVINE WALKTHROUGH ===================== -->
-<section class="section" id="filevine" style="padding-top:8px;">
-  <div class="section-head">
-    <div class="section-kicker">One-click filing</div>
-    <h2 class="section-title">From approved intake to a Filevine project in three clicks.</h2>
-    <p class="section-lede">
-      Once an attorney approves the record, sending it into your case-management system is a single, traceable action.
-      Here's exactly what that looks like with Filevine.
-    </p>
+  <div class="integrations">
+    <div class="intg"><div class="ig-ico">📞</div><h4>ElevenLabs voice</h4><p>Natural-sounding AI reception answers and vets every call.</p><span class="ig-tag">In progress</span></div>
+    <div class="intg"><div class="ig-ico">📅</div><h4>Outlook &amp; Gmail</h4><p>Reads attorney availability and books the consult with invites.</p><span class="ig-tag">Calendar + invite</span></div>
+    <div class="intg"><div class="ig-ico">⚖️</div><h4>Orion Law</h4><p>Generates a ready-to-import client &amp; matter record.</p><span class="ig-tag">Import file</span></div>
+    <div class="intg"><div class="ig-ico">🗂️</div><h4>Share drive</h4><p>Creates a <code>Lastname_Firstname</code> folder and files the scans.</p><span class="ig-tag">Auto-foldering</span></div>
+    <div class="intg"><div class="ig-ico">🍇</div><h4>Filevine</h4><p>Optionally opens the matter as a Filevine project too.</p><span class="ig-tag">Optional</span></div>
+    <div class="intg"><div class="ig-ico">📠</div><h4>Your scanner</h4><p>Watches the scan destination and picks up new intake docs.</p><span class="ig-tag">Hot folder</span></div>
   </div>
 
-  <div class="flow-steps">
-    <!-- Step 1 -->
-    <div class="flow-step">
-      <div class="flow-badge"><span class="flow-num">1</span> Choose “Create file”</div>
-      <div class="flow-mock">
-        <div class="mock-bar"><div class="mock-dots"><span></span><span></span><span></span></div> Approved matter · Holloway</div>
-        <div class="mock-field"><span class="mf-k">Status</span><span class="mf-v" style="color:var(--green);">✓ Attorney approved</span></div>
-        <div class="mock-field"><span class="mf-k">Classification</span><span class="mf-v">Probate · In scope</span></div>
-        <div style="margin-top:8px;" class="mock-cta">+ Create file <span class="mock-pill">action</span></div>
-      </div>
-    </div>
-
-    <!-- Step 2 -->
-    <div class="flow-step">
-      <div class="flow-badge"><span class="flow-num">2</span> Pick your provider</div>
-      <div class="flow-mock">
-        <div class="mock-bar"><div class="mock-dots"><span></span><span></span><span></span></div> Send matter to…</div>
-        <div class="mock-menu">
-          <div class="mock-opt"><span class="mo-ico ex-gdocs">📝</span> Google Docs</div>
-          <div class="mock-opt sel"><span class="mo-ico ex-filevine">🍇</span> Filevine <span class="mo-check">✓</span></div>
-          <div class="mock-opt"><span class="mo-ico ex-clio">⚖️</span> Clio</div>
-          <div class="mock-opt"><span class="mo-ico ex-pdf">📄</span> PDF / DOCX</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Step 3 -->
-    <div class="flow-step">
-      <div class="flow-badge"><span class="flow-num">3</span> Project created in Filevine</div>
-      <div class="flow-mock">
-        <div class="mock-bar"><div class="mock-dots"><span></span><span></span><span></span></div> Filevine · result</div>
-        <div class="mock-success">✓ Created project #1042</div>
-        <div class="mock-field"><span class="mf-k">Project name</span><span class="mf-v">Holloway — Probate</span></div>
-        <div class="mock-field"><span class="mf-k">Client contact</span><span class="mf-v">Margaret Holloway</span></div>
-        <div class="mock-field"><span class="mf-k">Opposing party</span><span class="mf-v">Patricia Greer</span></div>
-        <div class="mock-field"><span class="mf-k">Summary doc</span><span class="mf-v">Attached</span></div>
-        <div class="mock-field"><span class="mf-k">Audit entry</span><span class="mf-v">Logged ✓</span></div>
-      </div>
+  <div class="trust-note" style="margin-top:28px;">
+    <span class="tn-ico">🔒</span>
+    <div>
+      <h4>Runs on your infrastructure — connected only to what you already trust</h4>
+      <p>
+        The agent lives on your firm's server and talks to your Outlook, your Orion install, and your share drive.
+        Scanned documents are read on-device — the images aren't sent to any third-party cloud. Voice reception is
+        powered by ElevenLabs; everything downstream stays inside your systems, with a full audit trail and attorney
+        review before any file is finalized.
+      </p>
     </div>
   </div>
 </section>
@@ -801,13 +418,13 @@
 <section class="cta-band">
   <div class="section" style="text-align:center;">
     <div class="section-head" style="text-align:center;">
-      <div class="section-kicker" style="color:var(--accent);">See it on your own intakes</div>
-      <h2 class="section-title">Run a private pilot inside your firm.</h2>
-      <p class="section-lede">We'll deploy the Copilot on your hardware, tune it to your practice areas, and wire up your file system. No client data ever leaves your walls.</p>
+      <div class="section-kicker" style="color:var(--accent);">See it on your firm's workflow</div>
+      <h2 class="section-title">Put the busywork on autopilot.</h2>
+      <p class="section-lede">We'll map your call-to-file process, wire up your Outlook, Orion, and share drive, and stand the agent up on your hardware.</p>
     </div>
     <div class="hero-cta" style="justify-content:center;">
-      <a class="btn-primary" href="/#contact" style="background:var(--accent-dk);border-color:var(--accent-dk);">Book a private walkthrough →</a>
-      <button class="btn-ghost" style="color:var(--paper);border-color:rgba(245,242,234,0.35);" onclick="document.getElementById('try').scrollIntoView()">Replay the demo</button>
+      <a class="btn-primary" href="/#contact" style="background:var(--accent-dk);border-color:var(--accent-dk);">Book a walkthrough →</a>
+      <button class="btn-ghost" style="color:var(--paper);border-color:rgba(245,242,234,0.35);" onclick="document.getElementById('flow').scrollIntoView()">Replay the workflow</button>
     </div>
   </div>
 </section>
@@ -815,12 +432,10 @@
 <!-- Footer -->
 <div class="disclaimer-footer">
   <strong>Important Notices:</strong>
-  This page is an interactive demonstration of the GuideHerd Legal Intake Copilot using fictional data and an on-device demonstration model.
-  It does not constitute legal advice. No attorney-client relationship is formed by viewing or interacting with this page.
-  No real client information is displayed or stored. All names, facts, and scenarios are invented for demonstration purposes only.
-  Conflict-check name extraction is for screening purposes only; it does not represent a conflict-of-interest determination.
-  All draft content requires attorney review and approval before any action or communication.
-  Export integrations shown (Google Docs, Filevine, Clio) are simulated for demonstration.
+  This page is an interactive demonstration using fictional data. It does not provide legal advice and forms no attorney-client relationship.
+  The voice call is a simulated transcript; ElevenLabs voice reception is in development. Scheduling, Orion import, share-drive, and Filevine
+  actions are simulated for demonstration. Conflict-check name extraction is for screening only and is not a conflict determination.
+  All client and matter records require attorney review and approval before a file is finalized or any communication is sent.
   &copy; GuideHerd AI &mdash; <a href="/" style="color:var(--accent-dk);">guideherd.ai</a>
 </div>
 
@@ -830,458 +445,271 @@
 (function () {
   'use strict';
 
-  // =========================================================================
-  // Firm configuration — practice areas the firm accepts (toggleable in UI)
-  // =========================================================================
-  const PRACTICE_AREAS = {
-    'Probate':                 { keywords:['will','executor','decedent','probate','estate','passed away','passed','inheritance','beneficiary','codicil','testator','died'], accepted:true },
-    'Estate Planning':         { keywords:['estate planning','trust','power of attorney','living will','draft a will','my estate'], accepted:true },
-    'Small Business Disputes': { keywords:['invoice','unpaid','llc','vendor','business','breach of contract','non-payment',"haven't paid",'owed','collect'], accepted:true },
-    'Contract Review':         { keywords:['contract','agreement','terms','clause','review a contract','signed a contract'], accepted:true },
-    'Real Estate':             { keywords:['property line','easement','deed','landlord','tenant','lease','boundary','title','zoning'], accepted:true },
-    'Criminal Defense':        { keywords:['arrested','dui','criminal','arraignment','charged','police','jail','bail','felony','misdemeanor','blew a'], accepted:false },
-    'Family Law':              { keywords:['divorce','custody','child support','alimony','marriage','spouse','prenup','separation'], accepted:false },
-    'Personal Injury':         { keywords:['accident','injured','injury','car crash','slip and fall','negligence','rear-ended','hurt my'], accepted:false },
+  // Scenario: Margaret Holloway — contested probate (carried through every stage)
+  const CLIENT = {
+    first: 'Margaret', last: 'Holloway', phone: '(256) 555-0101',
+    matter: 'Probate — will contest', attorney: 'R. Calloway',
+    day: 'Wed, Jul 8', time: '2:00 PM'
   };
 
-  // =========================================================================
-  // Sample intakes (raw, "in their words")
-  // =========================================================================
-  const SAMPLES = {
-    probate: {
-      name: 'Margaret Holloway',
-      text: "My father, Robert Holloway, passed away on March 3rd. He had a will executed eight years ago naming me as executor. My sister, Patricia Greer, is now contesting the will — she claims he lacked mental capacity and that I unduly influenced him. The estate includes the family home (appraised ~$280,000) and a joint checking account (~$98,000). I have the original will and notified the probate court. My sister has hired an attorney and her lawyer just sent a demand letter."
-    },
-    business: {
-      name: 'Carlos Mendez',
-      text: "I own Mendez Landscaping LLC. In October 2024 I entered a written contract with Ridgeline Properties LLC for seasonal landscaping at 400 Commerce Parkway. I completed all work and submitted my final invoice on November 15, 2024 for $28,500. They acknowledged receipt but have not paid. I have sent two follow-up emails and left voicemails with their property manager, Jordan Blake, and accounting contact, Sandra Odom. It has now been over 90 days. I have the signed contract, signed completion report, and all invoice and communication records."
-    },
-    criminal: {
-      name: 'Derek Simmons',
-      text: "I was arrested last Thursday in Limestone County for DUI, first offense. I blew a 0.09. I have no prior criminal record. My arraignment is scheduled for May 6th. I need a criminal defense attorney as quickly as possible. I am worried about losing my driver's license and whether this will affect my job."
-    },
-    ambiguous: {
-      name: 'Janet Pruitt',
-      text: "I'm not totally sure who to call. My husband and I are separating and there's a question about the house we bought together, plus he co-signed on a small business I run and now there's an unpaid vendor coming after me. It's all tangled together and I don't know where to start."
-    }
-  };
-
-  // =========================================================================
-  // The classifier. In production this is a single POST to the local model:
-  //   fetch('http://localhost:11434/api/generate', { ... })
-  // For this demo it's a deterministic on-device heuristic — no network at all.
-  // =========================================================================
-  function classify(name, text) {
-    const lc = ' ' + text.toLowerCase() + ' ';
-
-    // Score every practice area by matched keywords
-    const scored = Object.entries(PRACTICE_AREAS).map(([area, def]) => {
-      const hits = def.keywords.filter(k => lc.includes(k));
-      return { area, accepted: def.accepted, hits, score: hits.length };
-    }).sort((a, b) => b.score - a.score);
-
-    const top = scored[0];
-    const second = scored[1];
-
-    // Confidence band from match strength + separation from runner-up
-    let band, fit, classification, referral = null;
-    const gap = top.score - (second ? second.score : 0);
-
-    if (top.score === 0) {
-      band = 'low'; fit = 'needs_review';
-      classification = 'Unclassified — needs human review';
-    } else {
-      if (top.score >= 3 && gap >= 1) band = 'high';
-      else if (top.score >= 2) band = 'medium';
-      else band = 'low';
-
-      classification = top.area;
-      if (top.accepted) {
-        fit = (band === 'low') ? 'needs_review' : 'in_scope';
-      } else {
-        fit = 'out_of_scope';
-        classification = 'Out of Scope — ' + top.area;
-        referral = top.area + ' matters fall outside this firm\'s accepted practice areas. The prospective client should be referred promptly to a licensed attorney who handles ' + top.area.toLowerCase() + ', especially if a deadline is pending.';
-      }
-      // Multi-issue ambiguity: two areas with similar strong scores
-      if (second && second.score >= 2 && gap === 0) {
-        fit = 'needs_review';
-        band = 'low';
-        classification = 'Multiple issues detected — needs human review';
-      }
-    }
-
-    // Urgency
-    let urgency = 'medium';
-    const emergencyKw = ['arraignment','court date','hearing','arrested','tomorrow','emergency','deadline','statute of limitations'];
-    const highKw = ['demand letter','urgent','immediately','asap','running out of time','90 days','ninety days'];
-    if (emergencyKw.some(k => lc.includes(k))) urgency = 'emergency';
-    else if (highKw.some(k => lc.includes(k))) urgency = 'high';
-    else if (lc.includes('whenever') || lc.includes('no rush')) urgency = 'low';
-
-    // Conflict-check name extraction (capitalized sequences + entities)
-    const names = extractNames(text, name);
-
-    // Estimated value
-    const valMatch = text.match(/\$[\d,]+(?:\.\d{2})?/g);
-    let estValue = '—';
-    if (valMatch) {
-      const nums = valMatch.map(v => parseInt(v.replace(/[^\d]/g, ''), 10)).filter(n => !isNaN(n));
-      const sum = nums.reduce((a, b) => a + b, 0);
-      estValue = '~$' + sum.toLocaleString() + (nums.length > 1 ? ' (sum of stated figures)' : '');
-    } else if (fit === 'out_of_scope') {
-      estValue = 'Unknown — out of scope';
-    }
-
-    // Missing info + questions by category
-    const tmpl = questionTemplates(top.area, fit);
-
-    // Internal warnings
-    const warnings = [];
-    if (urgency === 'emergency') warnings.push('URGENT: Prospective client indicates an imminent deadline or court date. Confirm and prioritize.');
-    if (lc.includes('demand letter')) warnings.push('DEMAND LETTER referenced — potential active dispute. Verify applicable deadlines.');
-    if (estValue.includes('$') && estValue.replace(/[^\d]/g, '') >= 100000) warnings.push('HIGH VALUE: Estimated exposure exceeds $100,000. Senior attorney review recommended.');
-    if (fit === 'out_of_scope') warnings.push('OUT OF SCOPE: Matter is outside firm practice areas. Prepare referral language. Do not discuss merits.');
-    if (fit === 'needs_review') warnings.push('NEEDS REVIEW: Model confidence is low or multiple issues detected. Human classification required before routing.');
-    if (warnings.length === 0) warnings.push('No automated flags. Standard attorney review still required.');
-
-    return {
-      name, text, classification, fit, band,
-      why: top.hits, urgency, estValue, names,
-      missing: tmpl.missing, questions: tmpl.questions,
-      warnings, referral,
-      summary: buildSummary(name, classification, fit, band, urgency, estValue),
-      ack: buildAck(name, fit)
-    };
-  }
-
-  function extractNames(text, clientName) {
-    const found = new Map();
-    if (clientName && clientName.trim()) found.set(clientName.trim(), 'client');
-    // Entities (… LLC / Inc / Corp / Properties / Group)
-    const entRe = /([A-Z][A-Za-z&'.-]+(?:\s+[A-Z][A-Za-z&'.-]+)*\s+(?:LLC|Inc\.?|Corp\.?|Company|Properties|Group|Partners))/g;
-    let m;
-    while ((m = entRe.exec(text)) !== null) { if (!found.has(m[1])) found.set(m[1], 'entity'); }
-    // Person-like capitalized pairs
-    const personRe = /\b([A-Z][a-z]+\s+[A-Z][a-z]+)\b/g;
-    while ((m = personRe.exec(text)) !== null) {
-      const n = m[1];
-      if (!found.has(n) && !/(LLC|Inc|Corp|Properties|Group|Commerce Parkway|Limestone County)/.test(n)) {
-        found.set(n, 'referenced party');
-      }
-    }
-    // State as opposing party
-    const stateRe = /State of [A-Z][a-z]+/g;
-    while ((m = stateRe.exec(text)) !== null) { if (!found.has(m[0])) found.set(m[0], 'opposing party'); }
-    return Array.from(found, ([name, role]) => ({ name, role })).slice(0, 8);
-  }
-
-  function questionTemplates(area, fit) {
-    if (fit === 'out_of_scope') {
-      return {
-        missing: ['Confirm whether prior counsel was involved on this specific matter.'],
-        questions: [
-          'NOTE TO ATTORNEY: Matter appears out of scope. Confirm and prepare referral information.',
-          'Can the prospective client be connected with appropriate counsel promptly given any pending date?'
-        ]
-      };
-    }
-    const generic = {
-      missing: [
-        'Copies of any relevant documents, contracts, or correspondence.',
-        'Confirm key dates and the full timeline of events.',
-        'Confirm whether prior counsel was involved on this specific matter.'
+  // -------------------------------------------------------------------------
+  // Stage definitions
+  // -------------------------------------------------------------------------
+  const STAGES = [
+    {
+      key: 'call', icon: '📞', label: 'Incoming call', owner: 'agent',
+      h: 'AI reception fields the call',
+      sub: 'The agent answers as your firm, listens, and figures out what the caller needs.',
+      log: [
+        ['📞', 'agent', 'Call answered by AI reception (ElevenLabs voice)'],
+        ['🎧', 'agent', 'Caller intent captured: probate / contested will']
       ],
-      questions: [
-        'Can you walk me through the timeline of events from beginning to today?',
-        'Are there any other parties or potential witnesses involved?',
-        'Are there any documents, emails, or records related to this matter?',
-        'Have you been contacted by any other attorney about this matter?'
-      ]
-    };
-    if (area === 'Probate' || area === 'Estate Planning') {
-      return {
-        missing: ['Copy of the will and any codicils.', 'Inventory or estimate of all estate assets and liabilities.', 'Confirm whether probate has been opened and in which county.', 'Confirm whether prior counsel was involved on this matter.'],
-        questions: ['Can you walk me through the timeline from the date of death to today?', 'Has the will been filed with the probate court? Which county?', 'What is the specific basis for any contest — capacity, undue influence, or both?', 'Are there other potential beneficiaries beyond those mentioned?', 'Has any asset been transferred or distributed since the date of death?', 'Have you been contacted by any other attorney about this matter?']
-      };
+      render: () => `
+        <div class="call-meta"><span class="net-dot" style="background:var(--green)"></span>☎ Live call · ${CLIENT.phone} · Mon 9:12 AM · transcribed</div>
+        <div class="transcript">
+          ${bubble('ava','Ava · GuideHerd reception','Thank you for calling Madison Valley Law Group, this is Ava. How can I help you today?',0)}
+          ${bubble('caller','Caller',"Hi — my father passed away last month and now my sister is contesting his will. She's hired a lawyer and I just got a demand letter. I don't know what to do.",1)}
+          ${bubble('ava','Ava · GuideHerd reception','I\'m so sorry for your loss. So I can get you to the right attorney — is this about administering your father\'s estate and a dispute over that will?',2)}
+          ${bubble('caller','Caller',"Yes, exactly. I'm named as the executor.",3)}
+          ${bubble('ava','Ava · GuideHerd reception','Thank you. Estate and probate matters like this are right in our wheelhouse. May I have your name and the parties involved — your father\'s name, and your sister\'s?',4)}
+          ${bubble('caller','Caller','I\'m Margaret Holloway. My father was Robert Holloway, and my sister is Patricia Greer.',5)}
+          ${bubble('ava','Ava · GuideHerd reception','Got it, Margaret. Because there\'s already a demand letter, I\'d like to get you in with one of our attorneys quickly. Let me check their availability.',6)}
+        </div>`
+    },
+    {
+      key: 'vet', icon: '🔍', label: 'Vet & qualify', owner: 'agent',
+      h: 'Vetted on the spot',
+      sub: 'The agent scores the matter against your practice areas and decides whether it is worth a meeting.',
+      log: [
+        ['✅', 'agent', 'Qualified: in-scope · worth a consult'],
+        ['🔍', 'agent', 'Conflict-check names captured (screening only)']
+      ],
+      render: () => `
+        <div class="stage-content">
+          <dl class="kv">
+            <dt>Practice area</dt><dd>Probate — will contest</dd>
+            <dt>Fit</dt><dd><span class="badge badge-green">✓ In scope</span></dd>
+            <dt>Worth a meeting?</dt><dd><span class="badge badge-green">Yes — recommend consult</span></dd>
+            <dt>Urgency</dt><dd><span class="badge badge-red">High · demand letter received</span></dd>
+            <dt>Suggested attorney</dt><dd>${CLIENT.attorney} (Probate)</dd>
+          </dl>
+          <div class="panel-box">
+            <div class="box-title">Why it qualified</div>
+            <div style="font-size:13.5px;line-height:1.6;color:var(--ink-80)">Caller is the named executor, there is an active dispute with opposing counsel, and a demand letter is already in play — all signals of a viable, time-sensitive matter within the firm's probate practice.</div>
+          </div>
+          <div class="panel-box">
+            <div class="box-title">Conflict-check names <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--ink-40)">· screening only, not a determination</span></div>
+            <div class="name-chips">
+              <span class="name-chip">Margaret Holloway <span class="role">client</span></span>
+              <span class="name-chip">Robert Holloway <span class="role">decedent</span></span>
+              <span class="name-chip">Patricia Greer <span class="role">adverse</span></span>
+            </div>
+          </div>
+        </div>`
+    },
+    {
+      key: 'schedule', icon: '📅', label: 'Check calendars & book', owner: 'agent',
+      h: 'Scheduled against Outlook',
+      sub: 'The agent reads the attorneys\' live availability, offers open times, and books the one the caller picks.',
+      log: [
+        ['📅', 'agent', 'Outlook calendars checked · common opening found'],
+        ['✉️', 'agent', `Consult booked ${CLIENT.day} ${CLIENT.time} · invite sent to client + ${CLIENT.attorney}`]
+      ],
+      render: () => `
+        <div class="stage-content">
+          <div class="panel-box" style="margin-top:0">
+            <div class="box-title">📅 R. Calloway · Outlook availability (read live)</div>
+            <div class="cal">
+              <div class="cal-cell cal-atty">R. Calloway</div>
+              <div class="cal-cell cal-head">Tue Jul 7</div>
+              <div class="cal-cell cal-head">Wed Jul 8</div>
+              <div class="cal-cell cal-head">Thu Jul 9</div>
+              <div class="cal-cell cal-atty" style="font-weight:500;color:var(--ink-40)">2:00 PM</div>
+              <div class="cal-cell cal-busy">Busy</div>
+              <div class="cal-cell cal-pick">✓ Open</div>
+              <div class="cal-cell cal-open">Busy</div>
+              <div class="cal-cell cal-atty" style="font-weight:500;color:var(--ink-40)">10:00 AM</div>
+              <div class="cal-cell cal-open">Busy</div>
+              <div class="cal-cell cal-open">—</div>
+              <div class="cal-cell cal-open">Open</div>
+            </div>
+          </div>
+          <div class="transcript" style="margin-top:14px">
+            ${bubble('ava','Ava · GuideHerd reception',`Attorney Calloway has an opening this Wednesday, July 8th at 2:00 PM, or Thursday at 10:00 AM. Which works better for you?`,0)}
+            ${bubble('caller','Caller','Wednesday at 2 is perfect.',1)}
+            ${bubble('ava','Ava · GuideHerd reception','Booked. You\'ll get an email and text confirmation shortly, and we\'ll send our intake form to bring with you. Thank you, Margaret.',2)}
+          </div>
+          <div class="event-card" style="margin-top:14px">
+            <div class="event-app">▣ Outlook · event created</div>
+            <div class="event-title">New Client Consult — Margaret Holloway (Probate)</div>
+            <dl class="kv" style="font-size:13px">
+              <dt>When</dt><dd>Wed, Jul 8 · 2:00–3:00 PM</dd>
+              <dt>Attendees</dt><dd>R. Calloway · Margaret Holloway</dd>
+              <dt>Location</dt><dd>Conference Room A / Teams link</dd>
+              <dt>Notes</dt><dd>Will contest; demand letter received; caller is executor.</dd>
+            </dl>
+          </div>
+        </div>`
+    },
+    {
+      key: 'consult', icon: '🧑‍⚖️', label: 'The consultation', owner: 'human',
+      h: 'Your attorney takes the meeting',
+      sub: 'The one step that needs a lawyer. Everything around it is handled.',
+      log: [
+        ['🧑‍⚖️', 'you', 'Consultation held · attorney notes + intake form completed (paper)']
+      ],
+      render: () => `
+        <div class="stage-content">
+          <div class="panel-box" style="margin-top:0;border-color:rgba(138,88,0,0.25);background:var(--amber-bg)">
+            <div class="box-title" style="color:var(--amber)">👤 Human step</div>
+            <div style="font-size:14px;line-height:1.6;color:var(--ink-80)">
+              Wednesday, 2:00 PM — ${CLIENT.attorney} meets Margaret, walks the timeline, and completes the standard
+              paperwork by hand. Two documents come out of the meeting, ready for the scanner:
+            </div>
+          </div>
+          <div class="folder-card" style="margin-top:14px">
+            <div class="file-row"><span class="fi">📝</span> New Matter / intake form <span class="fi-meta">1 page · paper</span></div>
+            <div class="file-row"><span class="fi">🗒️</span> Attorney consult notes <span class="fi-meta">2 pages · paper</span></div>
+          </div>
+          <div style="font-size:13px;color:var(--ink-60);margin-top:14px;font-style:italic">
+            The paralegal drops these on the scanner as usual. That scan is the only trigger the agent needs →
+          </div>
+        </div>`
+    },
+    {
+      key: 'file', icon: '🗂️', label: 'Open the file', owner: 'agent',
+      h: 'The scan opens the file',
+      sub: 'The moment paper hits the scanner, the agent extracts the data and builds the Orion import and client folder.',
+      log: [
+        ['📠', 'agent', 'New scan detected on \\\\FIRM-SCAN\\Intake'],
+        ['🔎', 'agent', 'Client + matter data extracted on-device'],
+        ['⚖️', 'agent', 'Orion import file created: Holloway_Margaret_orion.xml'],
+        ['🗂️', 'agent', 'Share-drive folder created: Holloway_Margaret'],
+        ['⬆️', 'agent', '2 scanned files uploaded to client folder'],
+        ['🍇', 'agent', 'Filevine project #1042 opened (optional)']
+      ],
+      render: () => `
+        <div class="stage-content">
+          <div class="terminal">
+            <div><span class="t-dim">$</span> watching <span class="t-key">\\\\FIRM-SCAN\\Intake\\</span> …</div>
+            <div class="t-ok">▶ new scan detected — 2 files (3 pages)</div>
+            <div><span class="t-dim">·</span> reading on-device (OCR) … <span class="t-ok">done</span></div>
+            <div><span class="t-dim">·</span> extracted: <span class="t-key">Holloway, Margaret</span> · Probate · Atty ${CLIENT.attorney}</div>
+          </div>
+
+          <div class="panel-box">
+            <div class="box-title">⚖️ Orion import file <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--ink-40)">· Holloway_Margaret_orion.xml</span></div>
+            <dl class="kv" style="font-size:13px">
+              <dt>Last / First</dt><dd>Holloway / Margaret</dd>
+              <dt>Matter type</dt><dd>Probate — will contest</dd>
+              <dt>Responsible atty</dt><dd>${CLIENT.attorney}</dd>
+              <dt>Open date</dt><dd>Jul 8, 2026</dd>
+              <dt>Phone</dt><dd>${CLIENT.phone}</dd>
+              <dt>Conflict names</dt><dd>Robert Holloway · Patricia Greer</dd>
+            </dl>
+          </div>
+
+          <div class="panel-box">
+            <div class="box-title">🗂️ Share-drive folder</div>
+            <div class="folder-card">
+              <div class="folder-path">\\\\FIRM-FS\\Clients\\Holloway_Margaret\\</div>
+              <div class="file-row"><span class="fi">📝</span> intake-form.pdf <span class="fi-meta">uploaded ✓</span></div>
+              <div class="file-row"><span class="fi">🗒️</span> consult-notes.pdf <span class="fi-meta">uploaded ✓</span></div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">
+            <span class="badge badge-green">✓ Orion import ready</span>
+            <span class="badge badge-green">✓ Folder created</span>
+            <span class="badge badge-green">✓ Files uploaded</span>
+            <span class="badge badge-blue">🍇 Filevine #1042</span>
+            <span class="badge badge-amber">Pending attorney sign-off</span>
+          </div>
+          <div style="font-size:13px;color:var(--ink-60);margin-top:12px">The file is staged and waiting for a one-click attorney approval before it goes live in Orion.</div>
+        </div>`
     }
-    if (area === 'Small Business Disputes' || area === 'Contract Review') {
-      return {
-        missing: ['Copy of the written contract referenced.', 'Invoice number(s) and date(s).', 'Records of all communications regarding the dispute.', 'Confirm whether a formal written demand has been sent.', 'Confirm whether prior counsel was involved on this matter.'],
-        questions: ['Can you walk me through the timeline from signing to today?', 'Does the contract include a dispute-resolution or arbitration clause?', 'Has the other party given any written reason for non-performance?', 'Is this a one-time project or an ongoing relationship?', 'Are other amounts owed under separate invoices or projects?', 'Have you been contacted by any other attorney about this matter?']
-      };
-    }
-    return generic;
+  ];
+
+  // -------------------------------------------------------------------------
+  // Helpers
+  // -------------------------------------------------------------------------
+  function bubble(cls, who, text, i) {
+    return `<div class="bubble ${cls}" style="animation-delay:${i*0.28}s"><span class="who">${who}</span>${text}</div>`;
   }
 
-  function buildSummary(name, classification, fit, band, urgency, estValue) {
-    const fitTxt = fit === 'in_scope' ? 'In scope' : fit === 'out_of_scope' ? 'Out of scope — refer' : 'Needs human review';
-    return 'INTERNAL — ATTORNEY EYES ONLY — NOT FOR CLIENT DISTRIBUTION\n\n' +
-      'Prospective client ' + (name || '[name not provided]') + ' submitted an intake processed by the on-premise Legal Intake Copilot.\n\n' +
-      'Classification: ' + classification + ' (' + band.toUpperCase() + ' confidence). ' + fitTxt + '. Urgency: ' + urgency.charAt(0).toUpperCase() + urgency.slice(1) + '.\n' +
-      'Estimated value: ' + estValue + '.\n\n' +
-      'This summary is a draft prepared by AI-assisted intake processing on firm hardware. It does not constitute legal advice and requires attorney review before any action is taken. No attorney-client relationship has been formed.';
-  }
+  let current = -1;
+  let reached = -1; // furthest stage revealed (drives the log)
 
-  function buildAck(name, fit) {
-    const first = (name || 'there').split(' ')[0];
-    const scopeLine = fit === 'out_of_scope'
-      ? 'After reviewing your inquiry, it appears this matter may fall outside our firm\'s current practice areas. An attorney will follow up with information, including possible referral resources.'
-      : 'An attorney will review the information you have provided. If your matter falls within our practice areas and no conflicts are identified, we will be in touch to schedule an initial consultation.';
-    return '[DRAFT] — Requires attorney review and approval before sending.\n\n' +
-      'Subject: We Received Your Inquiry — Madison Valley Law Group\n\n' +
-      'Dear ' + first + ',\n\n' +
-      'Thank you for reaching out to Madison Valley Law Group. We have received your inquiry.\n\n' +
-      scopeLine + '\n\n' +
-      'Please note:\n' +
-      '- This acknowledgment does not create an attorney-client relationship.\n' +
-      '- No legal advice is provided by this communication.\n' +
-      '- Before any attorney-client relationship can be formed, the firm must complete a conflict-of-interest review and both parties must sign a written engagement agreement.\n\n' +
-      'If your matter is time-sensitive, please call us at 256-555-0199.\n\n' +
-      'Warm regards,\n[Attorney Name — to be completed by reviewing attorney]\nMadison Valley Law Group\n\n' +
-      '---\nIMPORTANT NOTICE: This communication does not constitute legal advice. No attorney-client relationship is created by this message.\n\n[END DRAFT]';
-  }
+  const pipelineEl = document.getElementById('pipeline');
+  const panelEl = document.getElementById('stage-panel');
+  const logEl = document.getElementById('log');
 
-  // =========================================================================
-  // Rendering
-  // =========================================================================
-  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-  function fitBadge(fit){
-    if (fit==='in_scope') return '<span class="badge badge-in-scope">✓ In Scope</span>';
-    if (fit==='out_of_scope') return '<span class="badge badge-out-scope">✗ Out of Scope</span>';
-    return '<span class="badge badge-needs-review">? Needs Review</span>';
-  }
-  function urgencyBadge(u){
-    const cls={low:'badge-low',medium:'badge-medium',high:'badge-high',emergency:'badge-emergency'}[u]||'badge-medium';
-    return '<span class="badge '+cls+'">'+u.charAt(0).toUpperCase()+u.slice(1)+'</span>';
-  }
-  function confBand(b){
-    const map={high:['conf-high','High confidence'],medium:['conf-medium','Medium confidence — verify'],low:['conf-low','Low confidence — human review']};
-    const [cls,txt]=map[b]||map.low;
-    return '<span class="conf-band '+cls+'">◆ '+txt+'</span>';
-  }
-
-  let current = null;     // current result
-  let approved = false;
-
-  function renderResult(r){
-    current = r; approved = false;
-    const cc = r.names.map(n => '<span class="name-chip">'+esc(n.name)+' <span class="name-chip-role">'+esc(n.role)+'</span></span>').join('') || '<em style="color:var(--ink-40);font-size:13px;">No names extracted.</em>';
-    const missing = r.missing.map(m => '<li><span class="icon">◌</span> '+esc(m)+'</li>').join('');
-    const questions = r.questions.map(q => '<li><span class="icon">?</span> '+esc(q)+'</li>').join('');
-    const warnings = r.warnings.map(w => '<li><span>⚑</span> '+esc(w)+'</li>').join('');
-    const why = r.why.length ? r.why.map(w => '<span class="why-chip">"'+esc(w)+'"</span>').join('') : '<em style="color:var(--ink-40);font-size:13px;">No strong signals — routed to human review.</em>';
-    const referral = r.referral ? '<div class="referral-box"><strong>Referral Note:</strong> '+esc(r.referral)+'</div>' : '';
-
-    const el = document.getElementById('results');
-    el.innerHTML =
-      '<div class="results-banner"><span>🔒</span> Processed entirely on local hardware — 0 bytes transmitted. Every field below is a draft for attorney review.</div>' +
-
-      '<div class="detail-grid" style="margin-bottom:0">' +
-        '<div><div class="card">' +
-          '<div class="card-title">📥 Intake Summary</div>' +
-          '<div class="client-name">'+esc(r.name||'(name not provided)')+'</div>' +
-          '<div class="client-meta">Processed '+new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' · on-premise</div>' +
-          '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">'+fitBadge(r.fit)+' '+urgencyBadge(r.urgency)+'</div>' +
-          '<div class="detail-label" style="margin-bottom:6px;">Matter Description</div>' +
-          '<div class="description-text">'+esc(r.text)+'</div>' +
-        '</div></div>' +
-        '<div><div class="card">' +
-          '<div class="card-title">⚖️ Attorney Review Panel</div>' +
-          '<div class="classification-label">'+esc(r.classification)+'</div>' +
-          confBand(r.band) +
-          '<div class="why-label">Why this classification — phrases the model relied on:</div>' +
-          '<div class="why-chips">'+why+'</div>' +
-          '<div class="detail-row"><div class="detail-label">Fit Status</div><div class="detail-value">'+fitBadge(r.fit)+'</div></div>' +
-          '<div class="detail-row"><div class="detail-label">Urgency</div><div class="detail-value">'+urgencyBadge(r.urgency)+'</div></div>' +
-          '<div class="detail-row"><div class="detail-label">Estimated Value</div><div class="detail-value">'+esc(r.estValue)+'</div></div>' +
-          referral +
-        '</div></div>' +
-      '</div>' +
-
-      '<div class="detail-grid">' +
-        '<div><div class="card"><div class="card-title">🔍 Conflict-Check Panel</div>' +
-          '<p style="font-size:13px;color:var(--ink-40);margin-bottom:10px;line-height:1.55;">Names extracted for conflict <strong>screening only</strong>. This is not a conflict determination — an attorney must run a full conflict review against the firm database before any substantive discussion.</p>' +
-          '<div class="name-chips">'+cc+'</div></div></div>' +
-        '<div><div class="card"><div class="card-title">◌ Missing Information</div><ul class="info-list">'+missing+'</ul></div></div>' +
-      '</div>' +
-
-      '<div class="detail-grid">' +
-        '<div><div class="card"><div class="card-title">? Consultation Questions</div><ul class="info-list">'+questions+'</ul></div></div>' +
-        '<div><div class="card"><div class="card-title">⚑ Internal Warnings</div><ul class="warning-list">'+warnings+'</ul></div></div>' +
-      '</div>' +
-
-      '<div class="card"><div class="card-title">📄 Internal Attorney Summary — Draft</div><div class="draft-box">'+esc(r.summary)+'</div></div>' +
-
-      '<div class="card"><span class="draft-label">[DRAFT]</span>' +
-        '<div class="card-title" style="margin-bottom:10px;">✉️ Client Acknowledgment — For Attorney Review</div>' +
-        '<div class="draft-box">'+esc(r.ack)+'</div></div>' +
-
-      // Approval gate
-      '<div class="card approval-card" id="approval-card">' +
-        '<div class="approval-head"><div>' +
-          '<h4 id="approval-title">✋ Attorney approval required</h4>' +
-          '<p id="approval-sub">Nothing can be filed or sent until a licensed attorney reviews and approves this record.</p>' +
-        '</div><button class="btn-approve" id="approve-btn">Review &amp; Approve</button></div>' +
-      '</div>' +
-
-      // Export
-      '<div class="card"><div class="card-title">📤 Export to your file system</div>' +
-        '<div class="export-lock-note" id="export-lock">🔒 Locked until an attorney approves above.</div>' +
-        '<div class="export-grid">' +
-          exportBtn('gdocs','Google Docs','Formatted matter summary') +
-          exportBtn('filevine','Filevine','Create project + map parties') +
-          exportBtn('clio','Clio','New matter + contacts') +
-          exportBtn('pdf','PDF / DOCX','Download review packet') +
-        '</div></div>' +
-
-      // Audit log
-      '<div class="card"><div class="card-title">📋 Audit Trail</div><ul class="audit-log" id="audit-log">' +
-        auditRow('Captured', 'system', 'Intake received and queued') +
-        auditRow('Processed', 'local model', 'Classified on-premise · 0 external calls') +
-      '</ul></div>';
-
-    document.getElementById('approve-btn').addEventListener('click', onApprove);
-    document.querySelectorAll('.export-btn').forEach(b => b.addEventListener('click', () => onExport(b.dataset.export, b.querySelector('.ex-title').textContent)));
-
-    el.classList.add('show');
-    el.scrollIntoView({ behavior:'smooth', block:'start' });
-  }
-
-  function exportBtn(key, title, sub){
-    return '<button class="export-btn" data-export="'+key+'" disabled>' +
-      '<span class="ex-ico ex-'+key+'">'+({gdocs:'📝',filevine:'🍇',clio:'⚖️',pdf:'📄'}[key])+'</span>' +
-      '<span><span class="ex-title">'+title+'</span><br><span class="ex-sub">'+sub+'</span></span></button>';
-  }
-
-  function auditRow(action, actor, detail){
-    const t = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-    return '<li><span class="audit-time">'+t+'</span><span><span class="audit-actor">'+esc(action)+'</span> · '+esc(detail)+' <span style="color:var(--ink-40)">('+esc(actor)+')</span></span></li>';
-  }
-
-  function onApprove(){
-    if (approved) return;
-    approved = true;
-    document.getElementById('approval-card').classList.add('approved');
-    document.getElementById('approval-title').textContent = '✓ Approved by reviewing attorney';
-    document.getElementById('approval-sub').textContent = 'Record unlocked for export. This approval is recorded in the audit trail.';
-    const btn = document.getElementById('approve-btn');
-    btn.textContent = '✓ Approved'; btn.classList.add('done'); btn.disabled = true;
-    document.getElementById('export-lock').style.display = 'none';
-    document.querySelectorAll('.export-btn').forEach(b => b.disabled = false);
-    document.getElementById('audit-log').insertAdjacentHTML('beforeend', auditRow('Approved', 'attorney', 'Reviewed and approved for filing'));
-    toast('Record approved — export unlocked');
-  }
-
-  function onExport(key, label){
-    if (!approved) return;
-    const msgs = {
-      gdocs: 'Created Google Doc "Matter Summary — '+(current.name||'Intake')+'"',
-      filevine: 'Created Filevine project #1042 · parties mapped to contacts',
-      clio: 'Created Clio matter · contacts added',
-      pdf: 'Review packet downloaded (PDF)'
-    };
-    document.getElementById('audit-log').insertAdjacentHTML('beforeend', auditRow('Exported', 'attorney', 'Sent to '+label));
-    toast(msgs[key] || ('Exported to '+label));
-  }
-
-  // =========================================================================
-  // Processing animation, then render
-  // =========================================================================
-  function runProcessing(name, text){
-    if (!text || text.trim().length < 12){ toast('Add a matter description first'); return; }
-    document.getElementById('results').classList.remove('show');
-    const proc = document.getElementById('processing');
-    const steps = document.getElementById('proc-steps');
-    proc.classList.add('show');
-    const lines = [
-      'Loading intake on local model…',
-      'Classifying matter against firm scope…',
-      'Extracting conflict-check names…',
-      'Flagging urgency &amp; missing information…',
-      'Drafting attorney summary &amp; acknowledgment…'
-    ];
-    steps.innerHTML = '';
-    let i = 0;
-    const tick = setInterval(() => {
-      if (i < lines.length){
-        steps.insertAdjacentHTML('beforeend', '<div class="done">✓ '+lines[i]+'</div>');
-        i++;
-      } else {
-        clearInterval(tick);
-        proc.classList.remove('show');
-        renderResult(classify(name, text));
-      }
-    }, 320);
-  }
-
-  // =========================================================================
-  // Wiring
-  // =========================================================================
-  // Channel tabs
-  document.querySelectorAll('.channel-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.channel-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.channel-pane').forEach(p => p.classList.remove('active'));
-      tab.classList.add('active');
-      document.getElementById(tab.dataset.pane).classList.add('active');
+  function renderPipeline() {
+    pipelineEl.innerHTML = STAGES.map((s, i) => {
+      const state = i === current ? 'active' : (i <= reached ? 'done' : '');
+      return `<button class="pipe-step ${state} owner-${s.owner}" data-i="${i}">
+        <span class="pipe-line"></span>
+        <span class="pipe-dot">${i <= reached && i !== current ? '✓' : s.icon}</span>
+        <span class="pipe-label">${s.label}</span>
+        <span class="pipe-owner">${s.owner === 'agent' ? '◆ Agent' : '● You'}</span>
+      </button>`;
+    }).join('');
+    pipelineEl.querySelectorAll('.pipe-step').forEach(b => {
+      b.addEventListener('click', () => goTo(parseInt(b.dataset.i, 10)));
     });
-  });
+  }
 
-  // Samples
-  document.querySelectorAll('.sample-btn').forEach(b => {
-    b.addEventListener('click', () => {
-      const s = SAMPLES[b.dataset.sample];
-      document.getElementById('client-name').value = s.name;
-      document.getElementById('intake-text').value = s.text;
-    });
-  });
-
-  document.getElementById('run-btn').addEventListener('click', () => {
-    runProcessing(document.getElementById('client-name').value, document.getElementById('intake-text').value);
-  });
-  document.getElementById('run-form-btn').addEventListener('click', () => {
-    const n = document.getElementById('f-first').value + ' ' + document.getElementById('f-last').value;
-    runProcessing(n.trim(), document.getElementById('f-desc').value);
-  });
-
-  // Phone transcribe
-  document.getElementById('transcribe-btn').addEventListener('click', () => {
-    document.getElementById('transcript').classList.add('show');
-    document.getElementById('phone-run-row').style.display = 'flex';
-    document.getElementById('transcribe-btn').textContent = '✓ Transcribed locally';
-  });
-  document.getElementById('run-phone-btn').addEventListener('click', () => {
-    runProcessing('Carlos Mendez', SAMPLES.business.text);
-  });
-
-  // Config toggles
-  const areasEl = document.getElementById('config-areas');
-  function renderConfig(){
-    areasEl.innerHTML = Object.entries(PRACTICE_AREAS).map(([area, def]) =>
-      '<label class="area-toggle '+(def.accepted?'on':'')+'" data-area="'+esc(area)+'">' +
-        '<span class="at-state">'+(def.accepted?'✓ Accepted':'Declined')+'</span> '+esc(area)+'</label>'
+  function renderLog() {
+    const entries = [];
+    for (let i = 0; i <= reached; i++) STAGES[i].log.forEach(e => entries.push(e));
+    if (!entries.length) { logEl.innerHTML = '<li class="log-empty">Nothing yet — start the workflow.</li>'; return; }
+    logEl.innerHTML = entries.map(([ico, actor, txt]) =>
+      `<li><span class="lg-ico">${ico}</span><span>${txt}<span class="lg-actor">${actor === 'agent' ? '◆ agent' : actor === 'you' ? '● attorney' : actor}</span></span></li>`
     ).join('');
-    areasEl.querySelectorAll('.area-toggle').forEach(t => {
-      t.addEventListener('click', () => {
-        const a = t.dataset.area;
-        PRACTICE_AREAS[a].accepted = !PRACTICE_AREAS[a].accepted;
-        renderConfig();
-      });
+  }
+
+  function renderStage() {
+    if (current < 0) return;
+    const s = STAGES[current];
+    const isLast = current === STAGES.length - 1;
+    panelEl.innerHTML = `
+      <div class="stage-content">
+        <div class="stage-head"><div class="stage-icon">${s.icon}</div><div class="stage-h">${s.h}</div></div>
+        <div class="stage-sub">${s.sub}</div>
+        ${s.render()}
+        <div class="stage-controls">
+          <button class="btn-step" id="prev-btn" ${current === 0 ? 'disabled' : ''}>← Back</button>
+          <button class="btn-step primary" id="next-btn">${isLast ? '↺ Start over' : 'Next stage →'}</button>
+          <span style="font-family:var(--mono);font-size:11.5px;color:var(--ink-40)">Stage ${current + 1} of ${STAGES.length}</span>
+        </div>
+      </div>`;
+    document.getElementById('prev-btn').addEventListener('click', () => { if (current > 0) goTo(current - 1); });
+    document.getElementById('next-btn').addEventListener('click', () => {
+      if (isLast) { goTo(0); } else { goTo(current + 1); }
     });
   }
-  renderConfig();
 
-  // Toast
+  function goTo(i) {
+    current = i;
+    if (i > reached) reached = i;
+    renderPipeline();
+    renderStage();
+    renderLog();
+  }
+
+  // Kick off on first interaction from hero buttons; also render stage 0 immediately so panel isn't empty
+  renderPipeline();
+  goTo(0);
+
+  // Toast (used by nothing critical yet, kept for parity)
   let toastTimer;
-  function toast(msg){
+  window.__toast = function (msg) {
     const t = document.getElementById('toast');
     document.getElementById('toast-msg').textContent = msg;
     t.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
-  }
+  };
 
 })();
 </script>

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GuideHerd Legal Intake Copilot — From First Call to Open File</title>
-  <meta name="description" content="GuideHerd Legal Intake Copilot — an AI agent that fields your calls, vets prospects, schedules consults on your Outlook calendar, and turns scanned intake notes into an Orion import and a client folder on your share drive. Demo only. No legal advice." />
+  <meta name="description" content="GuideHerd Legal Intake Copilot — an AI agent that fields your calls, vets prospects, schedules consults on your Outlook calendar, and turns scanned intake notes into an open matter in your case-management system (Orion, Filevine, Clio) plus a client folder on your share drive. Demo only. No legal advice." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -296,12 +296,11 @@
 
 <!-- Hero -->
 <section class="hero">
-  <span class="hero-eyebrow">📞 AI reception → 📅 scheduling → 🗂️ open file</span>
   <h1>From the first phone call to an <em>open client file</em> — handled.</h1>
   <p class="hero-sub">
     GuideHerd's agent answers the call, vets the caller against your practice areas, books the consult on your
-    attorneys' Outlook calendars, and — once the intake is scanned — builds the Orion import and the client's
-    share-drive folder for you. Your lawyers just take the meeting.
+    attorneys' Outlook calendars, and — once the intake is scanned — opens the matter in your case-management
+    system and files the scans in the client's share-drive folder. Your lawyers just take the meeting.
   </p>
   <div class="hero-cta">
     <button class="btn-primary" onclick="document.getElementById('flow').scrollIntoView()">▶ Watch the workflow</button>
@@ -315,7 +314,7 @@
     <div class="section-kicker">Where the agent fits</div>
     <h2 class="section-title">The same intake chain — minus the handoffs and re-keying.</h2>
     <p class="section-lede">
-      Your process works. It just leaks time at every handoff: reception, scheduling, manual Orion entry, and filing.
+      Your process works. It just leaks time at every handoff: reception, scheduling, manual data entry, and filing.
       GuideHerd takes the repetitive links so your team is left with the one that needs a lawyer: the meeting.
     </p>
   </div>
@@ -330,9 +329,9 @@
         <span class="lane-arrow">→</span>
         <div class="lane-step"><span class="ls-role">Lawyer</span><span class="ls-txt">Meets, takes notes + intake form</span></div>
         <span class="lane-arrow">→</span>
-        <div class="lane-step"><span class="ls-role">Lawyer</span><span class="ls-txt">Keys client into Orion</span></div>
+        <div class="lane-step"><span class="ls-role">Lawyer</span><span class="ls-txt">Keys client into case software</span></div>
         <span class="lane-arrow">→</span>
-        <div class="lane-step"><span class="ls-role">Paralegal</span><span class="ls-txt">Scans docs → folder / Filevine</span></div>
+        <div class="lane-step"><span class="ls-role">Paralegal</span><span class="ls-txt">Scans docs → folder / CMS</span></div>
       </div>
     </div>
 
@@ -347,7 +346,7 @@
         <span class="lane-arrow">→</span>
         <div class="lane-step by-agent"><span class="ls-role">◆ Agent</span><span class="ls-txt">Picks up the scan automatically</span></div>
         <span class="lane-arrow">→</span>
-        <div class="lane-step by-agent"><span class="ls-role">◆ Agent</span><span class="ls-txt">Builds Orion import + client folder</span></div>
+        <div class="lane-step by-agent"><span class="ls-role">◆ Agent</span><span class="ls-txt">Opens the matter in your CMS + uploads to client folder</span></div>
       </div>
     </div>
   </div>
@@ -360,8 +359,8 @@
     <h2 class="section-title">Follow one caller from “hello” to an open matter.</h2>
     <p class="section-lede">
       Step through each stage, or hit play. This traces a real probate call end to end — the voice reception is
-      simulated with a transcript (ElevenLabs integration is in progress); scheduling, Orion, and the share drive
-      are shown as the agent would produce them.
+      simulated with a transcript; scheduling, case-management, and the share
+      drive are shown as the agent would produce them.
     </p>
   </div>
 
@@ -394,10 +393,10 @@
   <div class="integrations">
     <div class="intg"><div class="ig-ico">📞</div><h4>ElevenLabs voice</h4><p>Natural-sounding AI reception answers and vets every call.</p><span class="ig-tag">In progress</span></div>
     <div class="intg"><div class="ig-ico">📅</div><h4>Outlook &amp; Gmail</h4><p>Reads attorney availability and books the consult with invites.</p><span class="ig-tag">Calendar + invite</span></div>
-    <div class="intg"><div class="ig-ico">⚖️</div><h4>Orion Law</h4><p>Generates a ready-to-import client &amp; matter record.</p><span class="ig-tag">Import file</span></div>
+    <div class="intg"><div class="ig-ico">⚖️</div><h4>Case management</h4><p>Opens the client &amp; matter in Orion, Filevine, Clio, and other leaders.</p><span class="ig-tag">CMS-agnostic</span></div>
     <div class="intg"><div class="ig-ico">🗂️</div><h4>Share drive</h4><p>Creates a <code>Lastname_Firstname</code> folder and files the scans.</p><span class="ig-tag">Auto-foldering</span></div>
-    <div class="intg"><div class="ig-ico">🍇</div><h4>Filevine</h4><p>Optionally opens the matter as a Filevine project too.</p><span class="ig-tag">Optional</span></div>
     <div class="intg"><div class="ig-ico">📠</div><h4>Your scanner</h4><p>Watches the scan destination and picks up new intake docs.</p><span class="ig-tag">Hot folder</span></div>
+    <div class="intg"><div class="ig-ico">🔌</div><h4>API, import, or RPA</h4><p>Uses each system's API where one exists, and file import or guided UI automation where it doesn't.</p><span class="ig-tag">However it connects</span></div>
   </div>
 
   <div class="trust-note" style="margin-top:28px;">
@@ -405,9 +404,9 @@
     <div>
       <h4>Runs on your infrastructure — connected only to what you already trust</h4>
       <p>
-        The agent lives on your firm's server and talks to your Outlook, your Orion install, and your share drive.
-        Scanned documents are read on-device — the images aren't sent to any third-party cloud. Voice reception is
-        powered by ElevenLabs; everything downstream stays inside your systems, with a full audit trail and attorney
+        The agent lives on your firm's server and talks to your Outlook, your case-management system, and your share
+        drive. Scanned documents are read on-device — the images aren't sent to any third-party cloud. Voice reception
+        is powered by ElevenLabs; everything downstream stays inside your systems, with a full audit trail and attorney
         review before any file is finalized.
       </p>
     </div>
@@ -420,7 +419,7 @@
     <div class="section-head" style="text-align:center;">
       <div class="section-kicker" style="color:var(--accent);">See it on your firm's workflow</div>
       <h2 class="section-title">Put the busywork on autopilot.</h2>
-      <p class="section-lede">We'll map your call-to-file process, wire up your Outlook, Orion, and share drive, and stand the agent up on your hardware.</p>
+      <p class="section-lede">We'll map your call-to-file process, wire up your Outlook, your case-management system, and share drive, and stand the agent up on your hardware.</p>
     </div>
     <div class="hero-cta" style="justify-content:center;">
       <a class="btn-primary" href="/#contact" style="background:var(--accent-dk);border-color:var(--accent-dk);">Book a walkthrough →</a>
@@ -433,7 +432,7 @@
 <div class="disclaimer-footer">
   <strong>Important Notices:</strong>
   This page is an interactive demonstration using fictional data. It does not provide legal advice and forms no attorney-client relationship.
-  The voice call is a simulated transcript; ElevenLabs voice reception is in development. Scheduling, Orion import, share-drive, and Filevine
+  The voice call is a simulated transcript; ElevenLabs voice reception is in development. Scheduling, case-management, and share-drive
   actions are simulated for demonstration. Conflict-check name extraction is for screening only and is not a conflict determination.
   All client and matter records require attorney review and approval before a file is finalized or any communication is sent.
   &copy; GuideHerd AI &mdash; <a href="/" style="color:var(--accent-dk);">guideherd.ai</a>
@@ -579,14 +578,14 @@
     {
       key: 'file', icon: '🗂️', label: 'Open the file', owner: 'agent',
       h: 'The scan opens the file',
-      sub: 'The moment paper hits the scanner, the agent extracts the data and builds the Orion import and client folder.',
+      sub: 'The moment paper hits the scanner, the agent extracts the data, opens the matter in your case-management system, and files the scans.',
       log: [
         ['📠', 'agent', 'New scan detected on \\\\FIRM-SCAN\\Intake'],
         ['🔎', 'agent', 'Client + matter data extracted on-device'],
-        ['⚖️', 'agent', 'Orion import file created: Holloway_Margaret_orion.xml'],
+        ['🧩', 'agent', 'Record mapped to your case-management system\'s fields'],
         ['🗂️', 'agent', 'Share-drive folder created: Holloway_Margaret'],
         ['⬆️', 'agent', '2 scanned files uploaded to client folder'],
-        ['🍇', 'agent', 'Filevine project #1042 opened (optional)']
+        ['✅', 'agent', 'Client & matter staged in your CMS (Orion / Filevine / Clio)']
       ],
       render: () => `
         <div class="stage-content">
@@ -598,7 +597,7 @@
           </div>
 
           <div class="panel-box">
-            <div class="box-title">⚖️ Orion import file <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--ink-40)">· Holloway_Margaret_orion.xml</span></div>
+            <div class="box-title">🧩 Client &amp; matter record <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--ink-40)">· mapped to your system's fields</span></div>
             <dl class="kv" style="font-size:13px">
               <dt>Last / First</dt><dd>Holloway / Margaret</dd>
               <dt>Matter type</dt><dd>Probate — will contest</dd>
@@ -607,6 +606,17 @@
               <dt>Phone</dt><dd>${CLIENT.phone}</dd>
               <dt>Conflict names</dt><dd>Robert Holloway · Patricia Greer</dd>
             </dl>
+          </div>
+
+          <div class="panel-box">
+            <div class="box-title">📤 Open in your case-management system <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--ink-40)">· one connector per firm</span></div>
+            <div class="folder-card">
+              <div class="file-row"><span class="fi">⚖️</span> Orion <span style="color:var(--ink-40)">— client &amp; matter record</span> <span class="fi-meta">via API / import / RPA</span></div>
+              <div class="file-row"><span class="fi">🍇</span> Filevine <span style="color:var(--ink-40)">— project + parties</span> <span class="fi-meta">via API</span></div>
+              <div class="file-row"><span class="fi">🧭</span> Clio <span style="color:var(--ink-40)">— matter + contacts</span> <span class="fi-meta">via API</span></div>
+              <div class="file-row" style="color:var(--ink-40)"><span class="fi">➕</span> …and other leaders <span class="fi-meta">configurable</span></div>
+            </div>
+            <div style="font-size:12.5px;color:var(--ink-60);margin-top:10px">GuideHerd uses each system's API where one exists, and file import or guided UI automation where it doesn't — you pick the target for your firm.</div>
           </div>
 
           <div class="panel-box">
@@ -619,13 +629,12 @@
           </div>
 
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">
-            <span class="badge badge-green">✓ Orion import ready</span>
+            <span class="badge badge-green">✓ Record mapped</span>
             <span class="badge badge-green">✓ Folder created</span>
             <span class="badge badge-green">✓ Files uploaded</span>
-            <span class="badge badge-blue">🍇 Filevine #1042</span>
             <span class="badge badge-amber">Pending attorney sign-off</span>
           </div>
-          <div style="font-size:13px;color:var(--ink-60);margin-top:12px">The file is staged and waiting for a one-click attorney approval before it goes live in Orion.</div>
+          <div style="font-size:13px;color:var(--ink-60);margin-top:12px">The file is staged and waiting for a one-click attorney approval before it goes live in your system.</div>
         </div>`
     }
   ];

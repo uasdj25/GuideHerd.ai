@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Martinson &amp; Beason Scheduling Assistant — GuideHerd</title>
+  <meta name="description" content="A receptionist-assisted scheduling experience designed to help qualified callers book consultations quickly and professionally.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter+Tight:wght@300;400;500;600&display=swap">
+  <style>
+    :root {
+      --ink:        #0E2A3F;
+      --ink-soft:   #1C3A52;
+      --ink-60:     rgba(14, 42, 63, 0.60);
+      --ink-40:     rgba(14, 42, 63, 0.40);
+      --ink-20:     rgba(14, 42, 63, 0.20);
+      --ink-10:     rgba(14, 42, 63, 0.10);
+      --ink-05:     rgba(14, 42, 63, 0.05);
+
+      --paper:      #F5F2EA;
+      --paper-2:    #EDE8DB;
+      --cream:      #FBF8F1;
+
+      --accent:     #2FA4A0;
+      --accent-deep:#1E7C79;
+      --accent-ink: #0E6D6A;
+
+      --serif:   "Fraunces", Georgia, serif;
+      --sans:    "Inter Tight", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+      --fs-xs:   11px;
+      --fs-sm:   13px;
+      --fs-base: 16px;
+      --fs-md:   18px;
+      --fs-lg:   22px;
+      --fs-xl:   28px;
+      --fs-2xl:  40px;
+
+      --sp-1: 8px;
+      --sp-2: 16px;
+      --sp-3: 24px;
+      --sp-4: 32px;
+      --sp-5: 48px;
+      --sp-6: 64px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+    body {
+      font-family: var(--sans);
+      font-size: var(--fs-base);
+      line-height: 1.55;
+      color: var(--ink);
+      background: var(--paper);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    img, svg { display: block; max-width: 100%; }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; cursor: pointer; border: none; background: none; }
+    h1, h2, h3, h4 { margin: 0; font-weight: 400; letter-spacing: -0.01em; }
+    p { margin: 0; }
+
+    /* Header */
+    .site-header {
+      background: rgba(245, 242, 234, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--ink-10);
+      padding: 0 var(--sp-4);
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .wordmark {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 20px;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      display: inline-flex;
+      align-items: flex-start;
+    }
+    .wordmark-sup {
+      font-family: var(--sans);
+      font-weight: 500;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-left: 2px;
+      margin-top: 3px;
+      line-height: 1;
+    }
+
+    /* Main content */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: var(--sp-5) var(--sp-3);
+    }
+
+    .hero-container {
+      max-width: 640px;
+      width: 100%;
+      text-align: center;
+    }
+
+    /* Eyebrow */
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-60);
+      margin-bottom: var(--sp-3);
+    }
+    .eyebrow-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    /* Headings */
+    .hero-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(32px, 6vw, 48px);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin-bottom: var(--sp-2);
+    }
+
+    .hero-subtitle {
+      font-size: var(--fs-md);
+      line-height: 1.55;
+      color: var(--ink-soft);
+      max-width: 52ch;
+      margin: 0 auto var(--sp-5);
+    }
+
+    /* Steps flow */
+    .steps {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: var(--sp-3);
+      margin-bottom: var(--sp-5);
+      flex-wrap: wrap;
+    }
+
+    .step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--sp-1);
+      max-width: 160px;
+      text-align: center;
+    }
+
+    .step-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: var(--cream);
+      border: 1px solid var(--ink-10);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-ink);
+      margin-bottom: var(--sp-1);
+    }
+
+    .step-label {
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      color: var(--ink);
+      line-height: 1.4;
+    }
+
+    .step-arrow {
+      color: var(--ink-20);
+      margin-top: 14px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 560px) {
+      .steps {
+        flex-direction: column;
+        align-items: center;
+        gap: var(--sp-2);
+      }
+      .step-arrow {
+        transform: rotate(90deg);
+        margin-top: 0;
+      }
+      .step { max-width: 200px; }
+    }
+
+    /* Primary button */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 16px 32px;
+      border-radius: 999px;
+      font-size: var(--fs-base);
+      font-weight: 500;
+      letter-spacing: 0.005em;
+      background: var(--ink);
+      color: var(--paper);
+      border: 1px solid var(--ink);
+      transition: background 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+      min-width: 220px;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-ink);
+      border-color: var(--accent-ink);
+    }
+    .btn-primary:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+    .btn-primary:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Button states */
+    .btn-primary[data-state="loading"] {
+      pointer-events: none;
+    }
+    .btn-primary[data-state="loading"] .btn-text { display: none; }
+    .btn-primary[data-state="loading"] .btn-spinner { display: block; }
+
+    .btn-primary[data-state="active"] {
+      background: var(--accent-ink);
+      border-color: var(--accent-ink);
+    }
+    .btn-primary[data-state="active"] .btn-text { display: none; }
+    .btn-primary[data-state="active"] .btn-active-text { display: inline; }
+
+    .btn-spinner {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--paper);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .btn-active-text { display: none; }
+
+    /* Supporting text */
+    .mic-hint {
+      font-size: var(--fs-sm);
+      color: var(--ink-40);
+      margin-top: var(--sp-2);
+    }
+
+    /* Error message */
+    .error-message {
+      display: none;
+      font-size: var(--fs-sm);
+      color: #8B3A3A;
+      background: rgba(139, 58, 58, 0.08);
+      border: 1px solid rgba(139, 58, 58, 0.2);
+      border-radius: 8px;
+      padding: var(--sp-2) var(--sp-3);
+      margin-top: var(--sp-2);
+      max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .error-message.visible { display: block; }
+
+    /* Trust statement */
+    .trust-statement {
+      margin-top: var(--sp-5);
+      padding-top: var(--sp-4);
+      border-top: 1px solid var(--ink-10);
+      font-size: var(--fs-sm);
+      color: var(--ink-40);
+      font-style: italic;
+    }
+
+    /* Workflow card */
+    .workflow-card {
+      margin-top: var(--sp-5);
+      background: var(--cream);
+      border: 1px solid var(--ink-10);
+      border-radius: 12px;
+      padding: var(--sp-3);
+      max-width: 420px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .workflow-label {
+      font-size: var(--fs-xs);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-40);
+      margin-bottom: var(--sp-2);
+    }
+
+    .workflow-steps {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-1);
+    }
+
+    .workflow-step {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      font-size: var(--fs-sm);
+      color: var(--ink-soft);
+    }
+
+    .workflow-step::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .workflow-arrow {
+      color: var(--ink-20);
+      margin-left: 14px;
+      font-size: var(--fs-sm);
+    }
+
+    /* Attribution */
+    .attribution {
+      margin-top: var(--sp-5);
+      font-size: var(--fs-xs);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-40);
+    }
+
+    /* Footer */
+    .site-footer {
+      padding: var(--sp-3) var(--sp-4);
+      border-top: 1px solid var(--ink-10);
+      text-align: center;
+    }
+    .footer-text {
+      font-size: var(--fs-xs);
+      color: var(--ink-40);
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(14, 42, 63, 0.6);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: var(--sp-3);
+    }
+    .modal-backdrop.visible {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--paper);
+      border-radius: 16px;
+      box-shadow: 0 24px 64px rgba(14, 42, 63, 0.3);
+      width: 100%;
+      max-width: 800px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--sp-2) var(--sp-3);
+      border-bottom: 1px solid var(--ink-10);
+      background: var(--cream);
+    }
+
+    .modal-title {
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      color: var(--ink);
+    }
+
+    .modal-close {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink-60);
+      transition: background 0.15s, color 0.15s;
+    }
+    .modal-close:hover {
+      background: var(--ink-10);
+      color: var(--ink);
+    }
+    .modal-close:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .modal-body {
+      flex: 1;
+      min-height: 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--paper-2);
+    }
+
+    .modal-iframe {
+      width: 100%;
+      height: 100%;
+      min-height: 500px;
+      border: none;
+    }
+
+    .modal-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--sp-2);
+      color: var(--ink-60);
+      font-size: var(--fs-sm);
+    }
+
+    .modal-loading .btn-spinner {
+      display: block;
+      border-color: var(--ink-20);
+      border-top-color: var(--accent);
+    }
+
+    /* Visually hidden for screen readers */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="site-header">
+    <a class="wordmark" href="/" aria-label="GuideHerd home">
+      <span>GuideHerd</span><sup class="wordmark-sup">AI</sup>
+    </a>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main" role="main">
+    <div class="hero-container">
+      <!-- Eyebrow -->
+      <div class="eyebrow">
+        <span class="eyebrow-dot" aria-hidden="true"></span>
+        <span>Private Demonstration</span>
+      </div>
+
+      <!-- Title -->
+      <h1 class="hero-title">Martinson &amp; Beason Scheduling Assistant</h1>
+
+      <!-- Subtitle -->
+      <p class="hero-subtitle">
+        A receptionist-assisted scheduling experience designed to help qualified callers book consultations quickly and professionally.
+      </p>
+
+      <!-- Three-step flow -->
+      <div class="steps" role="list" aria-label="Scheduling workflow">
+        <div class="step" role="listitem">
+          <div class="step-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+          </div>
+          <span class="step-label">Receptionist transfers the caller</span>
+        </div>
+
+        <svg class="step-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+
+        <div class="step" role="listitem">
+          <div class="step-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+          </div>
+          <span class="step-label">Scheduling assistant offers available times</span>
+        </div>
+
+        <svg class="step-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+
+        <div class="step" role="listitem">
+          <div class="step-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <span class="step-label">Appointment appears in Outlook</span>
+        </div>
+      </div>
+
+      <!-- Primary CTA -->
+      <button
+        type="button"
+        class="btn-primary"
+        id="start-demo-btn"
+        aria-describedby="mic-hint"
+      >
+        <span class="btn-text">Start Scheduling Demo</span>
+        <span class="btn-active-text">Demo in Progress</span>
+        <span class="btn-spinner" aria-hidden="true"></span>
+      </button>
+
+      <!-- Microphone hint -->
+      <p class="mic-hint" id="mic-hint">Please allow microphone access when prompted.</p>
+
+      <!-- Error message -->
+      <div class="error-message" id="error-message" role="alert" aria-live="polite">
+        The scheduling demo is not configured yet.
+      </div>
+
+      <!-- Trust statement -->
+      <p class="trust-statement">Scheduling only. No legal advice is provided.</p>
+
+      <!-- Workflow card -->
+      <div class="workflow-card">
+        <div class="workflow-label">Demo workflow</div>
+        <div class="workflow-steps">
+          <div class="workflow-step">Receptionist handoff</div>
+          <span class="workflow-arrow" aria-hidden="true">→</span>
+          <div class="workflow-step">Live scheduling conversation</div>
+          <span class="workflow-arrow" aria-hidden="true">→</span>
+          <div class="workflow-step">Outlook booking confirmation</div>
+        </div>
+      </div>
+
+      <!-- Attribution -->
+      <p class="attribution">Powered by GuideHerd</p>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <p class="footer-text">© 2026 GuideHerd AI, LLC. Private demonstration.</p>
+  </footer>
+
+  <!-- Modal for embedded experience -->
+  <div
+    class="modal-backdrop"
+    id="modal-backdrop"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modal-title"
+    hidden
+  >
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-title">Scheduling Assistant</span>
+        <button
+          type="button"
+          class="modal-close"
+          id="modal-close"
+          aria-label="Close scheduling assistant"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body" id="modal-body">
+        <div class="modal-loading" id="modal-loading">
+          <span class="btn-spinner"></span>
+          <span>Loading scheduling assistant...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      var SCHEDULING_URL = window.__SCHEDULING_URL__ || null;
+
+      var btn = document.getElementById('start-demo-btn');
+      var errorMessage = document.getElementById('error-message');
+      var modalBackdrop = document.getElementById('modal-backdrop');
+      var modalBody = document.getElementById('modal-body');
+      var modalClose = document.getElementById('modal-close');
+      var modalLoading = document.getElementById('modal-loading');
+
+      var previousActiveElement = null;
+      var isModalOpen = false;
+
+      function showError(message) {
+        errorMessage.textContent = message || 'The scheduling demo is not configured yet.';
+        errorMessage.classList.add('visible');
+      }
+
+      function hideError() {
+        errorMessage.classList.remove('visible');
+      }
+
+      function setButtonState(state) {
+        btn.dataset.state = state;
+        if (state === 'loading' || state === 'active') {
+          btn.disabled = true;
+        } else {
+          btn.disabled = false;
+        }
+      }
+
+      function openModal() {
+        previousActiveElement = document.activeElement;
+        modalBackdrop.hidden = false;
+        modalBackdrop.classList.add('visible');
+        isModalOpen = true;
+
+        modalClose.focus();
+
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeModal() {
+        modalBackdrop.classList.remove('visible');
+        modalBackdrop.hidden = true;
+        isModalOpen = false;
+
+        document.body.style.overflow = '';
+
+        var iframe = modalBody.querySelector('iframe');
+        if (iframe) {
+          iframe.remove();
+        }
+        modalLoading.style.display = 'flex';
+
+        setButtonState('default');
+
+        if (previousActiveElement && previousActiveElement.focus) {
+          previousActiveElement.focus();
+        }
+      }
+
+      function tryEmbed(url) {
+        modalLoading.style.display = 'flex';
+
+        var iframe = document.createElement('iframe');
+        iframe.className = 'modal-iframe';
+        iframe.setAttribute('allow', 'microphone; camera; autoplay');
+        iframe.setAttribute('title', 'Scheduling Assistant');
+
+        iframe.onload = function() {
+          modalLoading.style.display = 'none';
+          setButtonState('active');
+        };
+
+        iframe.onerror = function() {
+          closeModal();
+          openInNewWindow(url);
+        };
+
+        iframe.src = url;
+        modalBody.appendChild(iframe);
+      }
+
+      function openInNewWindow(url) {
+        var width = 480;
+        var height = 700;
+        var left = (screen.width - width) / 2;
+        var top = (screen.height - height) / 2;
+
+        var features = 'width=' + width + ',height=' + height + ',left=' + left + ',top=' + top + ',menubar=no,toolbar=no,location=no,status=no';
+        var newWindow = window.open(url, 'SchedulingAssistant', features);
+
+        if (newWindow) {
+          setButtonState('active');
+          var checkClosed = setInterval(function() {
+            if (newWindow.closed) {
+              clearInterval(checkClosed);
+              setButtonState('default');
+            }
+          }, 500);
+        } else {
+          setButtonState('default');
+          showError('Please allow popups to use the scheduling demo.');
+        }
+      }
+
+      function startDemo() {
+        hideError();
+
+        if (!SCHEDULING_URL) {
+          showError('The scheduling demo is not configured yet.');
+          return;
+        }
+
+        setButtonState('loading');
+
+        openModal();
+        tryEmbed(SCHEDULING_URL);
+      }
+
+      btn.addEventListener('click', startDemo);
+
+      modalClose.addEventListener('click', closeModal);
+
+      modalBackdrop.addEventListener('click', function(e) {
+        if (e.target === modalBackdrop) {
+          closeModal();
+        }
+      });
+
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && isModalOpen) {
+          closeModal();
+        }
+      });
+
+      var focusableSelectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+      modalBackdrop.addEventListener('keydown', function(e) {
+        if (e.key !== 'Tab' || !isModalOpen) return;
+
+        var modal = modalBackdrop.querySelector('.modal');
+        var focusableElements = modal.querySelectorAll(focusableSelectors);
+        var firstFocusable = focusableElements[0];
+        var lastFocusable = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstFocusable) {
+            e.preventDefault();
+            lastFocusable.focus();
+          }
+        } else {
+          if (document.activeElement === lastFocusable) {
+            e.preventDefault();
+            firstFocusable.focus();
+          }
+        }
+      });
+
+      if (!SCHEDULING_URL) {
+        btn.disabled = true;
+      }
+    })();
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GuideHerd Reception Console</title>
+  <meta name="description" content="A focused receptionist console for preparing qualified callers for scheduling.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter+Tight:wght@300;400;500;600&display=swap">
+  <style>
+    :root {
+      --ink:        #0E2A3F;
+      --ink-soft:   #1C3A52;
+      --ink-60:     rgba(14, 42, 63, 0.60);
+      --ink-40:     rgba(14, 42, 63, 0.40);
+      --ink-20:     rgba(14, 42, 63, 0.20);
+      --ink-10:     rgba(14, 42, 63, 0.10);
+      --ink-05:     rgba(14, 42, 63, 0.05);
+
+      --paper:      #F5F2EA;
+      --paper-2:    #EDE8DB;
+      --cream:      #FBF8F1;
+
+      --accent:     #2FA4A0;
+      --accent-deep:#1E7C79;
+      --accent-ink: #0E6D6A;
+
+      --red-flag:   #A63B2A;
+
+      --serif:   "Fraunces", Georgia, serif;
+      --sans:    "Inter Tight", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+      --fs-xs:   11px;
+      --fs-sm:   13px;
+      --fs-base: 16px;
+      --fs-md:   18px;
+      --fs-lg:   22px;
+      --fs-xl:   28px;
+
+      --sp-1: 8px;
+      --sp-2: 16px;
+      --sp-3: 24px;
+      --sp-4: 32px;
+      --sp-5: 48px;
+      --sp-6: 64px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+    body {
+      font-family: var(--sans);
+      font-size: var(--fs-base);
+      line-height: 1.55;
+      color: var(--ink);
+      background: var(--paper);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    svg { display: block; max-width: 100%; }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; cursor: pointer; border: none; background: none; }
+    h1, h2, h3 { margin: 0; font-weight: 400; letter-spacing: -0.01em; }
+    p { margin: 0; }
+
+    /* Header */
+    .site-header {
+      background: rgba(245, 242, 234, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--ink-10);
+      padding: 0 var(--sp-4);
+      height: 64px;
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .wordmark {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 20px;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      display: inline-flex;
+      align-items: flex-start;
+    }
+    .wordmark-sup {
+      font-family: var(--sans);
+      font-weight: 500;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-left: 2px;
+      margin-top: 3px;
+      line-height: 1;
+    }
+
+    /* Main */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: var(--sp-5) var(--sp-3) var(--sp-6);
+    }
+
+    .console {
+      width: 100%;
+      max-width: 520px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-60);
+      margin-bottom: var(--sp-2);
+    }
+    .eyebrow-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    .console-title {
+      font-family: var(--serif);
+      font-size: clamp(28px, 5vw, 36px);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin-bottom: var(--sp-1);
+    }
+
+    .console-sub {
+      font-size: var(--fs-sm);
+      color: var(--ink-soft);
+      margin-bottom: var(--sp-3);
+      max-width: 46ch;
+    }
+
+    /* Status line */
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
+      padding: 8px 16px;
+      border: 1px solid var(--ink-10);
+      border-radius: 999px;
+      background: var(--cream);
+      margin-bottom: var(--sp-3);
+    }
+    .status-label {
+      font-size: var(--fs-xs);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-40);
+    }
+    .status-value {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      color: var(--ink-soft);
+    }
+    /* State is conveyed by text and dot shape, never color alone */
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      background: transparent;
+      flex-shrink: 0;
+    }
+    .status-value[data-state="ready-transfer"] .status-dot { background: var(--accent); }
+    .status-value[data-state="ended"] .status-dot {
+      border-color: var(--ink-40);
+      border-radius: 2px; /* square = inactive */
+    }
+
+    /* Card */
+    .card {
+      background: var(--cream);
+      border: 1px solid var(--ink-10);
+      border-radius: 16px;
+      box-shadow: 0 18px 50px -30px rgba(14, 42, 63, 0.35);
+      padding: var(--sp-4);
+    }
+    @media (max-width: 560px) {
+      .main { padding: var(--sp-3) var(--sp-2) var(--sp-5); }
+      .card { padding: var(--sp-3); border-radius: 12px; }
+    }
+
+    /* Form */
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: var(--sp-3);
+    }
+    .field label, .field .field-label {
+      font-size: var(--fs-xs);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-60);
+      font-weight: 500;
+    }
+    .req {
+      color: var(--accent-ink);
+      font-weight: 600;
+      margin-left: 2px;
+    }
+    .field input,
+    .field select {
+      font: inherit;
+      font-size: var(--fs-base);
+      color: var(--ink);
+      background: var(--paper);
+      border: 1px solid var(--ink-20);
+      border-radius: 10px;
+      padding: 12px 14px;
+      min-height: 48px; /* touch target */
+      width: 100%;
+      transition: border-color 0.15s;
+    }
+    .field input::placeholder { color: var(--ink-40); }
+    .field input:focus-visible,
+    .field select:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      border-color: var(--accent);
+    }
+    .field input[aria-invalid="true"],
+    .field select[aria-invalid="true"] {
+      border-color: var(--red-flag);
+    }
+    .field-error {
+      display: none;
+      font-size: var(--fs-sm);
+      color: var(--red-flag);
+    }
+    .field-error.visible { display: block; }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-2);
+    }
+    @media (max-width: 560px) {
+      .field-row { grid-template-columns: 1fr; }
+    }
+
+    /* Segmented control (radio group) */
+    .segments {
+      display: flex;
+      border: 1px solid var(--ink-20);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--paper);
+    }
+    .segments label {
+      flex: 1;
+      text-align: center;
+      padding: 12px 6px;
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--ink-60);
+      cursor: pointer;
+      border-left: 1px solid var(--ink-10);
+      transition: background 0.15s, color 0.15s;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .segments label:first-of-type { border-left: 0; }
+    .segments input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      clip: rect(0, 0, 0, 0);
+      pointer-events: none; /* labels own the click; keyboard still works */
+    }
+    .segments input[type="radio"]:checked + label {
+      background: var(--ink);
+      color: var(--paper);
+    }
+    .segments input[type="radio"]:focus-visible + label {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+    }
+    @media (max-width: 560px) {
+      .segments { flex-direction: column; }
+      .segments label { border-left: 0; border-top: 1px solid var(--ink-10); }
+      .segments label:first-of-type { border-top: 0; }
+    }
+
+    /* Primary button */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 15px 28px;
+      border-radius: 999px;
+      font-size: var(--fs-base);
+      font-weight: 500;
+      background: var(--ink);
+      color: var(--paper);
+      border: 1px solid var(--ink);
+      transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s;
+      min-height: 52px;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-ink);
+      border-color: var(--accent-ink);
+    }
+    .btn-primary:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+    .btn-primary:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .btn-spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--paper);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-primary[data-busy="true"] .btn-spinner { display: block; }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 24px;
+      border-radius: 999px;
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      color: var(--ink);
+      background: transparent;
+      border: 1px solid var(--ink-20);
+      transition: border-color 0.15s, color 0.15s;
+      min-height: 48px;
+    }
+    .btn-secondary:hover { border-color: var(--ink); }
+    .btn-secondary:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .helper {
+      font-size: var(--fs-sm);
+      color: var(--ink-40);
+      text-align: center;
+      margin-top: var(--sp-2);
+    }
+
+    /* Panels (preparing / ready / ended) */
+    .panel[hidden] { display: none; }
+
+    .preparing {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--sp-2);
+      padding: var(--sp-5) 0;
+      text-align: center;
+    }
+    .preparing .btn-spinner {
+      display: block;
+      border-color: var(--ink-20);
+      border-top-color: var(--accent);
+      width: 24px;
+      height: 24px;
+    }
+    .preparing-text {
+      font-family: var(--serif);
+      font-size: var(--fs-lg);
+      color: var(--ink);
+    }
+
+    .ready-head {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      color: var(--accent-ink);
+      margin-bottom: var(--sp-2);
+    }
+    .ready-title {
+      font-family: var(--serif);
+      font-size: var(--fs-xl);
+      margin-bottom: var(--sp-3);
+      outline: none;
+    }
+    .ready-title:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 4px;
+      border-radius: 4px;
+    }
+
+    .summary {
+      border-top: 1px solid var(--ink-10);
+      border-bottom: 1px solid var(--ink-10);
+      padding: var(--sp-2) 0;
+      margin-bottom: var(--sp-3);
+    }
+    .summary-row[hidden] { display: none; }
+    .summary-row {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: var(--sp-2);
+      padding: 6px 0;
+      font-size: var(--fs-sm);
+    }
+    .summary-row dt {
+      margin: 0;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-40);
+      padding-top: 2px;
+    }
+    .summary-row dd {
+      margin: 0;
+      color: var(--ink);
+      font-weight: 500;
+      overflow-wrap: anywhere;
+    }
+    .expecting-name {
+      font-family: var(--serif);
+      font-size: var(--fs-lg);
+    }
+
+    .countdown-block {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--sp-2);
+      margin-bottom: var(--sp-3);
+      flex-wrap: wrap;
+    }
+    .countdown {
+      font-family: var(--serif);
+      font-size: 40px;
+      line-height: 1;
+      color: var(--ink);
+      font-feature-settings: "tnum";
+      letter-spacing: 0.02em;
+    }
+    .countdown.low { color: var(--red-flag); }
+    .countdown-label {
+      font-size: var(--fs-xs);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-40);
+    }
+    .transfer-note {
+      font-size: var(--fs-md);
+      font-weight: 500;
+      color: var(--accent-ink);
+      margin-bottom: var(--sp-3);
+    }
+
+    .ended-title {
+      font-family: var(--serif);
+      font-size: var(--fs-xl);
+      margin-bottom: var(--sp-1);
+      outline: none;
+    }
+    .ended-sub {
+      font-size: var(--fs-sm);
+      color: var(--ink-soft);
+      margin-bottom: var(--sp-3);
+    }
+
+    /* Footer */
+    .site-footer {
+      padding: var(--sp-3) var(--sp-4);
+      border-top: 1px solid var(--ink-10);
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .footer-text {
+      font-size: var(--fs-xs);
+      color: var(--ink-40);
+      line-height: 1.8;
+    }
+    .footer-brand {
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <a class="wordmark" href="/" aria-label="GuideHerd home">
+      <span>GuideHerd</span><sup class="wordmark-sup">AI</sup>
+    </a>
+  </header>
+
+  <main class="main">
+    <div class="console">
+      <div class="eyebrow">
+        <span class="eyebrow-dot" aria-hidden="true"></span>
+        <span>Martinson &amp; Beason</span>
+      </div>
+
+      <h1 class="console-title">Reception Console</h1>
+      <p class="console-sub">Prepare a qualified caller for a smooth transfer to the scheduling assistant.</p>
+
+      <!-- Status line -->
+      <div class="status-indicator">
+        <span class="status-label">Status</span>
+        <span class="status-value" id="status-value" data-state="idle" role="status" aria-live="polite">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="status-text">Ready for caller information</span>
+        </span>
+      </div>
+
+      <div class="card">
+        <!-- ─── Form panel ─────────────────────────────────────────── -->
+        <form class="panel" id="caller-form" novalidate>
+          <div class="field">
+            <label for="caller-name">Caller name <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
+            <input type="text" id="caller-name" name="callerName" placeholder="Full name"
+                   maxlength="200" autocomplete="off" required
+                   aria-describedby="caller-name-error">
+            <p class="field-error" id="caller-name-error">Enter the caller's name.</p>
+          </div>
+
+          <div class="field">
+            <label for="attorney">Attorney <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
+            <select id="attorney" name="attorney" required aria-describedby="attorney-error">
+              <option value="" disabled selected>Select attorney</option>
+              <!-- Options are populated from the ATTORNEYS list in the script below. -->
+            </select>
+            <p class="field-error" id="attorney-error">Select an attorney.</p>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="phone">Phone number</label>
+              <input type="tel" id="phone" name="phone" placeholder="Optional"
+                     maxlength="40" autocomplete="off">
+            </div>
+
+            <div class="field">
+              <label for="practice-area">Practice area</label>
+              <select id="practice-area" name="practiceArea">
+                <option value="" selected>Not specified</option>
+                <option>Personal Injury</option>
+                <option>Family Law</option>
+                <option>Criminal Defense</option>
+                <option>Business Law</option>
+                <option>Other</option>
+              </select>
+            </div>
+          </div>
+
+          <fieldset class="field" style="border:0; padding:0; margin:0 0 var(--sp-3);">
+            <legend class="field-label" style="padding:0; margin-bottom:6px;">Client status</legend>
+            <div class="segments" role="radiogroup" aria-label="Client status">
+              <input type="radio" id="cs-prospective" name="clientStatus" value="Prospective client">
+              <label for="cs-prospective">Prospective client</label>
+              <input type="radio" id="cs-existing" name="clientStatus" value="Existing client">
+              <label for="cs-existing">Existing client</label>
+              <input type="radio" id="cs-none" name="clientStatus" value="" checked>
+              <label for="cs-none">Not specified</label>
+            </div>
+          </fieldset>
+
+          <button type="submit" class="btn-primary" id="prepare-btn" disabled>
+            <span class="btn-spinner" aria-hidden="true"></span>
+            <span id="prepare-btn-label">Prepare Scheduling Assistant</span>
+          </button>
+          <p class="helper" id="form-helper">Only caller name and attorney are required.</p>
+        </form>
+
+        <!-- ─── Preparing panel ────────────────────────────────────── -->
+        <div class="panel preparing" id="preparing-panel" hidden>
+          <span class="btn-spinner" aria-hidden="true"></span>
+          <p class="preparing-text">Preparing the scheduling assistant&hellip;</p>
+        </div>
+
+        <!-- ─── Ready panel ────────────────────────────────────────── -->
+        <div class="panel" id="ready-panel" hidden>
+          <p class="ready-head">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 6 9 17l-5-5"/>
+            </svg>
+            Ready to transfer
+          </p>
+          <h2 class="ready-title" id="ready-title" tabindex="-1">The scheduling assistant is expecting:</h2>
+
+          <dl class="summary" id="summary">
+            <div class="summary-row">
+              <dt>Caller</dt>
+              <dd class="expecting-name" id="sum-caller"></dd>
+            </div>
+            <div class="summary-row">
+              <dt>Attorney</dt>
+              <dd id="sum-attorney"></dd>
+            </div>
+            <div class="summary-row" id="sum-phone-row" hidden>
+              <dt>Phone</dt>
+              <dd id="sum-phone"></dd>
+            </div>
+            <div class="summary-row" id="sum-practice-row" hidden>
+              <dt>Practice area</dt>
+              <dd id="sum-practice"></dd>
+            </div>
+            <div class="summary-row" id="sum-status-row" hidden>
+              <dt>Client status</dt>
+              <dd id="sum-status"></dd>
+            </div>
+          </dl>
+
+          <div class="countdown-block">
+            <span class="countdown" id="countdown" role="timer" aria-label="Time remaining">10:00</span>
+            <span class="countdown-label">Time remaining</span>
+          </div>
+
+          <p class="transfer-note">Transfer the caller now.</p>
+
+          <button type="button" class="btn-secondary" id="cancel-btn">Cancel Session</button>
+        </div>
+
+        <!-- ─── Ended panel (cancelled or expired) ─────────────────── -->
+        <div class="panel" id="ended-panel" hidden>
+          <h2 class="ended-title" id="ended-title" tabindex="-1"></h2>
+          <p class="ended-sub" id="ended-sub"></p>
+          <button type="button" class="btn-primary" id="new-session-btn" style="width:auto;">Start New Session</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p class="footer-text">
+      Scheduling only. No legal advice is provided.<br>
+      <span class="footer-brand">Powered by GuideHerd</span>
+    </p>
+  </footer>
+
+  <script>
+    (function() {
+      'use strict';
+
+      // Attorneys shown in the select. Add new attorneys here.
+      var ATTORNEYS = [
+        { id: 'clay-martinson', name: 'Clay Martinson' },
+      ];
+
+      // Session lifetime. Normal UI is always ten minutes.
+      // DEVELOPMENT ONLY: append ?countdown=SECONDS to the URL to shorten the
+      // timer while testing expiry locally (e.g. /receptionist/?countdown=5).
+      // This never appears in the UI and requires deliberately editing the URL.
+      var COUNTDOWN_SECONDS = 600;
+      var devOverride = new URLSearchParams(window.location.search).get('countdown');
+      if (devOverride && /^\d+$/.test(devOverride)) {
+        COUNTDOWN_SECONDS = Math.max(1, parseInt(devOverride, 10));
+      }
+
+      var PREPARE_DELAY_MS = 750;
+
+      var form = document.getElementById('caller-form');
+      var nameInput = document.getElementById('caller-name');
+      var attorneySelect = document.getElementById('attorney');
+      var phoneInput = document.getElementById('phone');
+      var practiceSelect = document.getElementById('practice-area');
+      var prepareBtn = document.getElementById('prepare-btn');
+      var prepareBtnLabel = document.getElementById('prepare-btn-label');
+      var nameError = document.getElementById('caller-name-error');
+      var attorneyError = document.getElementById('attorney-error');
+
+      var statusValue = document.getElementById('status-value');
+      var statusText = document.getElementById('status-text');
+
+      var preparingPanel = document.getElementById('preparing-panel');
+      var readyPanel = document.getElementById('ready-panel');
+      var readyTitle = document.getElementById('ready-title');
+      var endedPanel = document.getElementById('ended-panel');
+      var endedTitle = document.getElementById('ended-title');
+      var endedSub = document.getElementById('ended-sub');
+
+      var countdownEl = document.getElementById('countdown');
+      var cancelBtn = document.getElementById('cancel-btn');
+      var newSessionBtn = document.getElementById('new-session-btn');
+
+      var countdownTimer = null;
+      var remaining = COUNTDOWN_SECONDS;
+
+      // Populate the attorney select from the list above.
+      ATTORNEYS.forEach(function(a) {
+        var opt = document.createElement('option');
+        opt.value = a.id;
+        opt.textContent = a.name;
+        attorneySelect.appendChild(opt);
+      });
+
+      function setStatus(state, text) {
+        statusValue.dataset.state = state;
+        statusText.textContent = text;
+      }
+
+      function requiredValid() {
+        return nameInput.value.trim() !== '' && attorneySelect.value !== '';
+      }
+
+      // The primary button stays disabled until required fields are valid.
+      function refreshButton() {
+        prepareBtn.disabled = !requiredValid();
+      }
+      nameInput.addEventListener('input', refreshButton);
+      attorneySelect.addEventListener('change', refreshButton);
+
+      // Inline errors are shown only on a submit attempt.
+      function showErrors() {
+        var nameOk = nameInput.value.trim() !== '';
+        var attorneyOk = attorneySelect.value !== '';
+        nameError.classList.toggle('visible', !nameOk);
+        nameInput.setAttribute('aria-invalid', String(!nameOk));
+        attorneyError.classList.toggle('visible', !attorneyOk);
+        attorneySelect.setAttribute('aria-invalid', String(!attorneyOk));
+        if (!nameOk) nameInput.focus();
+        else if (!attorneyOk) attorneySelect.focus();
+        return nameOk && attorneyOk;
+      }
+
+      function clearErrors() {
+        nameError.classList.remove('visible');
+        attorneyError.classList.remove('visible');
+        nameInput.removeAttribute('aria-invalid');
+        attorneySelect.removeAttribute('aria-invalid');
+      }
+
+      function setFormDisabled(disabled) {
+        Array.prototype.forEach.call(form.elements, function(el) {
+          el.disabled = disabled;
+        });
+      }
+
+      function showPanel(panel) {
+        form.hidden = panel !== form;
+        preparingPanel.hidden = panel !== preparingPanel;
+        readyPanel.hidden = panel !== readyPanel;
+        endedPanel.hidden = panel !== endedPanel;
+      }
+
+      function formatTime(totalSeconds) {
+        var m = Math.floor(totalSeconds / 60);
+        var s = totalSeconds % 60;
+        return m + ':' + String(s).padStart(2, '0');
+      }
+
+      function stopCountdown() {
+        if (countdownTimer) {
+          clearInterval(countdownTimer);
+          countdownTimer = null;
+        }
+      }
+
+      function startCountdown() {
+        remaining = COUNTDOWN_SECONDS;
+        countdownEl.textContent = formatTime(remaining);
+        countdownEl.classList.remove('low');
+        countdownTimer = setInterval(function() {
+          remaining -= 1;
+          countdownEl.textContent = formatTime(Math.max(0, remaining));
+          if (remaining <= 60) countdownEl.classList.add('low');
+          if (remaining <= 0) {
+            stopCountdown();
+            expireSession();
+          }
+        }, 1000);
+      }
+
+      function fillSummary() {
+        document.getElementById('sum-caller').textContent = nameInput.value.trim();
+        var attorney = ATTORNEYS.filter(function(a) { return a.id === attorneySelect.value; })[0];
+        document.getElementById('sum-attorney').textContent = attorney ? attorney.name : '';
+
+        var phone = phoneInput.value.trim();
+        document.getElementById('sum-phone-row').hidden = phone === '';
+        document.getElementById('sum-phone').textContent = phone;
+
+        var practice = practiceSelect.value;
+        document.getElementById('sum-practice-row').hidden = practice === '';
+        document.getElementById('sum-practice').textContent = practice;
+
+        var clientStatus = form.querySelector('input[name="clientStatus"]:checked');
+        var csValue = clientStatus ? clientStatus.value : '';
+        document.getElementById('sum-status-row').hidden = csValue === '';
+        document.getElementById('sum-status').textContent = csValue;
+      }
+
+      // ── State transitions (all local; no network calls in this slice) ──
+
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (!showErrors()) return;
+        clearErrors();
+
+        // Preparing
+        setFormDisabled(true);
+        prepareBtn.dataset.busy = 'true';
+        prepareBtnLabel.textContent = 'Preparing…';
+        setStatus('preparing', 'Preparing the scheduling assistant…');
+        fillSummary();
+
+        setTimeout(function() {
+          showPanel(preparingPanel);
+          setTimeout(function() {
+            // Ready to transfer
+            showPanel(readyPanel);
+            setStatus('ready-transfer', 'Ready to transfer');
+            startCountdown();
+            readyTitle.focus();
+          }, PREPARE_DELAY_MS);
+        }, 60);
+      });
+
+      cancelBtn.addEventListener('click', function() {
+        stopCountdown();
+        setStatus('ended', 'Session cancelled');
+        endedTitle.textContent = 'Session cancelled';
+        endedSub.textContent = 'Start a new session when the next caller is ready.';
+        showPanel(endedPanel);
+        endedTitle.focus();
+      });
+
+      function expireSession() {
+        setStatus('ended', 'Session expired');
+        endedTitle.textContent = 'Session expired';
+        endedSub.textContent = 'Prepare a new session before transferring the caller.';
+        showPanel(endedPanel);
+        endedTitle.focus();
+      }
+
+      newSessionBtn.addEventListener('click', function() {
+        form.reset();
+        setFormDisabled(false);
+        clearErrors();
+        prepareBtn.dataset.busy = 'false';
+        prepareBtnLabel.textContent = 'Prepare Scheduling Assistant';
+        refreshButton();
+        setStatus('idle', 'Ready for caller information');
+        showPanel(form);
+        nameInput.focus();
+      });
+
+      refreshButton();
+    })();
+  </script>
+
+</body>
+</html>

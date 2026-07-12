@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Martinson &amp; Beason Scheduling Assistant — GuideHerd</title>
-  <meta name="description" content="A receptionist-assisted scheduling experience designed to help qualified callers book consultations quickly and professionally.">
+  <title>Martinson &amp; Beason Scheduling</title>
+  <meta name="description" content="Martinson &amp; Beason Scheduling Assistant powered by GuideHerd.">
   <meta name="robots" content="noindex, nofollow">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -84,6 +84,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-shrink: 0;
     }
     .wordmark {
       font-family: var(--serif);
@@ -112,7 +113,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: var(--sp-5) var(--sp-3);
+      padding: var(--sp-6) var(--sp-3);
     }
 
     .hero-container {
@@ -213,7 +214,46 @@
         transform: rotate(90deg);
         margin-top: 0;
       }
-      .step { max-width: 200px; }
+      .step { max-width: 220px; }
+    }
+
+    /* Status indicator */
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
+      padding: 8px 16px;
+      border: 1px solid var(--ink-10);
+      border-radius: 999px;
+      background: var(--cream);
+      margin-bottom: var(--sp-4);
+    }
+    .status-label {
+      font-size: var(--fs-xs);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-40);
+    }
+    .status-value {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      color: var(--ink-soft);
+    }
+    /* Distinguish states by shape as well as color (not color alone) */
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+      box-sizing: border-box;
+      border: 2px solid var(--accent);
+      background: transparent;
+    }
+    .status-value[data-status="connected"] .status-dot {
+      background: var(--accent);
     }
 
     /* Primary button */
@@ -231,7 +271,7 @@
       color: var(--paper);
       border: 1px solid var(--ink);
       transition: background 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
-      min-width: 220px;
+      min-width: 240px;
     }
     .btn-primary:hover:not(:disabled) {
       background: var(--accent-ink);
@@ -245,38 +285,33 @@
       transform: scale(0.98);
     }
     .btn-primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+      cursor: default;
     }
-
-    /* Button states */
-    .btn-primary[data-state="loading"] {
-      pointer-events: none;
+    /* Connecting: dim slightly and reveal the spinner */
+    .btn-primary[data-state="connecting"] {
+      opacity: 0.8;
     }
-    .btn-primary[data-state="loading"] .btn-text { display: none; }
-    .btn-primary[data-state="loading"] .btn-spinner { display: block; }
-
-    .btn-primary[data-state="active"] {
+    .btn-primary[data-state="connecting"] .btn-spinner { display: block; }
+    /* Connected: settled accent state, stays disabled */
+    .btn-primary[data-state="connected"] {
       background: var(--accent-ink);
       border-color: var(--accent-ink);
+      opacity: 1;
     }
-    .btn-primary[data-state="active"] .btn-text { display: none; }
-    .btn-primary[data-state="active"] .btn-active-text { display: inline; }
 
     .btn-spinner {
       display: none;
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
       border: 2px solid var(--paper);
       border-top-color: transparent;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
     }
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-
-    .btn-active-text { display: none; }
 
     /* Supporting text */
     .mic-hint {
@@ -285,7 +320,7 @@
       margin-top: var(--sp-2);
     }
 
-    /* Error message */
+    /* Inline messages */
     .error-message {
       display: none;
       font-size: var(--fs-sm);
@@ -294,12 +329,99 @@
       border: 1px solid rgba(139, 58, 58, 0.2);
       border-radius: 8px;
       padding: var(--sp-2) var(--sp-3);
-      margin-top: var(--sp-2);
-      max-width: 400px;
-      margin-left: auto;
-      margin-right: auto;
+      margin: var(--sp-3) auto 0;
+      max-width: 420px;
     }
     .error-message.visible { display: block; }
+
+    /* Assistant panel — inline expanding card that hosts the experience */
+    .assistant-panel {
+      margin-top: var(--sp-5);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    .assistant-panel.revealed {
+      opacity: 1;
+      transform: none;
+    }
+    .assistant-panel[hidden] { display: none; }
+
+    .assistant-card {
+      background: var(--cream);
+      border: 1px solid var(--ink-10);
+      border-radius: 16px;
+      box-shadow: 0 18px 50px -30px rgba(14, 42, 63, 0.35);
+      padding: var(--sp-4) var(--sp-3);
+      min-height: 320px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Connecting state */
+    .connect-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--sp-2);
+      color: var(--ink-soft);
+      text-align: center;
+    }
+    .connect-state[hidden] { display: none; }
+    .connect-spinner {
+      display: block;
+      width: 24px;
+      height: 24px;
+      border-color: var(--ink-20);
+      border-top-color: var(--accent);
+      margin-bottom: var(--sp-1);
+    }
+    .connect-text {
+      font-family: var(--serif);
+      font-size: var(--fs-lg);
+      color: var(--ink);
+    }
+    .connect-sub {
+      font-size: var(--fs-sm);
+      color: var(--ink-40);
+    }
+
+    /* Live state */
+    .assistant-live { width: 100%; }
+    .assistant-live[hidden] { display: none; }
+    .success-line {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      color: var(--accent-ink);
+      margin-bottom: var(--sp-3);
+    }
+    .success-line svg { flex-shrink: 0; }
+    .assistant-heading {
+      font-family: var(--serif);
+      font-size: var(--fs-xl);
+      color: var(--ink);
+      margin-bottom: var(--sp-3);
+      outline: none;
+    }
+    .assistant-heading:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 4px;
+      border-radius: 4px;
+    }
+
+    /* Host area for the embedded scheduling assistant */
+    .convai-host {
+      width: 100%;
+      min-height: 240px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
     /* Trust statement */
     .trust-statement {
@@ -311,41 +433,53 @@
       font-style: italic;
     }
 
-    /* Workflow card */
-    .workflow-card {
-      margin-top: var(--sp-5);
-      background: var(--cream);
+    /* "What happens next?" collapsible */
+    .next-panel {
+      margin: var(--sp-4) auto 0;
+      max-width: 420px;
+      text-align: left;
       border: 1px solid var(--ink-10);
       border-radius: 12px;
-      padding: var(--sp-3);
-      max-width: 420px;
-      margin-left: auto;
-      margin-right: auto;
+      background: var(--cream);
+      overflow: hidden;
     }
-
-    .workflow-label {
-      font-size: var(--fs-xs);
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
+    .next-panel summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 14px var(--sp-3);
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      color: var(--ink-soft);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--sp-2);
+    }
+    .next-panel summary::-webkit-details-marker { display: none; }
+    .next-panel summary:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+    }
+    .next-panel .chev {
+      transition: transform 0.2s ease;
       color: var(--ink-40);
-      margin-bottom: var(--sp-2);
+      flex-shrink: 0;
     }
-
-    .workflow-steps {
+    .next-panel[open] .chev { transform: rotate(180deg); }
+    .next-list {
+      padding: 0 var(--sp-3) var(--sp-3);
       display: flex;
       flex-direction: column;
-      gap: var(--sp-1);
+      gap: 6px;
     }
-
-    .workflow-step {
+    .next-item {
       display: flex;
       align-items: center;
       gap: var(--sp-2);
       font-size: var(--fs-sm);
       color: var(--ink-soft);
     }
-
-    .workflow-step::before {
+    .next-item::before {
       content: "";
       width: 6px;
       height: 6px;
@@ -353,11 +487,11 @@
       border-radius: 50%;
       flex-shrink: 0;
     }
-
-    .workflow-arrow {
+    .next-arrow {
       color: var(--ink-20);
-      margin-left: 14px;
+      margin-left: 15px;
       font-size: var(--fs-sm);
+      line-height: 1;
     }
 
     /* Attribution */
@@ -374,105 +508,11 @@
       padding: var(--sp-3) var(--sp-4);
       border-top: 1px solid var(--ink-10);
       text-align: center;
+      flex-shrink: 0;
     }
     .footer-text {
       font-size: var(--fs-xs);
       color: var(--ink-40);
-    }
-
-    /* Modal */
-    .modal-backdrop {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(14, 42, 63, 0.6);
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
-      z-index: 100;
-      align-items: center;
-      justify-content: center;
-      padding: var(--sp-3);
-    }
-    .modal-backdrop.visible {
-      display: flex;
-    }
-
-    .modal {
-      background: var(--paper);
-      border-radius: 16px;
-      box-shadow: 0 24px 64px rgba(14, 42, 63, 0.3);
-      width: 100%;
-      max-width: 800px;
-      max-height: 90vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .modal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: var(--sp-2) var(--sp-3);
-      border-bottom: 1px solid var(--ink-10);
-      background: var(--cream);
-    }
-
-    .modal-title {
-      font-size: var(--fs-sm);
-      font-weight: 500;
-      color: var(--ink);
-    }
-
-    .modal-close {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--ink-60);
-      transition: background 0.15s, color 0.15s;
-    }
-    .modal-close:hover {
-      background: var(--ink-10);
-      color: var(--ink);
-    }
-    .modal-close:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-    }
-
-    .modal-body {
-      flex: 1;
-      min-height: 400px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--paper-2);
-    }
-
-    .modal-iframe {
-      width: 100%;
-      height: 100%;
-      min-height: 500px;
-      border: none;
-    }
-
-    .modal-loading {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: var(--sp-2);
-      color: var(--ink-60);
-      font-size: var(--fs-sm);
-    }
-
-    .modal-loading .btn-spinner {
-      display: block;
-      border-color: var(--ink-20);
-      border-top-color: var(--accent);
     }
 
     /* Visually hidden for screen readers */
@@ -512,7 +552,7 @@
 
       <!-- Subtitle -->
       <p class="hero-subtitle">
-        A receptionist-assisted scheduling experience designed to help qualified callers book consultations quickly and professionally.
+        A receptionist-assisted scheduling experience that allows qualified callers to schedule consultations quickly and professionally.
       </p>
 
       <!-- Three-step flow -->
@@ -523,7 +563,7 @@
               <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
             </svg>
           </div>
-          <span class="step-label">Receptionist transfers the caller</span>
+          <span class="step-label">Receptionist qualifies caller</span>
         </div>
 
         <svg class="step-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -539,7 +579,7 @@
               <line x1="3" y1="10" x2="21" y2="10"/>
             </svg>
           </div>
-          <span class="step-label">Scheduling assistant offers available times</span>
+          <span class="step-label">Scheduling Assistant books consultation</span>
         </div>
 
         <svg class="step-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -553,44 +593,87 @@
               <polyline points="22 4 12 14.01 9 11.01"/>
             </svg>
           </div>
-          <span class="step-label">Appointment appears in Outlook</span>
+          <span class="step-label">Appointment appears automatically in Outlook</span>
         </div>
+      </div>
+
+      <!-- Status indicator -->
+      <div class="status-indicator">
+        <span class="status-label">Status</span>
+        <span class="status-value" id="status-value" data-status="ready" role="status">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="status-text">Ready to accept calls</span>
+        </span>
       </div>
 
       <!-- Primary CTA -->
-      <button
-        type="button"
-        class="btn-primary"
-        id="start-demo-btn"
-        aria-describedby="mic-hint"
-      >
-        <span class="btn-text">Start Scheduling Demo</span>
-        <span class="btn-active-text">Demo in Progress</span>
-        <span class="btn-spinner" aria-hidden="true"></span>
-      </button>
+      <div>
+        <button
+          type="button"
+          class="btn-primary"
+          id="call-btn"
+          aria-describedby="mic-hint"
+        >
+          <span class="btn-spinner" aria-hidden="true"></span>
+          <span class="btn-label" id="btn-label">Call Scheduling Assistant</span>
+        </button>
+      </div>
 
       <!-- Microphone hint -->
-      <p class="mic-hint" id="mic-hint">Please allow microphone access when prompted.</p>
+      <p class="mic-hint" id="mic-hint">Microphone access will be requested when the conversation begins.</p>
 
-      <!-- Error message -->
-      <div class="error-message" id="error-message" role="alert" aria-live="polite">
-        The scheduling demo is not configured yet.
-      </div>
+      <!-- Inline message (configuration / availability) -->
+      <div class="error-message" id="error-message" role="alert" aria-live="assertive"></div>
+
+      <!-- Assistant panel: inline expanding card, hidden until launch -->
+      <section class="assistant-panel" id="assistant-panel" aria-live="polite" hidden>
+        <div class="assistant-card">
+          <!-- Connecting state -->
+          <div class="connect-state" id="connect-state">
+            <span class="btn-spinner connect-spinner" aria-hidden="true"></span>
+            <p class="connect-text">Connecting you to the scheduling assistant&hellip;</p>
+            <p class="connect-sub">Please allow microphone access if prompted.</p>
+          </div>
+
+          <!-- Live state -->
+          <div class="assistant-live" id="assistant-live" hidden>
+            <p class="success-line">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+              Connected to the Martinson &amp; Beason Scheduling Assistant
+            </p>
+            <h2 class="assistant-heading" id="assistant-heading" tabindex="-1">Scheduling Assistant</h2>
+            <!-- Embedded assistant. agent-id is applied at runtime from the
+                 configuration block below — never hardcoded in the markup. -->
+            <div class="convai-host" id="convai-host">
+              <elevenlabs-convai id="convai-widget"></elevenlabs-convai>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <!-- Trust statement -->
-      <p class="trust-statement">Scheduling only. No legal advice is provided.</p>
+      <p class="trust-statement">Scheduling only. No legal advice is provided during scheduling.</p>
 
-      <!-- Workflow card -->
-      <div class="workflow-card">
-        <div class="workflow-label">Demo workflow</div>
-        <div class="workflow-steps">
-          <div class="workflow-step">Receptionist handoff</div>
-          <span class="workflow-arrow" aria-hidden="true">→</span>
-          <div class="workflow-step">Live scheduling conversation</div>
-          <span class="workflow-arrow" aria-hidden="true">→</span>
-          <div class="workflow-step">Outlook booking confirmation</div>
+      <!-- What happens next? (collapsed by default) -->
+      <details class="next-panel">
+        <summary>
+          What happens next?
+          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m6 9 6 6 6-6"/>
+          </svg>
+        </summary>
+        <div class="next-list">
+          <div class="next-item">Receptionist qualifies the caller</div>
+          <span class="next-arrow" aria-hidden="true">&darr;</span>
+          <div class="next-item">Scheduling Assistant books the consultation</div>
+          <span class="next-arrow" aria-hidden="true">&darr;</span>
+          <div class="next-item">Outlook calendar is updated automatically</div>
+          <span class="next-arrow" aria-hidden="true">&darr;</span>
+          <div class="next-item">The caller receives a confirmation email</div>
         </div>
-      </div>
+      </details>
 
       <!-- Attribution -->
       <p class="attribution">Powered by GuideHerd</p>
@@ -602,57 +685,53 @@
     <p class="footer-text">© 2026 GuideHerd AI, LLC. Private demonstration.</p>
   </footer>
 
-  <!-- Modal for embedded experience -->
-  <div
-    class="modal-backdrop"
-    id="modal-backdrop"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="modal-title"
-    hidden
-  >
-    <div class="modal">
-      <div class="modal-header">
-        <span class="modal-title" id="modal-title">Scheduling Assistant</span>
-        <button
-          type="button"
-          class="modal-close"
-          id="modal-close"
-          aria-label="Close scheduling assistant"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-      <div class="modal-body" id="modal-body">
-        <div class="modal-loading" id="modal-loading">
-          <span class="btn-spinner"></span>
-          <span>Loading scheduling assistant...</span>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- ============================================================
+       CONFIGURATION
+       The scheduling assistant identifier. This is the only value
+       that needs to change to point at a different assistant.
+       ============================================================ -->
+  <script>
+    window.__ELEVENLABS_AGENT_ID__ = "agent_1501kx9f51t0fg8atbgdrvrjvf2b";
+  </script>
 
+  <!-- Main page behavior -->
   <script>
     (function() {
       'use strict';
 
-      var SCHEDULING_URL = window.__SCHEDULING_URL__ || null;
+      var configured = window.__ELEVENLABS_AGENT_ID__;
+      var AGENT_ID = (configured && configured !== 'REPLACE_WITH_AGENT_ID')
+        ? configured
+        : null;
 
-      var btn = document.getElementById('start-demo-btn');
+      var WIDGET_SCRIPT_SRC = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
+      var WIDGET_TAG = 'elevenlabs-convai';
+      var CONNECT_DELAY = 600;   // receptionist-transfer pause (ms)
+      var INIT_TIMEOUT = 10000;  // widget initialization ceiling (ms)
+
+      var MSG_NOT_CONFIGURED = 'The scheduling demo is not configured yet.';
+      var MSG_UNAVAILABLE = 'The scheduling assistant is temporarily unavailable. Please try again in a moment.';
+
+      var btn = document.getElementById('call-btn');
+      var btnLabel = document.getElementById('btn-label');
       var errorMessage = document.getElementById('error-message');
-      var modalBackdrop = document.getElementById('modal-backdrop');
-      var modalBody = document.getElementById('modal-body');
-      var modalClose = document.getElementById('modal-close');
-      var modalLoading = document.getElementById('modal-loading');
+      var statusValue = document.getElementById('status-value');
+      var statusText = document.getElementById('status-text');
+      var panel = document.getElementById('assistant-panel');
+      var connectState = document.getElementById('connect-state');
+      var liveState = document.getElementById('assistant-live');
+      var assistantHeading = document.getElementById('assistant-heading');
+      var convaiWidget = document.getElementById('convai-widget');
 
-      var previousActiveElement = null;
-      var isModalOpen = false;
+      var inProgress = false;        // guards re-entry once a call starts
+      var scriptAppended = false;    // ensures a single widget script/element
+      var widgetReadyPromise = null;
+
+      var prefersReduced = window.matchMedia
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
       function showError(message) {
-        errorMessage.textContent = message || 'The scheduling demo is not configured yet.';
+        errorMessage.textContent = message;
         errorMessage.classList.add('visible');
       }
 
@@ -660,146 +739,155 @@
         errorMessage.classList.remove('visible');
       }
 
-      function setButtonState(state) {
-        btn.dataset.state = state;
-        if (state === 'loading' || state === 'active') {
-          btn.disabled = true;
+      function setLabel(text) {
+        btnLabel.textContent = text;
+      }
+
+      function updateStatus(state) {
+        if (state === 'connected') {
+          statusValue.dataset.status = 'connected';
+          statusText.textContent = 'Connected';
         } else {
-          btn.disabled = false;
+          statusValue.dataset.status = 'ready';
+          statusText.textContent = 'Ready to accept calls';
         }
       }
 
-      function openModal() {
-        previousActiveElement = document.activeElement;
-        modalBackdrop.hidden = false;
-        modalBackdrop.classList.add('visible');
-        isModalOpen = true;
-
-        modalClose.focus();
-
-        document.body.style.overflow = 'hidden';
-      }
-
-      function closeModal() {
-        modalBackdrop.classList.remove('visible');
-        modalBackdrop.hidden = true;
-        isModalOpen = false;
-
-        document.body.style.overflow = '';
-
-        var iframe = modalBody.querySelector('iframe');
-        if (iframe) {
-          iframe.remove();
-        }
-        modalLoading.style.display = 'flex';
-
-        setButtonState('default');
-
-        if (previousActiveElement && previousActiveElement.focus) {
-          previousActiveElement.focus();
+      function scrollIntoView(el) {
+        try {
+          el.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'nearest' });
+        } catch (_) {
+          el.scrollIntoView();
         }
       }
 
-      function tryEmbed(url) {
-        modalLoading.style.display = 'flex';
+      // Load the official widget embed once and resolve when the custom
+      // element is registered. Re-entrant and safe to retry: it never
+      // appends a second script or creates a duplicate widget.
+      function ensureWidget() {
+        if (window.customElements && customElements.get && customElements.get(WIDGET_TAG)) {
+          return Promise.resolve();
+        }
+        if (widgetReadyPromise) return widgetReadyPromise;
 
-        var iframe = document.createElement('iframe');
-        iframe.className = 'modal-iframe';
-        iframe.setAttribute('allow', 'microphone; camera; autoplay');
-        iframe.setAttribute('title', 'Scheduling Assistant');
+        widgetReadyPromise = new Promise(function(resolve, reject) {
+          var settled = false;
 
-        iframe.onload = function() {
-          modalLoading.style.display = 'none';
-          setButtonState('active');
-        };
+          var timer = window.setTimeout(function() {
+            if (settled) return;
+            settled = true;
+            reject(new Error('timeout'));
+          }, INIT_TIMEOUT);
 
-        iframe.onerror = function() {
-          closeModal();
-          openInNewWindow(url);
-        };
+          function onReady() {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timer);
+            resolve();
+          }
 
-        iframe.src = url;
-        modalBody.appendChild(iframe);
-      }
+          if (window.customElements && customElements.whenDefined) {
+            customElements.whenDefined(WIDGET_TAG).then(onReady);
+          }
 
-      function openInNewWindow(url) {
-        var width = 480;
-        var height = 700;
-        var left = (screen.width - width) / 2;
-        var top = (screen.height - height) / 2;
+          if (!scriptAppended) {
+            scriptAppended = true;
+            var s = document.createElement('script');
+            s.src = WIDGET_SCRIPT_SRC;
+            s.async = true;
+            s.type = 'text/javascript';
+            s.onerror = function() {
+              if (settled) return;
+              settled = true;
+              window.clearTimeout(timer);
+              scriptAppended = false;      // allow a fresh attempt on retry
+              widgetReadyPromise = null;
+              reject(new Error('script'));
+            };
+            document.body.appendChild(s);
 
-        var features = 'width=' + width + ',height=' + height + ',left=' + left + ',top=' + top + ',menubar=no,toolbar=no,location=no,status=no';
-        var newWindow = window.open(url, 'SchedulingAssistant', features);
-
-        if (newWindow) {
-          setButtonState('active');
-          var checkClosed = setInterval(function() {
-            if (newWindow.closed) {
-              clearInterval(checkClosed);
-              setButtonState('default');
+            // Fallback for environments without customElements support.
+            if (!(window.customElements && customElements.whenDefined)) {
+              s.onload = onReady;
             }
-          }, 500);
-        } else {
-          setButtonState('default');
-          showError('Please allow popups to use the scheduling demo.');
-        }
+          }
+        });
+
+        return widgetReadyPromise;
       }
 
-      function startDemo() {
+      function revealConnecting() {
+        connectState.hidden = false;
+        liveState.hidden = true;
+        panel.hidden = false;
+        // Trigger the reveal transition on the next frame.
+        window.requestAnimationFrame(function() {
+          panel.classList.add('revealed');
+        });
+        scrollIntoView(panel);
+      }
+
+      function revealLive() {
+        connectState.hidden = true;
+        liveState.hidden = false;
+
+        updateStatus('connected');
+        btn.dataset.state = 'connected';
+        setLabel('Scheduling Assistant Connected');
+
+        // Move focus to the heading directly above the assistant.
+        assistantHeading.focus();
+        scrollIntoView(liveState);
+      }
+
+      function handleFailure() {
+        // Reset to a usable state and invite another attempt.
+        panel.classList.remove('revealed');
+        panel.hidden = true;
+        connectState.hidden = false;
+        liveState.hidden = true;
+
+        inProgress = false;
+        btn.disabled = false;
+        btn.dataset.state = 'default';
+        setLabel('Call Scheduling Assistant');
+        updateStatus('ready');
+
+        showError(MSG_UNAVAILABLE);
+      }
+
+      function startCall() {
         hideError();
 
-        if (!SCHEDULING_URL) {
-          showError('The scheduling demo is not configured yet.');
+        if (!AGENT_ID) {
+          showError(MSG_NOT_CONFIGURED);
           return;
         }
+        if (inProgress) return;
+        inProgress = true;
 
-        setButtonState('loading');
+        // 1–2: lock the button and signal the transfer.
+        btn.disabled = true;
+        btn.dataset.state = 'connecting';
+        setLabel('Connecting…');
 
-        openModal();
-        tryEmbed(SCHEDULING_URL);
+        // 3–4: reveal the connecting card.
+        revealConnecting();
+
+        // 5–12: after a brief transfer pause, bring up the assistant.
+        window.setTimeout(function() {
+          ensureWidget().then(revealLive).catch(handleFailure);
+        }, CONNECT_DELAY);
       }
 
-      btn.addEventListener('click', startDemo);
+      btn.addEventListener('click', startCall);
 
-      modalClose.addEventListener('click', closeModal);
-
-      modalBackdrop.addEventListener('click', function(e) {
-        if (e.target === modalBackdrop) {
-          closeModal();
-        }
-      });
-
-      document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && isModalOpen) {
-          closeModal();
-        }
-      });
-
-      var focusableSelectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
-
-      modalBackdrop.addEventListener('keydown', function(e) {
-        if (e.key !== 'Tab' || !isModalOpen) return;
-
-        var modal = modalBackdrop.querySelector('.modal');
-        var focusableElements = modal.querySelectorAll(focusableSelectors);
-        var firstFocusable = focusableElements[0];
-        var lastFocusable = focusableElements[focusableElements.length - 1];
-
-        if (e.shiftKey) {
-          if (document.activeElement === firstFocusable) {
-            e.preventDefault();
-            lastFocusable.focus();
-          }
-        } else {
-          if (document.activeElement === lastFocusable) {
-            e.preventDefault();
-            firstFocusable.focus();
-          }
-        }
-      });
-
-      if (!SCHEDULING_URL) {
+      // Configure the widget or disable the experience, per runtime config.
+      if (AGENT_ID) {
+        convaiWidget.setAttribute('agent-id', AGENT_ID);
+      } else {
         btn.disabled = true;
+        showError(MSG_NOT_CONFIGURED);
       }
     })();
   </script>

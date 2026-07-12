@@ -27,7 +27,8 @@
  * @property {Scheduling} scheduling
  * @property {HandoffMeta} handoff
  *
- * Internal record. `tokenHash` and the `*Ms` fields never leave the service.
+ * Internal record. Hash and `*Ms` fields never leave the service. Raw tokens
+ * are never stored — only their SHA-256 hashes.
  * @typedef {Object} InternalSession
  * @property {string} sessionId
  * @property {string} firmId
@@ -35,18 +36,28 @@
  * @property {Scheduling} scheduling
  * @property {HandoffMeta} handoff
  * @property {string} status
- * @property {string} tokenHash
+ * @property {string} tokenHash          hash of the handoff (voice-side) token
+ * @property {string} consoleTokenHash   hash of the console (receptionist) token
  * @property {number|null} redeemedAtMs
+ * @property {number|null} cancelledAtMs
  * @property {number} createdAtMs
  * @property {number} expiresAtMs
  *
  * @typedef {Object} CreateHandoffResponse
  * @property {string} sessionId
- * @property {string} handoffToken
+ * @property {string} handoffToken   voice-side credential (redeem only)
+ * @property {string} consoleToken   receptionist credential (status/cancel only)
  * @property {string} status
  * @property {string} createdAt   ISO-8601 UTC
  * @property {string} expiresAt   ISO-8601 UTC
  * @property {number} expiresInSeconds
+ *
+ * Operational status metadata for the console. Never includes caller context.
+ * @typedef {Object} SessionStatusResponse
+ * @property {string} sessionId
+ * @property {string} status
+ * @property {string} createdAt
+ * @property {string} expiresAt
  *
  * Minimum conversational context returned to the Scheduling Assistant.
  * @typedef {Object} RedeemResponse

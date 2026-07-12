@@ -5,7 +5,7 @@ API contracts for GuideHerd services live here.
 ## Contracts
 
 - [Context Handoff API (v1)](context-handoff.md) — passes short-lived caller
-  context from the Receptionist Portal to the Scheduling Assistant.
+  context from the GuideHerd Console to the Scheduling Assistant.
   Implementation: [`server/`](../../server/README.md).
 
 Every API documented here follows two rules from

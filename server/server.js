@@ -7,7 +7,7 @@ const { createApp } = require('./handoff/app');
 // SECURITY — PRODUCTION REQUIREMENT
 // These endpoints are UNAUTHENTICATED in v1. Before any production deployment,
 // the Context Handoff API MUST sit behind authentication and authorization
-// (e.g. service-to-service credentials for the Receptionist Portal and the
+// (e.g. service-to-service credentials for the GuideHerd Console and the
 // Scheduling Assistant, plus network-level restrictions). Do not expose these
 // routes publicly as-is.
 // ---------------------------------------------------------------------------

@@ -32,7 +32,7 @@ service; only adapters inside a business service touch a vendor.
 
 **GuideHerd Experience** — the surfaces customers and staff actually use:
 - Customer Portal
-- Receptionist Portal
+- GuideHerd Console
 - Administration Portal
 - Scheduling Assistant
 

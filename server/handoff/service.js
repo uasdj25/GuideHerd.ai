@@ -29,13 +29,13 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
   return {
     /**
      * @param {import('./models').CreateHandoffRequest} request validated input
-     * @returns {{ handoffToken: string, response: import('./models').CreateHandoffResponse }}
+     * @returns {{ handoffToken: string, consoleToken: string, response: import('./models').CreateHandoffResponse }}
      */
     create(request) {
       const now = clock.now();
       const sessionId = idgen.generateSessionId();
       const token = idgen.generateHandoffToken();
-      const tokenHash = idgen.hashToken(token);
+      const consoleToken = idgen.generateConsoleToken();
       const expiresAtMs = now + ttlSeconds * 1000;
 
       /** @type {import('./models').InternalSession} */
@@ -46,25 +46,62 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
         scheduling: { ...request.scheduling },
         handoff: { ...request.handoff },
         status: SessionStatus.AWAITING_TRANSFER,
-        tokenHash,
+        tokenHash: idgen.hashToken(token),
+        consoleTokenHash: idgen.hashToken(consoleToken),
         redeemedAtMs: null,
+        cancelledAtMs: null,
         createdAtMs: now,
         expiresAtMs,
       };
       store.create(session);
 
-      // The raw token is returned exactly once here and never stored or logged.
+      // Raw tokens are returned exactly once here and never stored or logged.
+      // The handoff token is intended for the scheduling/voice side; a future
+      // telephony integration will receive it through a trusted GuideHerd
+      // handoff mechanism rather than through the browser. The console token
+      // authorizes only status checks and cancellation.
       return {
         handoffToken: token,
+        consoleToken,
         response: {
           sessionId,
           handoffToken: token,
+          consoleToken,
           status: session.status,
           createdAt: toIso(now),
           expiresAt: toIso(expiresAtMs),
           expiresInSeconds: ttlSeconds,
         },
       };
+    },
+
+    /**
+     * Operational status for the console. Requires the console token.
+     * Never returns caller context.
+     * @param {string} sessionId
+     * @param {string} consoleToken
+     * @returns {import('./models').SessionStatusResponse}
+     */
+    status(sessionId, consoleToken) {
+      const session = store.statusByConsole(sessionId, idgen.hashToken(consoleToken));
+      return {
+        sessionId: session.sessionId,
+        status: session.status,
+        createdAt: toIso(session.createdAtMs),
+        expiresAt: toIso(session.expiresAtMs),
+      };
+    },
+
+    /**
+     * Cancel an awaiting-transfer session. Requires the console token.
+     * Idempotent for already-cancelled sessions. Never returns caller context.
+     * @param {string} sessionId
+     * @param {string} consoleToken
+     * @returns {{ sessionId: string, status: string }}
+     */
+    cancel(sessionId, consoleToken) {
+      const session = store.cancel(sessionId, idgen.hashToken(consoleToken));
+      return { sessionId: session.sessionId, status: session.status };
     },
 
     /**

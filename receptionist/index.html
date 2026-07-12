@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GuideHerd Reception Console</title>
+  <title>GuideHerd Console — Reception Mode</title>
   <meta name="description" content="A focused receptionist console for preparing qualified callers for scheduling.">
   <meta name="robots" content="noindex, nofollow">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -137,12 +137,29 @@
       border-radius: 50%;
     }
 
+    .title-row {
+      display: flex;
+      align-items: baseline;
+      gap: var(--sp-2);
+      flex-wrap: wrap;
+      margin-bottom: var(--sp-1);
+    }
     .console-title {
       font-family: var(--serif);
       font-size: clamp(28px, 5vw, 36px);
       line-height: 1.1;
       letter-spacing: -0.02em;
-      margin-bottom: var(--sp-1);
+    }
+    .mode-label {
+      font-size: var(--fs-xs);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent-ink);
+      background: rgba(47, 164, 160, 0.10);
+      border: 1px solid rgba(47, 164, 160, 0.25);
+      border-radius: 999px;
+      padding: 4px 12px;
+      white-space: nowrap;
     }
 
     .console-sub {
@@ -186,10 +203,15 @@
       background: transparent;
       flex-shrink: 0;
     }
-    .status-value[data-state="ready-transfer"] .status-dot { background: var(--accent); }
+    .status-value[data-state="ready-transfer"] .status-dot,
+    .status-value[data-state="connected"] .status-dot { background: var(--accent); }
     .status-value[data-state="ended"] .status-dot {
       border-color: var(--ink-40);
       border-radius: 2px; /* square = inactive */
+    }
+    .status-value[data-state="error"] .status-dot {
+      border-color: var(--red-flag);
+      border-radius: 2px;
     }
 
     /* Card */
@@ -370,10 +392,22 @@
       transition: border-color 0.15s, color 0.15s;
       min-height: 48px;
     }
-    .btn-secondary:hover { border-color: var(--ink); }
+    .btn-secondary:hover:not(:disabled) { border-color: var(--ink); }
     .btn-secondary:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
+    }
+    .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary.danger {
+      color: var(--red-flag);
+      border-color: rgba(166, 59, 42, 0.35);
+    }
+    .btn-secondary.danger:hover:not(:disabled) { border-color: var(--red-flag); }
+
+    .btn-row {
+      display: flex;
+      gap: var(--sp-2);
+      flex-wrap: wrap;
     }
 
     .helper {
@@ -383,7 +417,7 @@
       margin-top: var(--sp-2);
     }
 
-    /* Panels (preparing / ready / ended) */
+    /* Panels */
     .panel[hidden] { display: none; }
 
     .preparing {
@@ -422,7 +456,8 @@
       margin-bottom: var(--sp-3);
       outline: none;
     }
-    .ready-title:focus-visible {
+    .ready-title:focus-visible,
+    .state-title:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 4px;
       border-radius: 4px;
@@ -491,15 +526,37 @@
       margin-bottom: var(--sp-3);
     }
 
-    .ended-title {
+    /* Inline cancel confirmation */
+    .cancel-confirm[hidden] { display: none; }
+    .cancel-confirm {
+      border: 1px solid var(--ink-10);
+      border-radius: 10px;
+      background: var(--paper);
+      padding: var(--sp-2) var(--sp-3);
+      margin-top: var(--sp-2);
+    }
+    .cancel-confirm p {
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      margin-bottom: var(--sp-2);
+    }
+
+    .state-title {
       font-family: var(--serif);
       font-size: var(--fs-xl);
       margin-bottom: var(--sp-1);
       outline: none;
     }
-    .ended-sub {
+    .state-sub {
       font-size: var(--fs-sm);
       color: var(--ink-soft);
+      margin-bottom: var(--sp-3);
+      max-width: 44ch;
+    }
+    .connected-name {
+      font-family: var(--serif);
+      font-size: var(--fs-lg);
+      color: var(--accent-ink);
       margin-bottom: var(--sp-3);
     }
 
@@ -548,7 +605,10 @@
         <span>Martinson &amp; Beason</span>
       </div>
 
-      <h1 class="console-title">Reception Console</h1>
+      <div class="title-row">
+        <h1 class="console-title">GuideHerd Console</h1>
+        <span class="mode-label">Reception Mode</span>
+      </div>
       <p class="console-sub">Prepare a qualified caller for a smooth transfer to the scheduling assistant.</p>
 
       <!-- Status line -->
@@ -591,11 +651,11 @@
               <label for="practice-area">Practice area</label>
               <select id="practice-area" name="practiceArea">
                 <option value="" selected>Not specified</option>
-                <option>Personal Injury</option>
-                <option>Family Law</option>
-                <option>Criminal Defense</option>
-                <option>Business Law</option>
-                <option>Other</option>
+                <option value="personal-injury">Personal Injury</option>
+                <option value="family-law">Family Law</option>
+                <option value="criminal-defense">Criminal Defense</option>
+                <option value="business-law">Business Law</option>
+                <option value="other">Other</option>
               </select>
             </div>
           </div>
@@ -603,9 +663,9 @@
           <fieldset class="field" style="border:0; padding:0; margin:0 0 var(--sp-3);">
             <legend class="field-label" style="padding:0; margin-bottom:6px;">Client status</legend>
             <div class="segments" role="radiogroup" aria-label="Client status">
-              <input type="radio" id="cs-prospective" name="clientStatus" value="Prospective client">
+              <input type="radio" id="cs-prospective" name="clientStatus" value="prospective">
               <label for="cs-prospective">Prospective client</label>
-              <input type="radio" id="cs-existing" name="clientStatus" value="Existing client">
+              <input type="radio" id="cs-existing" name="clientStatus" value="existing">
               <label for="cs-existing">Existing client</label>
               <input type="radio" id="cs-none" name="clientStatus" value="" checked>
               <label for="cs-none">Not specified</label>
@@ -666,13 +726,46 @@
           <p class="transfer-note">Transfer the caller now.</p>
 
           <button type="button" class="btn-secondary" id="cancel-btn">Cancel Session</button>
+
+          <!-- Inline, keyboard-accessible cancel confirmation -->
+          <div class="cancel-confirm" id="cancel-confirm" role="group" aria-labelledby="cancel-confirm-q" hidden>
+            <p id="cancel-confirm-q">Cancel this session?</p>
+            <div class="btn-row">
+              <button type="button" class="btn-secondary danger" id="cancel-yes">Yes, cancel session</button>
+              <button type="button" class="btn-secondary" id="cancel-keep">Keep session</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── Connected panel ────────────────────────────────────── -->
+        <div class="panel" id="connected-panel" hidden>
+          <p class="ready-head">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 6 9 17l-5-5"/>
+            </svg>
+            Caller connected
+          </p>
+          <h2 class="state-title" id="connected-title" tabindex="-1">Caller connected</h2>
+          <p class="connected-name" id="connected-name"></p>
+          <p class="state-sub">You can hang up your line. The scheduling assistant is taking it from here.</p>
+          <button type="button" class="btn-primary" id="next-caller-btn" style="width:auto;">Ready for Next Caller</button>
         </div>
 
         <!-- ─── Ended panel (cancelled or expired) ─────────────────── -->
         <div class="panel" id="ended-panel" hidden>
-          <h2 class="ended-title" id="ended-title" tabindex="-1"></h2>
-          <p class="ended-sub" id="ended-sub"></p>
+          <h2 class="state-title" id="ended-title" tabindex="-1"></h2>
+          <p class="state-sub" id="ended-sub"></p>
           <button type="button" class="btn-primary" id="new-session-btn" style="width:auto;">Start New Session</button>
+        </div>
+
+        <!-- ─── Error panel ────────────────────────────────────────── -->
+        <div class="panel" id="error-panel" hidden>
+          <h2 class="state-title" id="error-title" tabindex="-1">Something didn't go through</h2>
+          <p class="state-sub" id="error-sub"></p>
+          <div class="btn-row">
+            <button type="button" class="btn-primary" id="error-retry-btn" style="width:auto;">Try Again</button>
+            <button type="button" class="btn-secondary" id="error-form-btn">Return to Form</button>
+          </div>
         </div>
       </div>
     </div>
@@ -689,23 +782,61 @@
     (function() {
       'use strict';
 
+      // ── Configuration ────────────────────────────────────────────────
+      // Base URL of the GuideHerd scheduling service.
+      //
+      // SECURITY: overrides are honored ONLY when this page itself is running
+      // on localhost/127.0.0.1, and ONLY for http://localhost:<port> or
+      // http://127.0.0.1:<port> targets. On any other host (production), the
+      // API base is always https://api.guideherd.ai — a crafted link such as
+      // ?apiBase=https://attacker.example can never redirect caller data or
+      // credentials to an arbitrary host.
+      //
+      // Local development:
+      //   window.__GUIDEHERD_API_BASE__ = 'http://localhost:3000'  (inline), or
+      //   http://localhost:8080/receptionist/?apiBase=http://localhost:3000
+      var API_BASE_URL = (function resolveApiBase() {
+        var PROD = 'https://api.guideherd.ai';
+        var pageHost = window.location.hostname;
+        var pageIsLocal = pageHost === 'localhost' || pageHost === '127.0.0.1';
+        if (!pageIsLocal) return PROD;
+
+        var candidate = window.__GUIDEHERD_API_BASE__
+          || new URLSearchParams(window.location.search).get('apiBase')
+          || '';
+        candidate = String(candidate).replace(/\/+$/, '');
+        // Allowlist: local HTTP hosts only, optional port, no path.
+        if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/.test(candidate)) {
+          return candidate;
+        }
+        return PROD;
+      })();
+
+      var FIRM_ID = 'martinson-beason';
+      var CONSULTATION_TYPE_ID = 'initial-consultation';
+
       // Attorneys shown in the select. Add new attorneys here.
       var ATTORNEYS = [
         { id: 'clay-martinson', name: 'Clay Martinson' },
       ];
 
-      // Session lifetime. Normal UI is always ten minutes.
-      // DEVELOPMENT ONLY: append ?countdown=SECONDS to the URL to shorten the
-      // timer while testing expiry locally (e.g. /receptionist/?countdown=5).
-      // This never appears in the UI and requires deliberately editing the URL.
-      var COUNTDOWN_SECONDS = 600;
-      var devOverride = new URLSearchParams(window.location.search).get('countdown');
-      if (devOverride && /^\d+$/.test(devOverride)) {
-        COUNTDOWN_SECONDS = Math.max(1, parseInt(devOverride, 10));
-      }
+      var PRACTICE_AREAS = {
+        'personal-injury': 'Personal Injury',
+        'family-law': 'Family Law',
+        'criminal-defense': 'Criminal Defense',
+        'business-law': 'Business Law',
+        'other': 'Other',
+      };
 
-      var PREPARE_DELAY_MS = 750;
+      var CREATE_TIMEOUT_MS = 10000;
+      var POLL_INTERVAL_MS = 2500;
+      var POLL_TIMEOUT_MS = 8000;
+      var POLL_MAX_CONSECUTIVE_FAILURES = 3;
 
+      var MSG_CREATE_FAILED = "We couldn't prepare the scheduling assistant. Please try again.";
+      var MSG_STATUS_UNCERTAIN = 'We temporarily lost contact with the scheduling service. The session may still be active.';
+
+      // ── Elements ─────────────────────────────────────────────────────
       var form = document.getElementById('caller-form');
       var nameInput = document.getElementById('caller-name');
       var attorneySelect = document.getElementById('attorney');
@@ -722,18 +853,53 @@
       var preparingPanel = document.getElementById('preparing-panel');
       var readyPanel = document.getElementById('ready-panel');
       var readyTitle = document.getElementById('ready-title');
+      var connectedPanel = document.getElementById('connected-panel');
+      var connectedTitle = document.getElementById('connected-title');
+      var connectedName = document.getElementById('connected-name');
       var endedPanel = document.getElementById('ended-panel');
       var endedTitle = document.getElementById('ended-title');
       var endedSub = document.getElementById('ended-sub');
+      var errorPanel = document.getElementById('error-panel');
+      var errorTitle = document.getElementById('error-title');
+      var errorSub = document.getElementById('error-sub');
+      var errorRetryBtn = document.getElementById('error-retry-btn');
+      var errorFormBtn = document.getElementById('error-form-btn');
 
       var countdownEl = document.getElementById('countdown');
       var cancelBtn = document.getElementById('cancel-btn');
+      var cancelConfirm = document.getElementById('cancel-confirm');
+      var cancelYes = document.getElementById('cancel-yes');
+      var cancelKeep = document.getElementById('cancel-keep');
+      var nextCallerBtn = document.getElementById('next-caller-btn');
       var newSessionBtn = document.getElementById('new-session-btn');
 
+      // ── Session state (memory only) ──────────────────────────────────
+      // Credentials live ONLY in this closure. They are never rendered into
+      // the DOM, never logged, and never written to localStorage,
+      // sessionStorage, cookies, or URLs. The handoff token belongs to the
+      // scheduling/voice side; a future telephony integration will receive it
+      // through a trusted GuideHerd handoff mechanism rather than from this
+      // page. It is held here only until that mechanism exists.
+      var session = null; // { id, handoffToken, consoleToken, expiresAtMs, callerName }
       var countdownTimer = null;
-      var remaining = COUNTDOWN_SECONDS;
+      var pollTimer = null;
+      var pollAbort = null;
+      var createAbort = null;
+      var pollFailures = 0;
+      var cancelPending = false;
+      var errorRetryAction = null; // what "Try Again" should do
 
-      // Populate the attorney select from the list above.
+      function clearSession() {
+        session = null; // drops both tokens from the only reference we hold
+      }
+
+      function stopTimers() {
+        if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+        if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+        if (pollAbort) { pollAbort.abort(); pollAbort = null; }
+      }
+
+      // ── Attorney options ─────────────────────────────────────────────
       ATTORNEYS.forEach(function(a) {
         var opt = document.createElement('option');
         opt.value = a.id;
@@ -741,23 +907,31 @@
         attorneySelect.appendChild(opt);
       });
 
+      // ── Status + panels ──────────────────────────────────────────────
       function setStatus(state, text) {
         statusValue.dataset.state = state;
         statusText.textContent = text;
       }
 
+      function showPanel(panel) {
+        form.hidden = panel !== form;
+        preparingPanel.hidden = panel !== preparingPanel;
+        readyPanel.hidden = panel !== readyPanel;
+        connectedPanel.hidden = panel !== connectedPanel;
+        endedPanel.hidden = panel !== endedPanel;
+        errorPanel.hidden = panel !== errorPanel;
+      }
+
+      // ── Validation ───────────────────────────────────────────────────
       function requiredValid() {
         return nameInput.value.trim() !== '' && attorneySelect.value !== '';
       }
-
-      // The primary button stays disabled until required fields are valid.
       function refreshButton() {
         prepareBtn.disabled = !requiredValid();
       }
       nameInput.addEventListener('input', refreshButton);
       attorneySelect.addEventListener('change', refreshButton);
 
-      // Inline errors are shown only on a submit attempt.
       function showErrors() {
         var nameOk = nameInput.value.trim() !== '';
         var attorneyOk = attorneySelect.value !== '';
@@ -769,7 +943,6 @@
         else if (!attorneyOk) attorneySelect.focus();
         return nameOk && attorneyOk;
       }
-
       function clearErrors() {
         nameError.classList.remove('visible');
         attorneyError.classList.remove('visible');
@@ -783,39 +956,26 @@
         });
       }
 
-      function showPanel(panel) {
-        form.hidden = panel !== form;
-        preparingPanel.hidden = panel !== preparingPanel;
-        readyPanel.hidden = panel !== readyPanel;
-        endedPanel.hidden = panel !== endedPanel;
-      }
-
-      function formatTime(totalSeconds) {
-        var m = Math.floor(totalSeconds / 60);
-        var s = totalSeconds % 60;
-        return m + ':' + String(s).padStart(2, '0');
-      }
-
-      function stopCountdown() {
-        if (countdownTimer) {
-          clearInterval(countdownTimer);
-          countdownTimer = null;
-        }
-      }
-
-      function startCountdown() {
-        remaining = COUNTDOWN_SECONDS;
-        countdownEl.textContent = formatTime(remaining);
-        countdownEl.classList.remove('low');
-        countdownTimer = setInterval(function() {
-          remaining -= 1;
-          countdownEl.textContent = formatTime(Math.max(0, remaining));
-          if (remaining <= 60) countdownEl.classList.add('low');
-          if (remaining <= 0) {
-            stopCountdown();
-            expireSession();
-          }
-        }, 1000);
+      // ── Request payload mapping ──────────────────────────────────────
+      // Optional blank values are omitted entirely, never sent as ''.
+      function buildCreatePayload() {
+        var payload = {
+          firmId: FIRM_ID,
+          caller: { fullName: nameInput.value.trim() },
+          scheduling: {
+            attorneyId: attorneySelect.value,
+            consultationTypeId: CONSULTATION_TYPE_ID,
+          },
+          handoff: { source: 'receptionist-portal', mode: 'live-transfer' },
+        };
+        var phone = phoneInput.value.trim();
+        if (phone !== '') payload.caller.phone = phone;
+        if (practiceSelect.value !== '') payload.scheduling.practiceAreaId = practiceSelect.value;
+        var cs = form.querySelector('input[name="clientStatus"]:checked');
+        if (cs && cs.value === 'prospective') payload.scheduling.existingClient = false;
+        if (cs && cs.value === 'existing') payload.scheduling.existingClient = true;
+        // "Not specified" omits existingClient entirely.
+        return payload;
       }
 
       function fillSummary() {
@@ -829,67 +989,313 @@
 
         var practice = practiceSelect.value;
         document.getElementById('sum-practice-row').hidden = practice === '';
-        document.getElementById('sum-practice').textContent = practice;
+        document.getElementById('sum-practice').textContent = PRACTICE_AREAS[practice] || '';
 
-        var clientStatus = form.querySelector('input[name="clientStatus"]:checked');
-        var csValue = clientStatus ? clientStatus.value : '';
-        document.getElementById('sum-status-row').hidden = csValue === '';
-        document.getElementById('sum-status').textContent = csValue;
+        var cs = form.querySelector('input[name="clientStatus"]:checked');
+        var csLabel = cs && cs.value === 'prospective' ? 'Prospective client'
+                    : cs && cs.value === 'existing' ? 'Existing client' : '';
+        document.getElementById('sum-status-row').hidden = csLabel === '';
+        document.getElementById('sum-status').textContent = csLabel;
       }
 
-      // ── State transitions (all local; no network calls in this slice) ──
+      // ── Fetch helpers ────────────────────────────────────────────────
+      function fetchWithTimeout(url, options, timeoutMs) {
+        var controller = new AbortController();
+        var timer = setTimeout(function() { controller.abort(); }, timeoutMs);
+        var opts = Object.assign({}, options, { signal: controller.signal });
+        return { controller: controller, promise: fetch(url, opts).finally(function() { clearTimeout(timer); }) };
+      }
 
-      form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        if (!showErrors()) return;
-        clearErrors();
+      // ── Countdown (expiresAt is the source of truth) ────────────────
+      function formatRemaining(ms) {
+        var totalSeconds = Math.max(0, Math.floor(ms / 1000));
+        var m = Math.floor(totalSeconds / 60);
+        var s = totalSeconds % 60;
+        return m + ':' + String(s).padStart(2, '0');
+      }
 
-        // Preparing
-        setFormDisabled(true);
-        prepareBtn.dataset.busy = 'true';
-        prepareBtnLabel.textContent = 'Preparing…';
-        setStatus('preparing', 'Preparing the scheduling assistant…');
+      function tickCountdown() {
+        if (!session) return;
+        // Recalculated from the wall clock each tick, so background-tab
+        // throttling cannot drift the display.
+        var remainingMs = session.expiresAtMs - Date.now();
+        countdownEl.textContent = formatRemaining(remainingMs);
+        countdownEl.classList.toggle('low', remainingMs <= 60000);
+        if (remainingMs <= 0) {
+          enterExpired();
+        }
+      }
+
+      function startCountdown() {
+        tickCountdown();
+        countdownTimer = setInterval(tickCountdown, 1000);
+      }
+
+      // ── Status polling ───────────────────────────────────────────────
+      function scheduleNextPoll() {
+        if (!session) return;
+        pollTimer = setTimeout(pollOnce, POLL_INTERVAL_MS);
+      }
+
+      function pollOnce() {
+        if (!session) return;
+        var current = session;
+        var req = fetchWithTimeout(
+          API_BASE_URL + '/api/v1/handoffs/' + encodeURIComponent(current.id),
+          { headers: { 'Authorization': 'Bearer ' + current.consoleToken } },
+          POLL_TIMEOUT_MS
+        );
+        pollAbort = req.controller;
+        req.promise
+          .then(function(res) {
+            if (!session || session !== current) return; // session ended meanwhile
+            if (!res.ok) throw new Error('status ' + res.status);
+            return res.json();
+          })
+          .then(function(body) {
+            if (!body || !session || session !== current) return;
+            pollFailures = 0;
+            if (body.status === 'connected') return enterConnected();
+            if (body.status === 'cancelled') return enterCancelled();
+            if (body.status === 'expired') return enterExpired();
+            scheduleNextPoll();
+          })
+          .catch(function() {
+            if (!session || session !== current) return;
+            pollFailures += 1;
+            if (pollFailures >= POLL_MAX_CONSECUTIVE_FAILURES) {
+              enterStatusUncertain();
+            } else {
+              scheduleNextPoll(); // restrained retry at the normal cadence
+            }
+          })
+          .finally(function() {
+            pollAbort = null;
+          });
+      }
+
+      // ── State transitions ────────────────────────────────────────────
+      function enterReady(created) {
+        session = {
+          id: created.sessionId,
+          handoffToken: created.handoffToken,
+          consoleToken: created.consoleToken,
+          expiresAtMs: new Date(created.expiresAt).getTime(),
+          callerName: nameInput.value.trim(),
+        };
+        pollFailures = 0;
         fillSummary();
+        cancelConfirm.hidden = true;
+        cancelBtn.disabled = false;
+        showPanel(readyPanel);
+        setStatus('ready-transfer', 'Ready to transfer');
+        startCountdown();
+        scheduleNextPoll();
+        readyTitle.focus();
+      }
 
-        setTimeout(function() {
-          showPanel(preparingPanel);
-          setTimeout(function() {
-            // Ready to transfer
-            showPanel(readyPanel);
-            setStatus('ready-transfer', 'Ready to transfer');
-            startCountdown();
-            readyTitle.focus();
-          }, PREPARE_DELAY_MS);
-        }, 60);
-      });
+      function enterConnected() {
+        var callerName = session ? session.callerName : '';
+        stopTimers();
+        clearSession(); // tokens no longer needed once the caller is connected
+        connectedName.textContent = 'GuideHerd is speaking with ' + callerName + '.';
+        showPanel(connectedPanel);
+        setStatus('connected', 'Caller connected');
+        connectedTitle.focus();
+      }
 
-      cancelBtn.addEventListener('click', function() {
-        stopCountdown();
-        setStatus('ended', 'Session cancelled');
+      function enterCancelled() {
+        stopTimers();
+        clearSession();
         endedTitle.textContent = 'Session cancelled';
         endedSub.textContent = 'Start a new session when the next caller is ready.';
         showPanel(endedPanel);
-        endedTitle.focus();
-      });
-
-      function expireSession() {
-        setStatus('ended', 'Session expired');
-        endedTitle.textContent = 'Session expired';
-        endedSub.textContent = 'Prepare a new session before transferring the caller.';
-        showPanel(endedPanel);
+        setStatus('ended', 'Session cancelled');
         endedTitle.focus();
       }
 
-      newSessionBtn.addEventListener('click', function() {
+      function enterExpired() {
+        stopTimers();
+        clearSession();
+        endedTitle.textContent = 'Session expired';
+        endedSub.textContent = 'Prepare a new session before transferring the caller.';
+        showPanel(endedPanel);
+        setStatus('ended', 'Session expired');
+        endedTitle.focus();
+      }
+
+      function enterCreateError() {
+        // Form values are preserved so the receptionist can retry.
+        errorSub.textContent = MSG_CREATE_FAILED;
+        errorRetryAction = submitCreate;
+        showPanel(errorPanel);
+        setStatus('error', 'Not prepared');
+        errorTitle.focus();
+      }
+
+      function enterStatusUncertain() {
+        // Do NOT claim cancelled or expired — we simply don't know.
+        stopTimers();
+        errorSub.textContent = MSG_STATUS_UNCERTAIN;
+        errorRetryAction = resumeStatusChecks;
+        showPanel(errorPanel);
+        setStatus('error', 'Connection interrupted');
+        errorTitle.focus();
+      }
+
+      function resumeStatusChecks() {
+        if (!session) return resetToForm();
+        pollFailures = 0;
+        showPanel(readyPanel);
+        setStatus('ready-transfer', 'Ready to transfer');
+        startCountdown();
+        pollOnce();
+        readyTitle.focus();
+      }
+
+      function resetToForm() {
+        stopTimers();
+        if (createAbort) { createAbort.abort(); createAbort = null; }
+        clearSession();
         form.reset();
         setFormDisabled(false);
         clearErrors();
         prepareBtn.dataset.busy = 'false';
         prepareBtnLabel.textContent = 'Prepare Scheduling Assistant';
         refreshButton();
+        cancelConfirm.hidden = true;
         setStatus('idle', 'Ready for caller information');
         showPanel(form);
         nameInput.focus();
+      }
+
+      // Return to the form KEEPING entered values (used after create errors).
+      function backToFormPreserving() {
+        stopTimers();
+        clearSession();
+        setFormDisabled(false);
+        prepareBtn.dataset.busy = 'false';
+        prepareBtnLabel.textContent = 'Prepare Scheduling Assistant';
+        refreshButton();
+        setStatus('idle', 'Ready for caller information');
+        showPanel(form);
+        nameInput.focus();
+      }
+
+      // ── Create ───────────────────────────────────────────────────────
+      var createInFlight = false;
+
+      function submitCreate() {
+        if (createInFlight) return; // duplicate-submission guard
+        createInFlight = true;
+
+        setFormDisabled(true);
+        prepareBtn.dataset.busy = 'true';
+        prepareBtnLabel.textContent = 'Preparing…';
+        setStatus('preparing', 'Preparing the scheduling assistant…');
+        showPanel(preparingPanel);
+
+        var req = fetchWithTimeout(API_BASE_URL + '/api/v1/handoffs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildCreatePayload()),
+        }, CREATE_TIMEOUT_MS);
+        createAbort = req.controller;
+
+        req.promise
+          .then(function(res) {
+            if (res.status !== 201) throw new Error('unexpected status');
+            return res.json();
+          })
+          .then(function(body) {
+            if (!body || !body.sessionId || !body.consoleToken || !body.expiresAt) {
+              throw new Error('malformed response');
+            }
+            enterReady(body);
+          })
+          .catch(function() {
+            enterCreateError();
+          })
+          .finally(function() {
+            createInFlight = false;
+            createAbort = null;
+          });
+      }
+
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (!showErrors()) return;
+        clearErrors();
+        submitCreate();
+      });
+
+      // ── Cancellation (confirm → DELETE → confirmed transition) ──────
+      cancelBtn.addEventListener('click', function() {
+        cancelConfirm.hidden = false;
+        cancelYes.focus();
+      });
+      cancelKeep.addEventListener('click', function() {
+        cancelConfirm.hidden = true;
+        cancelBtn.focus();
+      });
+
+      cancelYes.addEventListener('click', function() {
+        if (!session || cancelPending) return;
+        cancelPending = true;
+        cancelYes.disabled = true;
+        cancelKeep.disabled = true;
+        var current = session;
+
+        var req = fetchWithTimeout(
+          API_BASE_URL + '/api/v1/handoffs/' + encodeURIComponent(current.id),
+          { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + current.consoleToken } },
+          POLL_TIMEOUT_MS
+        );
+
+        req.promise
+          .then(function(res) {
+            if (!session || session !== current) return;
+            if (res.status === 200) return enterCancelled();
+            if (res.status === 409) {
+              // The caller connected first — show the true state.
+              return fetch(API_BASE_URL + '/api/v1/handoffs/' + encodeURIComponent(current.id), {
+                headers: { 'Authorization': 'Bearer ' + current.consoleToken },
+              }).then(function(sres) { return sres.json(); }).then(function(sbody) {
+                if (sbody && sbody.status === 'connected') return enterConnected();
+                enterStatusUncertain();
+              });
+            }
+            if (res.status === 410) return enterExpired();
+            enterStatusUncertain();
+          })
+          .catch(function() {
+            if (!session || session !== current) return;
+            enterStatusUncertain(); // never claim cancellation without confirmation
+          })
+          .finally(function() {
+            cancelPending = false;
+            cancelYes.disabled = false;
+            cancelKeep.disabled = false;
+            cancelConfirm.hidden = true;
+          });
+      });
+
+      // ── Terminal-state buttons ───────────────────────────────────────
+      nextCallerBtn.addEventListener('click', resetToForm);
+      newSessionBtn.addEventListener('click', resetToForm);
+      errorRetryBtn.addEventListener('click', function() {
+        if (errorRetryAction) errorRetryAction();
+      });
+      errorFormBtn.addEventListener('click', backToFormPreserving);
+
+      // ── Page lifecycle ───────────────────────────────────────────────
+      // A page refresh loses the active console state in this version; the
+      // session simply expires on the server. No background cancellation is
+      // attempted on unload because it cannot be delivered reliably.
+      window.addEventListener('pagehide', function() {
+        stopTimers();
+        if (createAbort) createAbort.abort();
+        clearSession();
       });
 
       refreshButton();

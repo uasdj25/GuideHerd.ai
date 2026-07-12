@@ -64,6 +64,48 @@ class TokenExpiredError extends HandoffError {
   }
 }
 
+class TokenCancelledError extends HandoffError {
+  constructor() {
+    super(410, 'token_cancelled', 'The handoff token is no longer valid.');
+    this.name = 'TokenCancelledError';
+  }
+}
+
+class UnauthorizedError extends HandoffError {
+  constructor() {
+    super(401, 'unauthorized', 'A bearer token is required.');
+    this.name = 'UnauthorizedError';
+  }
+}
+
+class ForbiddenError extends HandoffError {
+  constructor() {
+    super(403, 'forbidden', 'The provided credential is not valid for this session.');
+    this.name = 'ForbiddenError';
+  }
+}
+
+class UnknownSessionError extends HandoffError {
+  constructor() {
+    super(404, 'unknown_session', 'The session is not recognized.');
+    this.name = 'UnknownSessionError';
+  }
+}
+
+class CannotCancelError extends HandoffError {
+  constructor() {
+    super(409, 'cannot_cancel', 'The session can no longer be cancelled.');
+    this.name = 'CannotCancelError';
+  }
+}
+
+class SessionExpiredError extends HandoffError {
+  constructor() {
+    super(410, 'session_expired', 'The session has expired.');
+    this.name = 'SessionExpiredError';
+  }
+}
+
 module.exports = {
   HandoffError,
   ValidationError,
@@ -71,4 +113,10 @@ module.exports = {
   UnknownTokenError,
   TokenAlreadyRedeemedError,
   TokenExpiredError,
+  TokenCancelledError,
+  UnauthorizedError,
+  ForbiddenError,
+  UnknownSessionError,
+  CannotCancelError,
+  SessionExpiredError,
 };

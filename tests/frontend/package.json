@@ -1,0 +1,12 @@
+{
+  "name": "guideherd-frontend-tests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser regression tests for the GuideHerd Reception Console. All API traffic is mocked via request interception — no production calls.",
+  "scripts": {
+    "test": "node console.test.js"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.49.0"
+  }
+}

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Safe Prompt Habits — GuideHerd Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter+Tight:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="/css/academy.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-row">
+    <a class="wordmark" href="/">
+      GuideHerd<sup class="wordmark-sup">AI</sup>
+      <span class="wordmark-badge">Academy</span>
+    </a>
+    <nav class="primary-nav" aria-label="Primary">
+      <a href="/academy/">My Courses</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="https://guideherd.ai">Main site</a>
+    </nav>
+    <div class="header-actions">
+      <a class="btn btn-ghost btn-sm" href="/login.html">Log in</a>
+      <a class="btn btn-accent btn-sm" href="/subscribe.html">Subscribe</a>
+    </div>
+  </div>
+</header>
+
+<div class="academy-layout">
+
+  <aside class="module-sidebar">
+    <a class="sidebar-back" href="/academy/ai-foundations/">← Module overview</a>
+    <p class="sidebar-module-label">Module 1</p>
+    <p class="sidebar-module-title">AI Foundations</p>
+    <nav class="sidebar-nav" aria-label="Module lessons">
+      <a href="/academy/ai-foundations/" class="sidebar-link overview">Overview</a>
+      <a href="/academy/ai-foundations/what-ai-tools-do.html" class="sidebar-link">1. What AI Tools Actually Do</a>
+      <a href="/academy/ai-foundations/where-ai-fails.html" class="sidebar-link">2. Where AI Fails</a>
+      <a href="/academy/ai-foundations/human-review.html" class="sidebar-link">3. Human Review</a>
+      <a href="/academy/ai-foundations/data-privacy.html" class="sidebar-link">4. Data Privacy</a>
+      <a href="/academy/ai-foundations/safe-prompt-habits.html" class="sidebar-link active">5. Safe Prompt Habits</a>
+    </nav>
+  </aside>
+
+  <main class="lesson-main">
+    <p class="lesson-eyebrow">Module 1 · Lesson 5 of 5</p>
+    <h1 class="lesson-title">Safe Prompt Habits</h1>
+    <div class="lesson-meta">
+      <span>~20 min</span>
+      <span>·</span>
+      <span>AI Foundations</span>
+    </div>
+
+    <div id="paywall-gate" class="paywall-gate visible">
+      <p class="paywall-eyebrow">GuideHerd Academy</p>
+      <h2 class="paywall-title">Subscribe to access this lesson.</h2>
+      <p class="paywall-desc">GuideHerd Academy gives your whole firm access to AI workflow training, monthly updates, and a prompt and template library.</p>
+      <div class="paywall-actions">
+        <a class="btn btn-primary" href="/subscribe.html">View plans →</a>
+        <a class="btn btn-ghost" href="/login.html">Log in</a>
+      </div>
+    </div>
+
+    <div id="lesson-content" class="lesson-content">
+      <div class="lesson-body">
+
+        <h2>Why prompts matter</h2>
+        <p>The quality of AI output depends heavily on the quality of the input. A vague prompt produces vague output. An ambiguous prompt produces output that may address a different question than the one you had in mind. A prompt that omits critical context produces output that fills that gap with assumptions.</p>
+        <p>Good prompt habits reduce errors, make output easier to review, and produce results that are closer to usable on the first pass. This lesson gives you a structure you can use for any AI task in a professional setting.</p>
+
+        <h2>The five-part structure</h2>
+        <p>A well-structured prompt for professional work includes five elements. Not every prompt needs all five — but when output quality matters, all five should be present.</p>
+
+        <h3>1. Role</h3>
+        <p>Tell the AI what role to take. This shapes the tone, vocabulary, and level of detail in the response.</p>
+        <ul>
+          <li>"You are a professional editor reviewing a client communication for clarity."</li>
+          <li>"You are an experienced legal intake coordinator."</li>
+          <li>"You are a business analyst summarizing a set of intake notes."</li>
+        </ul>
+        <p>Without a role, the model defaults to a generic helpful assistant. With a role, the output is more likely to match the register and approach you need.</p>
+
+        <h3>2. Context</h3>
+        <p>Provide the relevant background the model needs to do the task correctly. This is where most prompts fall short. The model cannot assume details about your firm, your client, or the specific situation — you have to provide them.</p>
+        <ul>
+          <li>What type of firm or practice is this for?</li>
+          <li>What is the document or situation being worked on?</li>
+          <li>Are there constraints the model should know about? (jurisdiction, client type, document stage)</li>
+        </ul>
+        <p>Apply the privacy rules from Lesson 4: provide the context the model needs, redact what is not necessary.</p>
+
+        <h3>3. Task</h3>
+        <p>Be specific about what you want the model to do. Vague tasks produce vague output.</p>
+        <ul>
+          <li>Weak: "Help me with this email."</li>
+          <li>Strong: "Draft a follow-up email to a prospective client confirming their intake appointment and listing three documents they should bring."</li>
+        </ul>
+        <p>The more precisely you describe the task, the less room the model has to interpret it in a direction you did not intend.</p>
+
+        <h3>4. Rules</h3>
+        <p>Set constraints on what the model should and should not do. This is where you establish guardrails specific to the task.</p>
+        <ul>
+          <li>"Do not include legal advice or opinions."</li>
+          <li>"Do not mention fees or billing."</li>
+          <li>"Use plain English. Avoid jargon."</li>
+          <li>"Do not include information I have not provided — flag gaps instead."</li>
+          <li>"Keep the response under 200 words."</li>
+        </ul>
+        <p>Rules are especially useful for preventing boundary crossing — the failure mode from Lesson 2 where the model does more than you asked.</p>
+
+        <h3>5. Output format</h3>
+        <p>Specify how you want the output structured. This makes the output easier to use and easier to review.</p>
+        <ul>
+          <li>"Return a bulleted list."</li>
+          <li>"Write this as a professional email with a subject line."</li>
+          <li>"Return a two-column table: issue in the left column, recommended action in the right."</li>
+          <li>"Write three short paragraphs, one for each topic."</li>
+        </ul>
+
+        <h2>The full prompt template</h2>
+        <div class="prompt-block"><span class="prompt-label">Safe prompt template</span>Role: [Describe the role the AI should take]
+
+Context: [Provide relevant background — redact client names and sensitive details not needed for the task]
+
+Task: [Describe specifically what you want the AI to produce]
+
+Rules:
+- [Constraint 1]
+- [Constraint 2]
+- [Add as many as the task requires]
+
+Output format: [Describe how the output should be structured]</div>
+
+        <h2>A worked example</h2>
+        <div class="lesson-example">
+          <p class="lesson-example-label">Weak prompt</p>
+          <p>"Write an email to a new client about their first appointment."</p>
+        </div>
+        <div class="lesson-example" style="margin-top: var(--sp-2);">
+          <p class="lesson-example-label">Strong prompt using the template</p>
+          <div class="prompt-block"><span class="prompt-label">Example</span>Role: You are a professional coordinator at a small law firm drafting client-facing communications.
+
+Context: A new prospective client has completed a phone intake call. Their first in-person appointment is scheduled. The firm handles employment matters. The appointment is for an initial consultation only — no engagement has been established.
+
+Task: Draft a confirmation email for the appointment. The email should confirm the date and time (use placeholders), list three standard documents the client should bring to an employment consultation, and explain that the meeting is an initial consultation and does not establish an attorney-client relationship.
+
+Rules:
+- Do not provide legal advice or express any opinion about the client's situation
+- Do not mention fees or billing
+- Keep the tone professional and plain
+- Do not include any information I have not provided — use placeholders where specific details are needed
+
+Output format: A professional email with a subject line. Under 200 words.</div>
+        </div>
+
+        <h2>Using prompts from your firm's library</h2>
+        <p>GuideHerd Academy includes a prompt and template library as part of your subscription. These prompts have been designed for common professional services workflows and include the guardrails built in. Using a library prompt is faster than building from scratch and reduces the chance of missing an important constraint.</p>
+        <p>When you adapt a library prompt for a specific task, keep the rules and output format sections intact. Those are where the safety guardrails live.</p>
+
+      </div>
+
+      <div class="lesson-checklist">
+        <h3>Prompt review checklist</h3>
+        <div class="checklist-items">
+          <div class="checklist-item">
+            <input type="checkbox" id="c1">
+            <label for="c1">My prompt includes a clear role that matches the type of output I need.</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="c2">
+            <label for="c2">I have provided enough context for the model to do the task correctly, and removed client details that are not necessary.</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="c3">
+            <label for="c3">My task description is specific enough that I could predict roughly what a correct response looks like.</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="c4">
+            <label for="c4">I have included rules that prevent the output from going beyond the scope of the task.</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="c5">
+            <label for="c5">I have specified the output format so the result is easy to review and use.</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="c6">
+            <label for="c6">I will review the output before using it, regardless of how good the prompt was.</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="lesson-nav">
+        <div class="lesson-nav-link">
+          <span class="lesson-nav-label">← Previous</span>
+          <a class="lesson-nav-title" href="/academy/ai-foundations/data-privacy.html">Data Privacy</a>
+        </div>
+        <div class="lesson-nav-link next">
+          <span class="lesson-nav-label">Module complete →</span>
+          <a class="lesson-nav-title" href="/academy/ai-foundations/">Back to overview</a>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a class="wordmark" href="/" style="color: var(--paper); margin-bottom: var(--sp-2); display: inline-flex;">
+        GuideHerd<sup class="wordmark-sup">AI</sup>
+        <span class="wordmark-badge" style="background: rgba(47,164,160,0.2);">Academy</span>
+      </a>
+      <p>Practical AI workflow training for professional firms.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Module 1</h4>
+      <a href="/academy/ai-foundations/what-ai-tools-do.html">Lesson 1</a>
+      <a href="/academy/ai-foundations/where-ai-fails.html">Lesson 2</a>
+      <a href="/academy/ai-foundations/human-review.html">Lesson 3</a>
+      <a href="/academy/ai-foundations/data-privacy.html">Lesson 4</a>
+      <a href="/academy/ai-foundations/safe-prompt-habits.html">Lesson 5</a>
+    </div>
+    <div class="footer-col">
+      <h4>GuideHerd</h4>
+      <a href="https://guideherd.ai">Main site</a>
+      <a href="mailto:hello@guideherd.ai">Contact</a>
+    </div>
+  </div>
+  <div class="footer-meta">
+    <span>© 2026 GuideHerd AI, LLC.</span>
+    <span><a href="#">Privacy</a> · <a href="#">Terms</a></span>
+  </div>
+</footer>
+
+<script src="/js/access.js"></script>
+</body>
+</html>

@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompt Templates — GuideHerd Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter+Tight:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="/css/academy.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-row">
+    <a class="wordmark" href="/">
+      GuideHerd<sup class="wordmark-sup">AI</sup>
+      <span class="wordmark-badge">Academy</span>
+    </a>
+    <nav class="primary-nav" aria-label="Primary">
+      <a href="/academy/">My Courses</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="https://guideherd.ai">Main site</a>
+    </nav>
+    <div class="header-actions">
+      <span id="user-display" style="font-size: var(--fs-sm); color: var(--ink-60); display: none; margin-right: var(--sp-2);"></span>
+      <a class="btn btn-ghost btn-sm" href="/login.html">Log in</a>
+      <a class="btn btn-accent btn-sm" href="/subscribe.html">Subscribe</a>
+    </div>
+  </div>
+</header>
+
+<div class="academy-layout">
+
+  <aside class="module-sidebar">
+    <a class="sidebar-back" href="/academy/">← My Courses</a>
+    <p class="sidebar-module-label">Package 2</p>
+    <p class="sidebar-module-title">AI-Assisted Intake Workflow</p>
+    <nav class="sidebar-nav" aria-label="Package lessons">
+      <a href="/academy/start-here.html" class="sidebar-link">1. Start Here</a>
+      <a href="/academy/intake-workflow.html" class="sidebar-link">2. Intake Workflow Basics</a>
+      <a href="/academy/prompt-templates.html" class="sidebar-link active">3. Prompt Templates</a>
+      <a href="/academy/workflow-builder.html" class="sidebar-link">4. Workflow Builder Kit</a>
+      <a href="/academy/demo-law-firm-intake.html" class="sidebar-link">5. Demo: Law Firm Intake</a>
+    </nav>
+  </aside>
+
+  <main class="lesson-main">
+    <p class="lesson-eyebrow">Package 2 · Lesson 3 of 5</p>
+    <h1 class="lesson-title">Prompt Templates</h1>
+    <div class="lesson-meta">
+      <span>~30 min</span>
+      <span>·</span>
+      <span>AI-Assisted Intake Workflow</span>
+    </div>
+
+    <!-- PAYWALL GATE -->
+    <div id="paywall-gate" class="paywall-gate visible">
+      <p class="paywall-eyebrow">GuideHerd Academy</p>
+      <h2 class="paywall-title">Subscribe to access this training package.</h2>
+      <p class="paywall-desc">GuideHerd Academy gives your whole firm access to AI workflow training, prompt libraries, and workflow kits — updated as the tools evolve.</p>
+      <div class="paywall-actions">
+        <a class="btn btn-primary" href="/subscribe.html">View plans →</a>
+        <a class="btn btn-ghost" href="/login.html">Log in</a>
+      </div>
+    </div>
+
+    <!-- LESSON CONTENT -->
+    <div id="lesson-content" class="lesson-content">
+      <div class="lesson-body">
+
+        <p>These six prompts are designed for the AI-assisted intake workflow described in Lesson 2. Each one is copy-ready. Adapt the bracketed sections for your firm's matter types, terminology, and style. Run each prompt in your AI tool of choice — paste in the source material as instructed, then review the output before using it.</p>
+
+        <div class="callout">
+          <p><strong>Before using any prompt:</strong> Do not paste real client names, contact details, or identifying information into a consumer AI tool (ChatGPT, Claude.ai, Gemini, Copilot) unless your firm has appropriate data agreements in place. Use anonymized or test data when learning these prompts.</p>
+        </div>
+
+        <h2>How to read these prompts</h2>
+        <p>Each prompt shows the full text to copy into your AI tool. Bracketed sections like <code>[PASTE INTAKE NOTES HERE]</code> are placeholders — replace them with the actual content. Sections in ALL CAPS inside brackets indicate instructions for you, not text to send to the AI.</p>
+        <p>After pasting a prompt, read the AI's output carefully before doing anything with it. Output from these prompts is a draft for human review, not a finished work product.</p>
+
+        <!-- ---------------------------------------------------------------- -->
+        <h2>Prompt 1 — Intake Summarizer</h2>
+        <p>Use this prompt to turn raw intake notes, form responses, or email inquiries into a structured summary. Give it the source text; it organizes the information.</p>
+
+        <div class="prompt-block"><span class="prompt-label">Prompt — Intake Summarizer</span>You are a professional intake coordinator assistant. Your job is to read raw intake notes and produce a clean, structured summary. You do not add information that is not in the source material. You do not make assumptions. If a field is not mentioned in the notes, mark it as "Not provided."
+
+Produce the summary in this format:
+
+INTAKE SUMMARY
+---
+Contact name: [name or "Not provided"]
+Contact method: [how they reached out]
+Date of inquiry: [date or "Not provided"]
+Matter type: [what kind of matter or service they are inquiring about]
+Key dates mentioned: [list any dates, deadlines, or timeframes — or "None mentioned"]
+Parties identified: [prospective client and any other people or organizations mentioned]
+Summary of inquiry: [2–4 sentences describing what they are asking for, in plain language]
+What they want from the firm: [specific ask or "Not stated"]
+---
+
+Do not provide any legal analysis, legal opinions, or recommendations. Summarize only.
+
+Intake notes to summarize:
+
+[PASTE INTAKE NOTES HERE]</div>
+
+        <!-- ---------------------------------------------------------------- -->
+        <h2>Prompt 2 — Missing Information Detector</h2>
+        <p>Run this after Prompt 1. Give it the intake summary you just produced (after your review) and let it check for gaps against your standard intake requirements.</p>
+
+        <div class="prompt-block"><span class="prompt-label">Prompt — Missing Information Detector</span>You are reviewing an intake summary to identify missing or incomplete information. Based on the summary below, list every standard intake field that is missing, unclear, or marked "Not provided."
+
+Format your response as a numbered list. For each gap, state:
+- What information is missing
+- Why it is typically needed (one sentence — practical reason only, not legal advice)
+
+If no information is missing, say: "No gaps identified based on the summary provided."
+
+Do not make assumptions about the matter. Do not provide legal advice or analysis.
+
+Standard intake fields for [YOUR FIRM TYPE — e.g., "a small litigation firm"]:
+- Full legal name
+- Contact phone and email
+- Date of inquiry
+- Matter type or area of law
+- Key dates (incident date, deadlines, hearing dates)
+- Opposing parties or organizations involved
+- Brief description of the situation
+- What the prospective client is asking for
+
+Intake summary to review:
+
+[PASTE REVIEWED INTAKE SUMMARY HERE]</div>
+
+        <!-- ---------------------------------------------------------------- -->
+        <h2>Prompt 3 — Urgency Flagging</h2>
+        <p>Run this on the intake notes or summary to surface any language suggesting the matter may be time-sensitive. A person reviews the flags and makes the actual triage decision.</p>
+
+        <div class="prompt-block"><span class="prompt-label">Prompt — Urgency Flagging</span>You are reviewing intake notes for language that may indicate a time-sensitive matter. Scan the text below and identify any words, phrases, or dates that suggest urgency or a near-term deadline.
+
+Format your response as:
+
+URGENCY SCAN RESULTS
+---
+Urgency language found: [Yes / No]
+
+If yes, list each flag:
+- [Quoted phrase or date from the text]
+  Reason flagged: [why this language may indicate urgency — one sentence]
+
+Important notes:
+- This is a flag for human review only. You are not determining whether the matter is actually urgent.
+- Do not provide legal advice or analysis.
+- Do not make assumptions about deadlines not mentioned in the text.
+---
+
+Intake notes to scan:
+
+[PASTE INTAKE NOTES OR SUMMARY HERE]</div>
+
+        <!-- ---------------------------------------------------------------- -->
+        <h2>Prompt 4 — Internal Handoff Summary</h2>
+        <p>Use this to produce a concise summary for the attorney or staff member who will handle the next step — conflict review, follow-up call, or matter opening.</p>
+
+        <div class="prompt-block"><span class="prompt-label">Prompt — Internal Handoff Summary</span>You are preparing a brief internal handoff note for a professional at a firm. Using the intake summary below, produce a short handoff note (maximum 150 words) that gives the receiving person the key facts they need to take the next step.
+
+Include:
+- Who is inquiring and what they want
+- Any urgency flags identified
+- Any missing information that needs follow-up
+- Suggested next step (choose from: conflict review, follow-up call for missing information, schedule consultation, escalate to senior staff — select whichever applies based on the summary)
+
+Do not include legal analysis, legal opinions, or recommendations about how to handle the matter.
+Do not include information not present in the summary.
+
+Label this clearly as: DRAFT — FOR INTERNAL USE — REVIEW BEFORE ROUTING
+
+Intake summary:
+
+[PASTE REVIEWED INTAKE SUMMARY HERE]
+
+Urgency flags (if any):
+
+[PASTE URGENCY SCAN RESULTS HERE — OR WRITE "None"]
+
+Missing information (if any):
+
+[PASTE MISSING INFO LIST HERE — OR WRITE "None"]</div>
+
+        <!-- ---------------------------------------------------------------- -->
+        <h2>Prompt 5 — Draft Acknowledgment</h2>
+        <p>Produces a draft acknowledgment email for a prospective client. This draft must be reviewed and approved by a qualified staff member or attorney before it is sent. It is never sent automatically.</p>
+
+        <div class="prompt-block"><span class="prompt-label">Prompt — Draft Acknowledgment</span>You are drafting a brief acknowledgment email for a prospective client who has submitted an intake inquiry. This draft will be reviewed and approved by a staff member or attorney before it is sent. You are not communicating with the client directly.
+
+Write a professional, warm acknowledgment email that:
+- Confirms their inquiry was received
+- States that someone from the firm will follow up within [ENTER YOUR FIRM'S STANDARD TIMEFRAME — e.g., "1–2 business days"]
+- Does not commit to representation
+- Does not create an attorney-client relationship
+- Does not provide any legal advice, legal opinions, or analysis
+- Does not reference specific facts from their matter beyond a brief, general reference to the subject area (e.g., "your inquiry regarding a family law matter")
+
+Tone: professional, direct, reassuring. Length: 3–5 sentences. No legal jargon.
+
+Label the draft clearly as: DRAFT — REQUIRES HUMAN REVIEW AND APPROVAL BEFORE SENDING
+
+Prospective client name: [FIRST NAME — or "there" if not available]
+Subject area of inquiry: [GENERAL MATTER TYPE — e.g., "employment matter"]
+Firm name: [YOUR FIRM NAME]
+Signing staff member or attorney name: [NAME AND TITLE]</div>
+
+        <!-- ---------------------------------------------------------------- -->
+        <h2>Prompt 6 — Guardrail Check</h2>
+        <p>Run this on any AI output before it leaves the firm — summaries, handoff notes, or draft acknowledgments. It flags content that should be reviewed more carefully.</p>
+
+        <div class="prompt-block"><span class="prompt-label">Prompt — Guardrail Check</span>You are reviewing AI-generated content before it is used internally or sent externally. Check the text below against the following guardrails and flag any violations.
+
+GUARDRAILS TO CHECK:
+1. No legal advice — the content should not tell anyone what to do in their legal situation or give a legal opinion.
+2. No conflict determination — the content should not state or imply that a conflict of interest does or does not exist.
+3. No representation commitment — the content should not state or imply that the firm will take the matter or represent the prospective client.
+4. No attorney-client relationship — the content should not create or imply an attorney-client relationship.
+5. No invented information — the content should not contain facts, dates, or names not present in the intake source material.
+6. No automatic send — if this is client-facing content, it must be labeled as a draft requiring human approval.
+
+Format your response as:
+
+GUARDRAIL CHECK RESULTS
+---
+Violations found: [Yes / No]
+
+If yes, list each violation:
+- Guardrail #[number]: [what the issue is and where it appears]
+
+If no violations: "No guardrail violations found. Content is cleared for human review."
+---
+
+Note: This check is a tool to support human review — it does not replace it.
+
+Content to check:
+
+[PASTE AI OUTPUT HERE]</div>
+
+      </div><!-- /.lesson-body -->
+
+      <!-- REVIEW CHECKLIST -->
+      <div class="lesson-checklist">
+        <h3>Review checklist — Prompt Templates</h3>
+        <div class="checklist-items">
+          <div class="checklist-item">
+            <input type="checkbox" id="c1" name="c1">
+            <label for="c1">I understand that I must adapt bracketed sections in each prompt for my firm before using them.</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="c2" name="c2">
+            <label for="c2">I will not paste real client data into a consumer AI tool without appropriate data agreements in place.</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="c3" name="c3">
+            <label for="c3">I know to run the Guardrail Check (Prompt 6) on AI output before using it internally or sending it externally.</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="c4" name="c4">
+            <label for="c4">I know that draft acknowledgments (Prompt 5) are reviewed and approved by a qualified person before being sent.</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="c5" name="c5">
+            <label for="c5">I understand that urgency flags (Prompt 3) are for human review — not a triage decision made by the AI.</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- LESSON NAV -->
+      <div class="lesson-nav">
+        <div class="lesson-nav-link">
+          <span class="lesson-nav-label">← Previous</span>
+          <a class="lesson-nav-title" href="/academy/intake-workflow.html">Intake Workflow Basics</a>
+        </div>
+        <div class="lesson-nav-link next">
+          <span class="lesson-nav-label">Next →</span>
+          <a class="lesson-nav-title" href="/academy/workflow-builder.html">Workflow Builder Kit</a>
+        </div>
+      </div>
+
+    </div><!-- /#lesson-content -->
+  </main>
+
+</div><!-- /.academy-layout -->
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a class="wordmark" href="/" style="color: var(--paper); margin-bottom: var(--sp-2); display: inline-flex;">
+        GuideHerd<sup class="wordmark-sup">AI</sup>
+        <span class="wordmark-badge" style="background: rgba(47,164,160,0.2);">Academy</span>
+      </a>
+      <p>Practical AI workflow training for professional firms.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Package 2</h4>
+      <a href="/academy/start-here.html">Start Here</a>
+      <a href="/academy/intake-workflow.html">Intake Workflow Basics</a>
+      <a href="/academy/prompt-templates.html">Prompt Templates</a>
+      <a href="/academy/workflow-builder.html">Workflow Builder Kit</a>
+      <a href="/academy/demo-law-firm-intake.html">Demo: Law Firm Intake</a>
+    </div>
+    <div class="footer-col">
+      <h4>GuideHerd</h4>
+      <a href="/academy/">My Courses</a>
+      <a href="https://guideherd.ai">Main site</a>
+      <a href="mailto:hello@guideherd.ai">Contact</a>
+    </div>
+  </div>
+  <div class="footer-meta">
+    <span>© 2026 GuideHerd AI, LLC.</span>
+    <span><a href="#">Privacy</a> · <a href="#">Terms</a></span>
+  </div>
+</footer>
+
+<script src="/js/access.js"></script>
+</body>
+</html>

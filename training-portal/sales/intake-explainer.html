@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GuideHerd AI Intake Workflow — One-Page Explainer</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter+Tight:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="/css/academy.css">
+<style>
+  @media print {
+    .site-header, .site-footer, .no-print { display: none !important; }
+    body { background: #fff; color: #000; }
+    .page-hero { padding-top: 0; }
+    .section { break-inside: avoid; }
+  }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-5); }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+  .fact-row { border-top: 1px solid var(--ink-20); padding: var(--sp-3) 0; }
+  .fact-row:last-child { border-bottom: 1px solid var(--ink-20); }
+  .fact-label { font-size: var(--fs-xs); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-60); font-weight: 500; margin-bottom: var(--sp-1); }
+  .fact-value { font-size: var(--fs-md); color: var(--ink); line-height: 1.55; }
+  .guardrail-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+  .guardrail-list li { font-size: var(--fs-md); color: var(--ink-soft); line-height: 1.55; padding-left: var(--sp-3); position: relative; }
+  .guardrail-list li::before { content: "✕"; color: var(--ink-40); position: absolute; left: 0; font-size: var(--fs-xs); top: 3px; }
+  .does-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+  .does-list li { font-size: var(--fs-md); color: var(--ink-soft); line-height: 1.55; padding-left: var(--sp-3); position: relative; }
+  .does-list li::before { content: "→"; color: var(--accent-ink); position: absolute; left: 0; font-size: var(--fs-xs); top: 4px; }
+</style>
+</head>
+<body>
+
+<header class="site-header no-print">
+  <div class="header-row">
+    <a class="wordmark" href="/">
+      GuideHerd<sup class="wordmark-sup">AI</sup>
+    </a>
+    <div class="header-actions">
+      <a class="btn btn-ghost btn-sm" href="mailto:hello@guideherd.ai">Contact us</a>
+    </div>
+  </div>
+</header>
+
+<div class="page-hero" style="border-bottom: 1px solid var(--ink-20); padding-bottom: var(--sp-6);">
+  <p class="page-eyebrow">§ GuideHerd AI</p>
+  <h1 class="page-title" style="font-size: clamp(32px, 5vw, 56px);">AI-Assisted Intake Workflow</h1>
+  <p class="page-lede" style="max-width: 60ch;">A plain-English explainer for small professional firms considering AI-assisted intake.</p>
+</div>
+
+<!-- WHAT IT DOES -->
+<div class="section">
+  <span class="section-num">§ 01</span>
+  <h2 class="section-kicker">What it does</h2>
+  <p style="font-size: var(--fs-md); color: var(--ink-soft); max-width: 56ch; line-height: 1.65; margin-bottom: var(--sp-4);">When a new inquiry arrives — by email, web form, or voicemail transcript — an AI-assisted intake workflow reads it and prepares a structured summary for staff review. It does not replace staff. It gives them a better starting point.</p>
+  <ul class="does-list" style="max-width: 56ch;">
+    <li>Organizes unstructured intake messages into a readable summary</li>
+    <li>Flags likely missing information (contact details, matter type, dates)</li>
+    <li>Identifies urgency signals (deadlines, emergency language, statute of limitations references)</li>
+    <li>Prepares a conflict-screening checklist for staff to complete</li>
+    <li>Drafts an initial acknowledgment for human review and approval before sending</li>
+  </ul>
+</div>
+
+<!-- WHAT IT DOES NOT DO -->
+<div class="section" style="background: var(--paper-2); max-width: none; padding-left: 0; padding-right: 0;">
+  <div style="max-width: 1280px; margin: 0 auto; padding: 0 var(--sp-4);">
+    <span class="section-num">§ 02</span>
+    <h2 class="section-kicker">What it does not do</h2>
+    <p style="font-size: var(--fs-md); color: var(--ink-soft); max-width: 56ch; line-height: 1.65; margin-bottom: var(--sp-4);">These limits are not caveats. They are design decisions. The workflow is built around a single rule: AI prepares, people approve.</p>
+    <ul class="guardrail-list" style="max-width: 56ch;">
+      <li>Does not provide legal advice, opinions, or professional guidance</li>
+      <li>Does not make conflict-screening decisions — it prepares a checklist for staff</li>
+      <li>Does not create an attorney-client or professional relationship</li>
+      <li>Does not send any communication to a client or prospect without human review and approval</li>
+      <li>Does not take any action on its own — all outputs are drafts or review materials</li>
+      <li>Does not replace a paralegal, intake coordinator, or attorney review</li>
+    </ul>
+  </div>
+</div>
+
+<!-- WHY IT HELPS -->
+<div class="section">
+  <span class="section-num">§ 03</span>
+  <h2 class="section-kicker">Why it helps</h2>
+  <div class="two-col" style="max-width: 900px;">
+    <div>
+      <div class="fact-row">
+        <p class="fact-label">Speed</p>
+        <p class="fact-value">Staff get a structured summary in seconds instead of reading and re-reading a disorganized email to extract the key facts.</p>
+      </div>
+      <div class="fact-row">
+        <p class="fact-label">Consistency</p>
+        <p class="fact-value">Every intake goes through the same checklist. Missing information and urgency signals get caught regardless of how busy the day is.</p>
+      </div>
+    </div>
+    <div>
+      <div class="fact-row">
+        <p class="fact-label">Reduced follow-up</p>
+        <p class="fact-value">When the AI flags missing information early, staff can request it in the first reply rather than in the third or fourth.</p>
+      </div>
+      <div class="fact-row">
+        <p class="fact-label">Better handoffs</p>
+        <p class="fact-value">A structured intake summary makes it easier for one staff member to hand an inquiry to another without losing context.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BEST FIT -->
+<div class="section" style="background: var(--paper-2); max-width: none; padding-left: 0; padding-right: 0;">
+  <div style="max-width: 1280px; margin: 0 auto; padding: 0 var(--sp-4);">
+    <span class="section-num">§ 04</span>
+    <h2 class="section-kicker">Best fit</h2>
+    <p style="font-size: var(--fs-md); color: var(--ink-soft); max-width: 56ch; line-height: 1.65; margin-bottom: var(--sp-4);">This workflow works best for firms with the following characteristics:</p>
+    <div class="two-col" style="max-width: 900px;">
+      <div>
+        <div class="fact-row">
+          <p class="fact-label">Firm size</p>
+          <p class="fact-value">1–15 staff. Large enough to have intake volume that benefits from structure. Small enough that one inefficient intake step affects the whole day.</p>
+        </div>
+        <div class="fact-row">
+          <p class="fact-label">Intake channel</p>
+          <p class="fact-value">Email, web form, or any source that produces a text-based inquiry. Voicemail transcripts also work if already converted to text.</p>
+        </div>
+      </div>
+      <div>
+        <div class="fact-row">
+          <p class="fact-label">Industry</p>
+          <p class="fact-value">Law firms, accounting practices, financial advisors, and other professional services firms where intake involves collecting facts, not just scheduling.</p>
+        </div>
+        <div class="fact-row">
+          <p class="fact-label">Review culture</p>
+          <p class="fact-value">Firms where staff are comfortable reviewing AI output and approving or editing before acting. Not suitable where all output is expected to be automatic.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TYPICAL SETUP -->
+<div class="section">
+  <span class="section-num">§ 05</span>
+  <h2 class="section-kicker">Typical setup</h2>
+  <p style="font-size: var(--fs-md); color: var(--ink-soft); max-width: 56ch; line-height: 1.65; margin-bottom: var(--sp-4);">Most engagements move through three stages over two to four weeks.</p>
+  <div style="display: flex; flex-direction: column; gap: 0; max-width: 700px; border-top: 1px solid var(--ink-20);">
+    <div style="padding: var(--sp-3) 0; border-bottom: 1px solid var(--ink-10); display: grid; grid-template-columns: 120px 1fr; gap: var(--sp-3);">
+      <p style="font-size: var(--fs-xs); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-60); font-weight: 500; padding-top: 2px;">Week 1–2</p>
+      <div>
+        <p style="font-size: var(--fs-md); color: var(--ink); font-weight: 500; margin-bottom: var(--sp-1);">Intake audit and workflow design</p>
+        <p style="font-size: var(--fs-sm); color: var(--ink-soft); line-height: 1.6;">Review current intake process, identify what information the firm actually needs at intake, define the conflict-screening checklist, and document the approval step. No AI tools are configured until this is complete.</p>
+      </div>
+    </div>
+    <div style="padding: var(--sp-3) 0; border-bottom: 1px solid var(--ink-10); display: grid; grid-template-columns: 120px 1fr; gap: var(--sp-3);">
+      <p style="font-size: var(--fs-xs); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-60); font-weight: 500; padding-top: 2px;">Week 2–3</p>
+      <div>
+        <p style="font-size: var(--fs-md); color: var(--ink); font-weight: 500; margin-bottom: var(--sp-1);">Prompt and template build</p>
+        <p style="font-size: var(--fs-sm); color: var(--ink-soft); line-height: 1.6;">Configure intake summarization, missing-info detection, urgency flagging, and draft acknowledgment prompts specific to the firm's matter types and communication style. Test against real (anonymized) intake examples.</p>
+      </div>
+    </div>
+    <div style="padding: var(--sp-3) 0; border-bottom: 1px solid var(--ink-10); display: grid; grid-template-columns: 120px 1fr; gap: var(--sp-3);">
+      <p style="font-size: var(--fs-xs); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-60); font-weight: 500; padding-top: 2px;">Week 3–4</p>
+      <div>
+        <p style="font-size: var(--fs-md); color: var(--ink); font-weight: 500; margin-bottom: var(--sp-1);">Staff training and handoff</p>
+        <p style="font-size: var(--fs-sm); color: var(--ink-soft); line-height: 1.6;">Train the staff who will use the workflow. Cover how to read AI summaries, how to use the checklists, and how the approval step works. Deliver written SOPs. Optional: ongoing monthly support after handoff.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NEXT STEP -->
+<div class="section" style="background: var(--ink); max-width: none; padding-left: 0; padding-right: 0;">
+  <div style="max-width: 1280px; margin: 0 auto; padding: var(--sp-6) var(--sp-4);">
+    <span class="section-num" style="color: rgba(245,242,234,0.4);">§ 06</span>
+    <h2 class="section-kicker" style="color: var(--paper);">Next step</h2>
+    <p style="font-size: var(--fs-md); color: rgba(245,242,234,0.7); max-width: 52ch; line-height: 1.65; margin-bottom: var(--sp-4);">The first step is a 30-minute intake audit call. We review your current intake process, identify where the friction is, and confirm whether an AI-assisted workflow is the right fit. No commitment required.</p>
+    <a class="btn btn-accent" href="mailto:hello@guideherd.ai?subject=Intake workflow inquiry" style="text-decoration: none;">Email hello@guideherd.ai →</a>
+  </div>
+</div>
+
+<footer class="site-footer no-print">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a class="wordmark" href="/" style="color: var(--paper); margin-bottom: var(--sp-2); display: inline-flex;">
+        GuideHerd<sup class="wordmark-sup">AI</sup>
+      </a>
+      <p>AI workflow design for small professional firms.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Contact</h4>
+      <a href="mailto:hello@guideherd.ai">hello@guideherd.ai</a>
+      <a href="https://guideherd.ai">guideherd.ai</a>
+    </div>
+  </div>
+  <div class="footer-meta">
+    <span>© 2026 GuideHerd AI, LLC.</span>
+    <span>This document describes a workflow design service. It does not constitute legal, financial, or professional advice of any kind.</span>
+  </div>
+</footer>
+
+</body>
+</html>

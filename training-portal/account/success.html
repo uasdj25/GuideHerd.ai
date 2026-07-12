@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment successful — GuideHerd Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter+Tight:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="/css/academy.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-row">
+    <a class="wordmark" href="/">
+      GuideHerd<sup class="wordmark-sup">AI</sup>
+      <span class="wordmark-badge">Academy</span>
+    </a>
+    <nav class="primary-nav" aria-label="Primary">
+      <a href="/academy/">My Courses</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="https://guideherd.ai">Main site</a>
+    </nav>
+    <div class="header-actions">
+      <a class="btn btn-ghost btn-sm" href="/account/">Account</a>
+    </div>
+  </div>
+</header>
+
+<div class="auth-page">
+  <div class="auth-card" id="success-card">
+    <p class="auth-card-eyebrow">GuideHerd Academy</p>
+    <h1 class="auth-card-title" id="success-heading">Verifying your subscription…</h1>
+    <p id="success-body" style="font-size: var(--fs-base); color: var(--ink-soft); line-height: 1.65; margin-bottom: var(--sp-4);">
+      Setting up your account. This takes a moment.
+    </p>
+    <div id="success-actions" style="display: none; display: flex; flex-direction: column; gap: var(--sp-2);">
+      <a class="btn btn-primary btn-full" href="/academy/">Go to the Academy →</a>
+      <a class="btn btn-ghost btn-full" href="/account/">View account</a>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a class="wordmark" href="/" style="color: var(--paper); margin-bottom: var(--sp-2); display: inline-flex;">
+        GuideHerd<sup class="wordmark-sup" style="color: var(--accent);">AI</sup>
+      </a>
+      <p>Practical AI workflow training for professional firms.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Academy</h4>
+      <a href="/academy/">My Courses</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="/account/">Account</a>
+    </div>
+    <div class="footer-col">
+      <h4>GuideHerd</h4>
+      <a href="https://guideherd.ai">Main site</a>
+    </div>
+  </div>
+  <div class="footer-meta">
+    <span>© 2026 GuideHerd AI, LLC.</span>
+    <span><a href="https://guideherd.ai/privacy" style="color: inherit;">Privacy</a> · <a href="https://guideherd.ai/terms" style="color: inherit;">Terms</a></span>
+  </div>
+</footer>
+
+<script>
+(async function () {
+  var params = new URLSearchParams(window.location.search);
+  var sessionId = params.get('session_id');
+  var heading = document.getElementById('success-heading');
+  var body    = document.getElementById('success-body');
+  var actions = document.getElementById('success-actions');
+
+  function showSuccess(name) {
+    heading.textContent = 'You\'re all set' + (name ? ', ' + name.split(' ')[0] : '') + '.';
+    body.textContent = 'Your subscription is active. Head to the Academy to start your first lesson.';
+    actions.style.display = 'flex';
+  }
+
+  function showError(msg) {
+    heading.textContent = 'Something went wrong.';
+    body.textContent = msg || 'We could not confirm your subscription. Please contact hello@guideherd.ai.';
+    actions.innerHTML = '<a class="btn btn-ghost btn-full" href="mailto:hello@guideherd.ai">Contact support</a>';
+    actions.style.display = 'flex';
+  }
+
+  if (!sessionId) {
+    showError('No checkout session found.');
+    return;
+  }
+
+  try {
+    var res = await fetch('/api/account/verify?session_id=' + encodeURIComponent(sessionId));
+    var data = await res.json();
+    if (res.ok && data.authenticated) {
+      showSuccess(data.user?.name);
+    } else {
+      showError(data.error || null);
+    }
+  } catch (_) {
+    showError('Network error. Please try again or contact support.');
+  }
+})();
+</script>
+
+</body>
+</html>

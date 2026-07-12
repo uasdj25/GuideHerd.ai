@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Where AI Fails — GuideHerd Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter+Tight:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="/css/academy.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-row">
+    <a class="wordmark" href="/">
+      GuideHerd<sup class="wordmark-sup">AI</sup>
+      <span class="wordmark-badge">Academy</span>
+    </a>
+    <nav class="primary-nav" aria-label="Primary">
+      <a href="/academy/">My Courses</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="https://guideherd.ai">Main site</a>
+    </nav>
+    <div class="header-actions">
+      <a class="btn btn-ghost btn-sm" href="/login.html">Log in</a>
+      <a class="btn btn-accent btn-sm" href="/subscribe.html">Subscribe</a>
+    </div>
+  </div>
+</header>
+
+<div class="academy-layout">
+
+  <aside class="module-sidebar">
+    <a class="sidebar-back" href="/academy/ai-foundations/">← Module overview</a>
+    <p class="sidebar-module-label">Module 1</p>
+    <p class="sidebar-module-title">AI Foundations</p>
+    <nav class="sidebar-nav" aria-label="Module lessons">
+      <a href="/academy/ai-foundations/" class="sidebar-link overview">Overview</a>
+      <a href="/academy/ai-foundations/what-ai-tools-do.html" class="sidebar-link">1. What AI Tools Actually Do</a>
+      <a href="/academy/ai-foundations/where-ai-fails.html" class="sidebar-link active">2. Where AI Fails</a>
+      <a href="/academy/ai-foundations/human-review.html" class="sidebar-link">3. Human Review</a>
+      <a href="/academy/ai-foundations/data-privacy.html" class="sidebar-link">4. Data Privacy</a>
+      <a href="/academy/ai-foundations/safe-prompt-habits.html" class="sidebar-link">5. Safe Prompt Habits</a>
+    </nav>
+  </aside>
+
+  <main class="lesson-main">
+    <p class="lesson-eyebrow">Module 1 · Lesson 2 of 5</p>
+    <h1 class="lesson-title">Where AI Fails — And How to Catch It</h1>
+    <div class="lesson-meta">
+      <span>~25 min</span>
+      <span>·</span>
+      <span>AI Foundations</span>
+    </div>
+
+    <div id="paywall-gate" class="paywall-gate visible">
+      <p class="paywall-eyebrow">GuideHerd Academy</p>
+      <h2 class="paywall-title">Subscribe to access this lesson.</h2>
+      <p class="paywall-desc">GuideHerd Academy gives your whole firm access to AI workflow training, monthly updates, and a prompt and template library.</p>
+      <div class="paywall-actions">
+        <a class="btn btn-primary" href="/subscribe.html">View plans →</a>
+        <a class="btn btn-ghost" href="/login.html">Log in</a>
+      </div>
+    </div>
+
+    <div id="lesson-content" class="lesson-content">
+      <div class="lesson-body">
+
+        <h2>The problem with AI errors</h2>
+        <p>AI failures do not look like failures. A system that returned broken output or obviously wrong answers would be easy to catch. The problem is that AI tools produce polished, well-structured, confident-sounding text even when the underlying content is wrong, incomplete, or fabricated.</p>
+        <p>This lesson covers the specific failure modes you need to know — not to make you distrust AI tools, but to make you a better reviewer of their output.</p>
+
+        <h2>Failure mode 1: Made-up facts</h2>
+        <p>The technical term is hallucination. The model generates text that sounds factually accurate but is not. This includes invented case citations, made-up statistics, fictional company policies, and plausible-sounding regulation references that do not exist.</p>
+        <p>The hallucination problem is worst in areas that require precise factual accuracy — legal citations, medical references, financial figures, regulatory details. These are also areas where errors have real consequences.</p>
+        <div class="callout">
+          <p><strong>How to catch it:</strong> Verify any specific fact, figure, citation, or reference independently before using it. Do not assume that because a citation looks real, it is real.</p>
+        </div>
+
+        <h2>Failure mode 2: Missing context</h2>
+        <p>The model only knows what you tell it and what it learned during training. It does not know your client's specific situation, your firm's policies, or the details of a case unless you provide them. When context is missing, the model fills the gap with plausible-sounding general content — which may be completely wrong for your situation.</p>
+        <div class="callout">
+          <p><strong>How to catch it:</strong> Ask yourself: did I give the model enough context to answer this correctly? If the answer is no, the output needs more scrutiny — or the prompt needs to be redone with the relevant details included.</p>
+        </div>
+
+        <h2>Failure mode 3: Overconfidence</h2>
+        <p>AI tools do not reliably express uncertainty. A model that is 60% confident and a model that is 99% confident may produce output that reads exactly the same way. The hedging language ("this may vary by jurisdiction," "consult a professional") is often boilerplate that does not reflect genuine uncertainty about the specific claim being made.</p>
+        <div class="callout">
+          <p><strong>How to catch it:</strong> Treat confident AI output the same way you treat uncertain AI output when the stakes are high. Confidence in the writing is not evidence of accuracy in the content.</p>
+        </div>
+
+        <h2>Failure mode 4: Bad assumptions</h2>
+        <p>When a prompt is ambiguous, the model picks an interpretation and runs with it — without telling you it made a choice. You asked about "the client" and the model assumed which client you meant. You asked about "the contract" and the model assumed which version. The output may be perfectly correct for the interpretation the model chose, and wrong for the one you intended.</p>
+        <div class="callout">
+          <p><strong>How to catch it:</strong> Read the output carefully to confirm the model addressed what you actually meant. If the prompt was ambiguous, it probably needs to be more specific.</p>
+        </div>
+
+        <h2>Failure mode 5: Outdated information</h2>
+        <p>Language models have a training cutoff. Anything that changed after that date — new regulations, updated case law, revised policies — is not in the model's training data unless you provide it. Tools with web access reduce this problem but do not eliminate it.</p>
+        <div class="callout">
+          <p><strong>How to catch it:</strong> For anything time-sensitive, check when the model's training data ends. Provide current documents rather than relying on the model's internal knowledge of current events or regulations.</p>
+        </div>
+
+        <h2>Failure mode 6: Source mismatch</h2>
+        <p>When a model produces a summary or analysis of a document you provided, it may occasionally summarize things not in the document, or attribute claims to the wrong section. The summary reads as though it came directly from the source — but the correspondence is imperfect.</p>
+        <div class="callout">
+          <p><strong>How to catch it:</strong> When the output is intended to reflect a specific document, spot-check key claims against the original source. Do not assume that because you provided the document, the output is a faithful representation of it.</p>
+        </div>
+
+        <h2>Failure mode 7: Boundary crossing</h2>
+        <p>AI tools sometimes do more than you asked. You asked for a summary and got a recommendation. You asked for a draft and got a judgment call presented as fact. You asked for a list of options and got a recommended course of action. The model is trying to be helpful, but it may have crossed into territory that requires professional judgment.</p>
+        <div class="callout">
+          <p><strong>How to catch it:</strong> Check whether the output stayed within the scope of what you asked. If the model drew a conclusion, made a recommendation, or expressed an opinion you didn't request, that part needs separate evaluation.</p>
+        </div>
+
+        <h2>The right posture</h2>
+        <p>None of this means AI tools aren't useful. It means AI output is draft material that requires review — not a finished product that can be passed along without checking. The failure modes above are not rare edge cases. They happen regularly, and they tend to happen in ways that are easy to miss if you are not looking for them.</p>
+        <p>The next lesson covers how to structure the review process so these failures get caught before they matter.</p>
+
+      </div>
+
+      <div class="lesson-checklist">
+        <h3>Review checklist — Lesson 2</h3>
+        <div class="checklist-items">
+          <div class="checklist-item">
+            <input type="checkbox" id="c1">
+            <label for="c1">I understand that AI failures often look polished — confident writing is not evidence of accurate content.</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="c2">
+            <label for="c2">I would verify any specific fact, citation, or figure before using it in client-facing work.</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="c3">
+            <label for="c3">I understand that missing context in my prompt means the model fills gaps with plausible-sounding assumptions.</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="c4">
+            <label for="c4">I know to check for training data cutoffs when asking about current regulations, policies, or events.</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="c5">
+            <label for="c5">I understand that AI output may stray beyond the scope of what I asked, and I check for that before using it.</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="lesson-nav">
+        <div class="lesson-nav-link">
+          <span class="lesson-nav-label">← Previous</span>
+          <a class="lesson-nav-title" href="/academy/ai-foundations/what-ai-tools-do.html">What AI Tools Actually Do</a>
+        </div>
+        <div class="lesson-nav-link next">
+          <span class="lesson-nav-label">Next →</span>
+          <a class="lesson-nav-title" href="/academy/ai-foundations/human-review.html">Human Review</a>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a class="wordmark" href="/" style="color: var(--paper); margin-bottom: var(--sp-2); display: inline-flex;">
+        GuideHerd<sup class="wordmark-sup">AI</sup>
+        <span class="wordmark-badge" style="background: rgba(47,164,160,0.2);">Academy</span>
+      </a>
+      <p>Practical AI workflow training for professional firms.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Module 1</h4>
+      <a href="/academy/ai-foundations/what-ai-tools-do.html">Lesson 1</a>
+      <a href="/academy/ai-foundations/where-ai-fails.html">Lesson 2</a>
+      <a href="/academy/ai-foundations/human-review.html">Lesson 3</a>
+      <a href="/academy/ai-foundations/data-privacy.html">Lesson 4</a>
+      <a href="/academy/ai-foundations/safe-prompt-habits.html">Lesson 5</a>
+    </div>
+    <div class="footer-col">
+      <h4>GuideHerd</h4>
+      <a href="https://guideherd.ai">Main site</a>
+      <a href="mailto:hello@guideherd.ai">Contact</a>
+    </div>
+  </div>
+  <div class="footer-meta">
+    <span>© 2026 GuideHerd AI, LLC.</span>
+    <span><a href="#">Privacy</a> · <a href="#">Terms</a></span>
+  </div>
+</footer>
+
+<script src="/js/access.js"></script>
+</body>
+</html>

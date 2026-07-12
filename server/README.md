@@ -9,7 +9,7 @@ This directory is **not** part of the static website deploy.
 ## Context Handoff API (v1)
 
 The first capability: it passes short-lived caller context from the (future)
-Receptionist Portal to the Scheduling Assistant. Public contract and examples
+GuideHerd Console to the Scheduling Assistant. Public contract and examples
 are documented in [`docs/api/context-handoff.md`](../docs/api/context-handoff.md).
 
 ### Run
@@ -19,12 +19,19 @@ cd server
 npm start          # binds 0.0.0.0 on PORT (default 3000)
 ```
 
+Local console development: serve the site on `http://localhost:8080` and open
+`/receptionist/?apiBase=http://localhost:3000`. The console honors the
+`apiBase` override **only when the page itself runs on localhost/127.0.0.1**,
+and only for `http://localhost:<port>` / `http://127.0.0.1:<port>` targets; on
+any other host it always uses `https://api.guideherd.ai`.
+
 Configuration (environment variables):
 
 - `PORT` — listen port (default `3000`).
 - `CORS_ALLOWED_ORIGINS` — comma-separated browser-origin allowlist (default
   `https://guideherd.ai,http://localhost:8080`). Wildcards are ignored; only
-  `POST`/`OPTIONS` and the `Content-Type` header are allowed cross-origin.
+  `POST`/`GET`/`DELETE`/`OPTIONS` and the `Content-Type` and `Authorization`
+  headers are allowed cross-origin.
 
 ### Test
 
@@ -49,11 +56,28 @@ npm test           # node --test
   no background scheduler in v1.
 - **Deterministic time** — a `clock` abstraction is injected so expiration is
   tested with a fake clock, never with sleeps.
-- **Tokens** are 256-bit, cryptographically random, prefixed `gh_handoff_`, and
-  stored only as a SHA-256 hash. They are never logged or placed in URLs.
+- **Tokens** are 256-bit, cryptographically random, and stored only as SHA-256
+  hashes. They are never logged or placed in URLs. Each session issues two
+  distinct credentials:
+  - `gh_handoff_…` — voice-side token; redeems caller context exactly once.
+  - `gh_console_…` — GuideHerd Console token; authorizes only
+    `GET /api/v1/handoffs/{sessionId}` (status) and
+    `DELETE /api/v1/handoffs/{sessionId}` (cancel), via
+    `Authorization: Bearer`. It can never redeem caller context, and the
+    handoff token can never check status or cancel.
+- **Cancellation** is atomic with redemption (same synchronous check-and-mark
+  discipline): a concurrent cancel/redeem race settles into exactly one
+  terminal state. Repeat cancels are idempotent.
+- The future telephony integration will receive the handoff token through a
+  trusted GuideHerd handoff mechanism; the browser holds it in memory only as
+  an interim measure for this slice.
 
-## Not in v1 (intentionally deferred)
+## Not yet in place (pilot prerequisites, stated plainly)
 
-No database, cache, queue, event bus, or microservices. **No authentication** —
-that is a required production prerequisite (see the security note in
-`server.js` and the API doc). No vendor integrations.
+- Sessions are **in-memory only**: lost on restart/deploy; single instance
+  required.
+- **No authentication for creating sessions**, and the receptionist page is
+  not authenticated — both required before production (see `server.js`).
+- A browser refresh loses the console's active session state.
+- No database, cache, queue, event bus, microservices, telephony, or vendor
+  integrations.

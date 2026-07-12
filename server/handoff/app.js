@@ -4,7 +4,7 @@ const { systemClock } = require('./clock');
 const { createInMemoryHandoffStore } = require('./store');
 const { createHandoffService } = require('./service');
 const { normalizeCreate, normalizeRedeem } = require('./validation');
-const { HandoffError, MalformedRequestError } = require('./errors');
+const { HandoffError, MalformedRequestError, UnauthorizedError } = require('./errors');
 
 // Scheduling context is tiny; cap the body to reject oversized payloads early.
 const MAX_BODY_BYTES = 16 * 1024;
@@ -74,14 +74,14 @@ function makeHandler(service, allowedOrigins) {
       // Parse path only; tokens are never read from the query string.
       const path = new URL(req.url, 'http://localhost').pathname;
 
-      // Preflight. Only POST (plus OPTIONS itself) and Content-Type are allowed.
+      // Preflight. Allowed: POST/GET/DELETE (+ OPTIONS), Content-Type and Authorization.
       if (method === 'OPTIONS') {
         status = 204;
         const headers = cors
           ? {
               ...cors,
-              'Access-Control-Allow-Methods': 'POST, OPTIONS',
-              'Access-Control-Allow-Headers': 'Content-Type',
+              'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type, Authorization',
               'Access-Control-Max-Age': '600',
             }
           : { 'Vary': 'Origin' };
@@ -107,6 +107,24 @@ function makeHandler(service, allowedOrigins) {
         return sendJson(res, status, context, cors);
       }
 
+      // Console operations: GET (status) / DELETE (cancel) on a session,
+      // authorized by the console bearer token. Tokens are read only from the
+      // Authorization header — never from the URL.
+      const sessionMatch = path.match(/^\/api\/v1\/handoffs\/([^/]+)$/);
+      if (sessionMatch && sessionMatch[1] !== 'redeem' && (method === 'GET' || method === 'DELETE')) {
+        const consoleToken = readBearerToken(req); // throws 401 if missing/malformed
+        sessionId = sessionMatch[1];
+
+        if (method === 'GET') {
+          const statusBody = service.status(sessionId, consoleToken);
+          status = 200;
+          return sendJson(res, status, statusBody, cors);
+        }
+        const cancelBody = service.cancel(sessionId, consoleToken);
+        status = 200;
+        return sendJson(res, status, cancelBody, cors);
+      }
+
       status = 404;
       return sendJson(res, status, { error: { code: 'not_found', message: 'Resource not found.' } }, cors);
     } catch (err) {
@@ -123,6 +141,19 @@ function makeHandler(service, allowedOrigins) {
       logRequest(req, status, sessionId, Date.now() - startedAt);
     }
   };
+}
+
+/**
+ * Extract a bearer token from the Authorization header.
+ * Throws 401 when the header is missing or malformed. The raw token is never
+ * logged and never appears in error messages.
+ */
+function readBearerToken(req) {
+  const header = req.headers.authorization;
+  if (typeof header !== 'string') throw new UnauthorizedError();
+  const match = header.match(/^Bearer\s+(\S+)$/);
+  if (!match) throw new UnauthorizedError();
+  return match[1];
 }
 
 /** Read and JSON-parse a request body, enforcing the size cap. */

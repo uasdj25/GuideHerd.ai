@@ -1,6 +1,6 @@
 # Context Handoff API (v1)
 
-Passes short-lived caller context from the Receptionist Portal to the GuideHerd
+Passes short-lived caller context from the GuideHerd Console to the GuideHerd
 Scheduling Assistant. The receptionist qualifies a caller, GuideHerd creates a
 **Scheduling Session** and a single-use **handoff token**, and the assistant
 redeems that token to receive the minimum context it needs to book a
@@ -12,13 +12,33 @@ scheduling, calendar, or model providers) appear anywhere in it.
 > **Scope:** scheduling context only. This API does not accept or store legal
 > intake, SSNs, payment details, documents, or case facts.
 
+## Credentials
+
+Each Scheduling Session issues **two separate bearer credentials**, returned
+once on creation and stored server-side only as hashes:
+
+| Credential | Held by | Can do | Cannot do |
+|---|---|---|---|
+| `handoffToken` | Scheduling assistant (voice side) | Redeem caller context, exactly once | Check status, cancel |
+| `consoleToken` | GuideHerd Console | Check status, cancel | Redeem caller context |
+
+Neither credential can be exchanged for the other. The handoff token dies at
+redemption, cancellation, or expiry — whichever comes first. The console token
+is never promoted beyond read/cancel and is useless after the session record
+ends. In the current slice the browser receives both from the create
+response and holds them **in JavaScript memory only**; the future telephony
+integration will receive the `handoffToken` through a trusted GuideHerd
+handoff mechanism instead of the browser.
+
 ## Security assumptions
 
-- The handoff token is a **bearer credential**. It is single-use and expires
-  **10 minutes** after creation.
+- Both tokens are **bearer credentials**. The handoff token is single-use;
+  both expire **10 minutes** after creation.
 - Tokens are generated from a cryptographically secure source and are stored
   only as a hash. The raw token is returned once, on creation.
-- Tokens are accepted **only in the request body**, never in the URL.
+- The handoff token is accepted **only in the request body**; the console
+  token is accepted **only in the `Authorization: Bearer` header**. Tokens
+  never appear in URLs.
 - Tokens are never logged and never appear in error messages.
 - **Authentication and authorization are NOT implemented in v1** and are a
   required production prerequisite. These endpoints must be protected (service
@@ -37,8 +57,8 @@ Rules:
 
 - A wildcard (`*`) origin is **never** allowed; wildcard entries are ignored.
 - Preflight `OPTIONS` requests are supported.
-- Only `POST` and `OPTIONS` methods are permitted.
-- Only the `Content-Type` request header is permitted.
+- Only `POST`, `GET`, `DELETE`, and `OPTIONS` methods are permitted.
+- Only the `Content-Type` and `Authorization` request headers are permitted.
 - Requests from non-allowlisted origins receive no CORS headers, so browsers
   block the response.
 
@@ -92,6 +112,7 @@ has a maximum length to reject oversized payloads.
 {
   "sessionId": "23d7d46b-933b-4dee-8675-41737cea85c5",
   "handoffToken": "gh_handoff_tpBXaTbPppdfoF8MxWzui6wheKfKfu6OufSPSBXcvns",
+  "consoleToken": "gh_console_Qm93c2VyT25seUluTWVtb3J5RXhhbXBsZVZhbHVl",
   "status": "awaiting-transfer",
   "createdAt": "2026-07-12T15:15:00.000Z",
   "expiresAt": "2026-07-12T15:25:00.000Z",
@@ -133,6 +154,77 @@ The response is deliberately minimal. It does **not** include the receptionist
 user ID, handoff source/mode, token metadata, or any vendor-specific data.
 Optional values that were not provided are returned as `null`.
 
+### GET /api/v1/handoffs/{sessionId}
+
+Operational status for the GuideHerd Console. Requires the console token:
+
+```http
+Authorization: Bearer gh_console_...
+```
+
+**Example response — `200 OK`** (`Cache-Control: no-store`)
+
+```json
+{
+  "sessionId": "23d7d46b-933b-4dee-8675-41737cea85c5",
+  "status": "awaiting-transfer",
+  "createdAt": "2026-07-12T15:15:00.000Z",
+  "expiresAt": "2026-07-12T15:25:00.000Z"
+}
+```
+
+Returns **operational metadata only** — never caller name, phone, attorney,
+practice area, consultation type, receptionist user ID, or any token.
+
+| Session state | Result |
+|---|---|
+| Awaiting transfer | `200`, status `awaiting-transfer` |
+| Redeemed by the assistant | `200`, status `connected` |
+| Cancelled | `200`, status `cancelled` |
+| Past `expiresAt` | `200`, status `expired` (no caller context) |
+| Missing/malformed `Authorization` | `401` |
+| Wrong token (incl. the handoff token) | `403` |
+| Unknown session | `404` |
+
+### DELETE /api/v1/handoffs/{sessionId}
+
+Cancel a pending session. Requires the console token in the same
+`Authorization: Bearer` format.
+
+**Example response — `200 OK`**
+
+```json
+{
+  "sessionId": "23d7d46b-933b-4dee-8675-41737cea85c5",
+  "status": "cancelled"
+}
+```
+
+Semantics:
+
+- Only `awaiting-transfer` sessions can be cancelled. Cancellation is atomic —
+  a concurrent redeem and cancel settle into exactly one terminal state.
+- Already connected → `409 cannot_cancel`.
+- Expired (never cancelled) → `410 session_expired`.
+- Missing auth → `401`; wrong token → `403`; unknown session → `404`.
+
+**Credential semantics after cancellation (exact contract):**
+
+- The **handoff token is immediately and permanently invalidated**: any later
+  redeem attempt receives `410 token_cancelled`. This is enforced before any
+  other check, so a cancelled session's caller context can never be read.
+- The **console token is *not* invalidated** by cancellation. It remains a
+  strictly read/cancel-only credential:
+  - it can read the session's terminal status (`GET` → `200`, status
+    `cancelled`);
+  - until the session's original `expiresAt`, a repeat `DELETE` is
+    **idempotent** (`200`, status `cancelled`); after `expiresAt`, a repeat
+    `DELETE` receives `410 session_expired`;
+  - it can never redeem caller context and can never cause any further
+    status transition.
+
+No caller context is ever exposed by cancellation responses.
+
 ## Status codes
 
 | Code | When |
@@ -166,6 +258,7 @@ Statuses: `awaiting-transfer`, `connected`, `scheduling`, `booked`, `failed`,
 
 - create → `awaiting-transfer`
 - successful redeem → `connected`
+- receptionist cancellation → `cancelled`
 - expiry → `expired`
 
 The remaining statuses are reserved so later transitions can be added without
@@ -177,3 +270,14 @@ after expiry, no caller context is returned.
 A token can be redeemed exactly once. Concurrent redemption attempts for the
 same token result in exactly one success; the rest receive `409 Conflict`. See
 the [server README](../../server/README.md) for how this is guaranteed.
+
+## Current limitations (pilot prerequisites, not hidden defects)
+
+- Sessions are stored **in memory** and are lost on service restart or
+  deployment; a single service instance is required.
+- **Creating sessions is not yet authenticated**, and the GuideHerd Console
+  page itself is not authenticated. Both are required before production.
+- A browser refresh loses the console's active session state; the session
+  simply expires server-side.
+- Telephony transfer and trusted delivery of the voice-side handoff token are
+  not part of this slice.

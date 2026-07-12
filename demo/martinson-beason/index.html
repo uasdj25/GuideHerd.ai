@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Martinson &amp; Beason Scheduling</title>
+  <meta name="description" content="Martinson &amp; Beason Scheduling Assistant powered by GuideHerd.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter+Tight:wght@300;400;500;600&display=swap">
+  <style>
+    :root {
+      --ink:        #0E2A3F;
+      --ink-soft:   #1C3A52;
+      --ink-60:     rgba(14, 42, 63, 0.60);
+      --ink-40:     rgba(14, 42, 63, 0.40);
+      --ink-20:     rgba(14, 42, 63, 0.20);
+      --ink-10:     rgba(14, 42, 63, 0.10);
+      --ink-05:     rgba(14, 42, 63, 0.05);
+
+      --paper:      #F5F2EA;
+      --paper-2:    #EDE8DB;
+      --cream:      #FBF8F1;
+
+      --accent:     #2FA4A0;
+      --accent-deep:#1E7C79;
+      --accent-ink: #0E6D6A;
+
+      --serif:   "Fraunces", Georgia, serif;
+      --sans:    "Inter Tight", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+      --fs-xs:   11px;
+      --fs-sm:   13px;
+      --fs-base: 16px;
+      --fs-md:   18px;
+      --fs-lg:   22px;
+      --fs-xl:   28px;
+      --fs-2xl:  40px;
+
+      --sp-1: 8px;
+      --sp-2: 16px;
+      --sp-3: 24px;
+      --sp-4: 32px;
+      --sp-5: 48px;
+      --sp-6: 64px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+    body {
+      font-family: var(--sans);
+      font-size: var(--fs-base);
+      line-height: 1.55;
+      color: var(--ink);
+      background: var(--paper);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    img, svg { display: block; max-width: 100%; }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; cursor: pointer; border: none; background: none; }
+    h1, h2, h3, h4 { margin: 0; font-weight: 400; letter-spacing: -0.01em; }
+    p { margin: 0; }
+
+    /* Header */
+    .site-header {
+      background: rgba(245, 242, 234, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--ink-10);
+      padding: 0 var(--sp-4);
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .wordmark {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 20px;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      display: inline-flex;
+      align-items: flex-start;
+    }
+    .wordmark-sup {
+      font-family: var(--sans);
+      font-weight: 500;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-left: 2px;
+      margin-top: 3px;
+      line-height: 1;
+    }
+
+    /* Main content */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: var(--sp-6) var(--sp-3);
+    }
+
+    .hero-container {
+      max-width: 640px;
+      width: 100%;
+      text-align: center;
+    }
+
+    /* Eyebrow */
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-60);
+      margin-bottom: var(--sp-3);
+    }
+    .eyebrow-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    /* Headings */
+    .hero-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(32px, 6vw, 48px);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin-bottom: var(--sp-2);
+    }
+
+    .hero-subtitle {
+      font-size: var(--fs-md);
+      line-height: 1.55;
+      color: var(--ink-soft);
+      max-width: 52ch;
+      margin: 0 auto var(--sp-5);
+    }
+
+    /* Steps flow */
+    .steps {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: var(--sp-3);
+      margin-bottom: var(--sp-5);
+      flex-wrap: wrap;
+    }
+
+    .step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--sp-1);
+      max-width: 160px;
+      text-align: center;
+    }
+
+    .step-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: var(--cream);
+      border: 1px solid var(--ink-10);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-ink);
+      margin-bottom: var(--sp-1);
+    }
+
+    .step-label {
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      color: var(--ink);
+      line-height: 1.4;
+    }
+
+    .step-arrow {
+      color: var(--ink-20);
+      margin-top: 14px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 560px) {
+      .steps {
+        flex-direction: column;
+        align-items: center;
+        gap: var(--sp-2);
+      }
+      .step-arrow {
+        transform: rotate(90deg);
+        margin-top: 0;
+      }
+      .step { max-width: 220px; }
+    }
+
+    /* Status indicator */
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
+      padding: 8px 16px;
+      border: 1px solid var(--ink-10);
+      border-radius: 999px;
+      background: var(--cream);
+      margin-bottom: var(--sp-4);
+    }
+    .status-label {
+      font-size: var(--fs-xs);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-40);
+    }
+    .status-value {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      color: var(--ink-soft);
+    }
+    /* Distinguish states by shape as well as color (not color alone) */
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+      box-sizing: border-box;
+      border: 2px solid var(--accent);
+      background: transparent;
+    }
+    .status-value[data-status="connected"] .status-dot {
+      background: var(--accent);
+    }
+
+    /* Primary button */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 16px 32px;
+      border-radius: 999px;
+      font-size: var(--fs-base);
+      font-weight: 500;
+      letter-spacing: 0.005em;
+      background: var(--ink);
+      color: var(--paper);
+      border: 1px solid var(--ink);
+      transition: background 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+      min-width: 240px;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-ink);
+      border-color: var(--accent-ink);
+    }
+    .btn-primary:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+    .btn-primary:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+    .btn-primary:disabled {
+      cursor: default;
+    }
+    /* Connecting: dim slightly and reveal the spinner */
+    .btn-primary[data-state="connecting"] {
+      opacity: 0.8;
+    }
+    .btn-primary[data-state="connecting"] .btn-spinner { display: block; }
+    /* Connected: settled accent state, stays disabled */
+    .btn-primary[data-state="connected"] {
+      background: var(--accent-ink);
+      border-color: var(--accent-ink);
+      opacity: 1;
+    }
+
+    .btn-spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--paper);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Supporting text */
+    .mic-hint {
+      font-size: var(--fs-sm);
+      color: var(--ink-40);
+      margin-top: var(--sp-2);
+    }
+
+    /* Inline messages */
+    .error-message {
+      display: none;
+      font-size: var(--fs-sm);
+      color: #8B3A3A;
+      background: rgba(139, 58, 58, 0.08);
+      border: 1px solid rgba(139, 58, 58, 0.2);
+      border-radius: 8px;
+      padding: var(--sp-2) var(--sp-3);
+      margin: var(--sp-3) auto 0;
+      max-width: 420px;
+    }
+    .error-message.visible { display: block; }
+
+    /* Assistant panel — inline expanding card that hosts the experience */
+    .assistant-panel {
+      margin-top: var(--sp-5);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    .assistant-panel.revealed {
+      opacity: 1;
+      transform: none;
+    }
+    .assistant-panel[hidden] { display: none; }
+
+    .assistant-card {
+      background: var(--cream);
+      border: 1px solid var(--ink-10);
+      border-radius: 16px;
+      box-shadow: 0 18px 50px -30px rgba(14, 42, 63, 0.35);
+      padding: var(--sp-4) var(--sp-3);
+      min-height: 320px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Connecting state */
+    .connect-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--sp-2);
+      color: var(--ink-soft);
+      text-align: center;
+    }
+    .connect-state[hidden] { display: none; }
+    .connect-spinner {
+      display: block;
+      width: 24px;
+      height: 24px;
+      border-color: var(--ink-20);
+      border-top-color: var(--accent);
+      margin-bottom: var(--sp-1);
+    }
+    .connect-text {
+      font-family: var(--serif);
+      font-size: var(--fs-lg);
+      color: var(--ink);
+    }
+    .connect-sub {
+      font-size: var(--fs-sm);
+      color: var(--ink-40);
+    }
+
+    /* Live state */
+    .assistant-live { width: 100%; }
+    .assistant-live[hidden] { display: none; }
+    .success-line {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      color: var(--accent-ink);
+      margin-bottom: var(--sp-3);
+    }
+    .success-line svg { flex-shrink: 0; }
+    .assistant-heading {
+      font-family: var(--serif);
+      font-size: var(--fs-xl);
+      color: var(--ink);
+      margin-bottom: var(--sp-3);
+      outline: none;
+    }
+    .assistant-heading:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 4px;
+      border-radius: 4px;
+    }
+
+    /* Host area for the embedded scheduling assistant */
+    .convai-host {
+      width: 100%;
+      min-height: 240px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Trust statement */
+    .trust-statement {
+      margin-top: var(--sp-5);
+      padding-top: var(--sp-4);
+      border-top: 1px solid var(--ink-10);
+      font-size: var(--fs-sm);
+      color: var(--ink-40);
+      font-style: italic;
+    }
+
+    /* "What happens next?" collapsible */
+    .next-panel {
+      margin: var(--sp-4) auto 0;
+      max-width: 420px;
+      text-align: left;
+      border: 1px solid var(--ink-10);
+      border-radius: 12px;
+      background: var(--cream);
+      overflow: hidden;
+    }
+    .next-panel summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 14px var(--sp-3);
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      color: var(--ink-soft);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--sp-2);
+    }
+    .next-panel summary::-webkit-details-marker { display: none; }
+    .next-panel summary:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+    }
+    .next-panel .chev {
+      transition: transform 0.2s ease;
+      color: var(--ink-40);
+      flex-shrink: 0;
+    }
+    .next-panel[open] .chev { transform: rotate(180deg); }
+    .next-list {
+      padding: 0 var(--sp-3) var(--sp-3);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .next-item {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      font-size: var(--fs-sm);
+      color: var(--ink-soft);
+    }
+    .next-item::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .next-arrow {
+      color: var(--ink-20);
+      margin-left: 15px;
+      font-size: var(--fs-sm);
+      line-height: 1;
+    }
+
+    /* Attribution */
+    .attribution {
+      margin-top: var(--sp-5);
+      font-size: var(--fs-xs);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-40);
+    }
+
+    /* Footer */
+    .site-footer {
+      padding: var(--sp-3) var(--sp-4);
+      border-top: 1px solid var(--ink-10);
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .footer-text {
+      font-size: var(--fs-xs);
+      color: var(--ink-40);
+    }
+
+    /* Visually hidden for screen readers */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="site-header">
+    <a class="wordmark" href="/" aria-label="GuideHerd home">
+      <span>GuideHerd</span><sup class="wordmark-sup">AI</sup>
+    </a>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main" role="main">
+    <div class="hero-container">
+      <!-- Eyebrow -->
+      <div class="eyebrow">
+        <span class="eyebrow-dot" aria-hidden="true"></span>
+        <span>Private Demonstration</span>
+      </div>
+
+      <!-- Title -->
+      <h1 class="hero-title">Martinson &amp; Beason Scheduling Assistant</h1>
+
+      <!-- Subtitle -->
+      <p class="hero-subtitle">
+        A receptionist-assisted scheduling experience that allows qualified callers to schedule consultations quickly and professionally.
+      </p>
+
+      <!-- Three-step flow -->
+      <div class="steps" role="list" aria-label="Scheduling workflow">
+        <div class="step" role="listitem">
+          <div class="step-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+          </div>
+          <span class="step-label">Receptionist qualifies caller</span>
+        </div>
+
+        <svg class="step-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+
+        <div class="step" role="listitem">
+          <div class="step-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+          </div>
+          <span class="step-label">Scheduling Assistant books consultation</span>
+        </div>
+
+        <svg class="step-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+
+        <div class="step" role="listitem">
+          <div class="step-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <span class="step-label">Appointment appears automatically in Outlook</span>
+        </div>
+      </div>
+
+      <!-- Status indicator -->
+      <div class="status-indicator">
+        <span class="status-label">Status</span>
+        <span class="status-value" id="status-value" data-status="ready" role="status">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="status-text">Ready to accept calls</span>
+        </span>
+      </div>
+
+      <!-- Primary CTA -->
+      <div>
+        <button
+          type="button"
+          class="btn-primary"
+          id="call-btn"
+          aria-describedby="mic-hint"
+        >
+          <span class="btn-spinner" aria-hidden="true"></span>
+          <span class="btn-label" id="btn-label">Call Scheduling Assistant</span>
+        </button>
+      </div>
+
+      <!-- Microphone hint -->
+      <p class="mic-hint" id="mic-hint">Microphone access will be requested when the conversation begins.</p>
+
+      <!-- Inline message (configuration / availability) -->
+      <div class="error-message" id="error-message" role="alert" aria-live="assertive"></div>
+
+      <!-- Assistant panel: inline expanding card, hidden until launch -->
+      <section class="assistant-panel" id="assistant-panel" aria-live="polite" hidden>
+        <div class="assistant-card">
+          <!-- Connecting state -->
+          <div class="connect-state" id="connect-state">
+            <span class="btn-spinner connect-spinner" aria-hidden="true"></span>
+            <p class="connect-text">Connecting you to the scheduling assistant&hellip;</p>
+            <p class="connect-sub">Please allow microphone access if prompted.</p>
+          </div>
+
+          <!-- Live state -->
+          <div class="assistant-live" id="assistant-live" hidden>
+            <p class="success-line">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+              Connected to the Martinson &amp; Beason Scheduling Assistant
+            </p>
+            <h2 class="assistant-heading" id="assistant-heading" tabindex="-1">Scheduling Assistant</h2>
+            <!-- Embedded assistant. agent-id is applied at runtime from the
+                 configuration block below — never hardcoded in the markup. -->
+            <div class="convai-host" id="convai-host">
+              <elevenlabs-convai id="convai-widget"></elevenlabs-convai>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Trust statement -->
+      <p class="trust-statement">Scheduling only. No legal advice is provided during scheduling.</p>
+
+      <!-- What happens next? (collapsed by default) -->
+      <details class="next-panel">
+        <summary>
+          What happens next?
+          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m6 9 6 6 6-6"/>
+          </svg>
+        </summary>
+        <div class="next-list">
+          <div class="next-item">Receptionist qualifies the caller</div>
+          <span class="next-arrow" aria-hidden="true">&darr;</span>
+          <div class="next-item">Scheduling Assistant books the consultation</div>
+          <span class="next-arrow" aria-hidden="true">&darr;</span>
+          <div class="next-item">Outlook calendar is updated automatically</div>
+          <span class="next-arrow" aria-hidden="true">&darr;</span>
+          <div class="next-item">The caller receives a confirmation email</div>
+        </div>
+      </details>
+
+      <!-- Attribution -->
+      <p class="attribution">Powered by GuideHerd</p>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <p class="footer-text">© 2026 GuideHerd AI, LLC. Private demonstration.</p>
+  </footer>
+
+  <!-- ============================================================
+       CONFIGURATION
+       The scheduling assistant identifier. This is the only value
+       that needs to change to point at a different assistant.
+       ============================================================ -->
+  <script>
+    window.__ELEVENLABS_AGENT_ID__ = "agent_1501kx9f51t0fg8atbgdrvrjvf2b";
+  </script>
+
+  <!-- Main page behavior -->
+  <script>
+    (function() {
+      'use strict';
+
+      var configured = window.__ELEVENLABS_AGENT_ID__;
+      var AGENT_ID = (configured && configured !== 'REPLACE_WITH_AGENT_ID')
+        ? configured
+        : null;
+
+      var WIDGET_SCRIPT_SRC = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
+      var WIDGET_TAG = 'elevenlabs-convai';
+      var CONNECT_DELAY = 600;   // receptionist-transfer pause (ms)
+      var INIT_TIMEOUT = 10000;  // widget initialization ceiling (ms)
+
+      var MSG_NOT_CONFIGURED = 'The scheduling demo is not configured yet.';
+      var MSG_UNAVAILABLE = 'The scheduling assistant is temporarily unavailable. Please try again in a moment.';
+
+      var btn = document.getElementById('call-btn');
+      var btnLabel = document.getElementById('btn-label');
+      var errorMessage = document.getElementById('error-message');
+      var statusValue = document.getElementById('status-value');
+      var statusText = document.getElementById('status-text');
+      var panel = document.getElementById('assistant-panel');
+      var connectState = document.getElementById('connect-state');
+      var liveState = document.getElementById('assistant-live');
+      var assistantHeading = document.getElementById('assistant-heading');
+      var convaiWidget = document.getElementById('convai-widget');
+
+      var inProgress = false;        // guards re-entry once a call starts
+      var scriptAppended = false;    // ensures a single widget script/element
+      var widgetReadyPromise = null;
+
+      var prefersReduced = window.matchMedia
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.classList.add('visible');
+      }
+
+      function hideError() {
+        errorMessage.classList.remove('visible');
+      }
+
+      function setLabel(text) {
+        btnLabel.textContent = text;
+      }
+
+      function updateStatus(state) {
+        if (state === 'connected') {
+          statusValue.dataset.status = 'connected';
+          statusText.textContent = 'Connected';
+        } else {
+          statusValue.dataset.status = 'ready';
+          statusText.textContent = 'Ready to accept calls';
+        }
+      }
+
+      function scrollIntoView(el) {
+        try {
+          el.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'nearest' });
+        } catch (_) {
+          el.scrollIntoView();
+        }
+      }
+
+      // Load the official widget embed once and resolve when the custom
+      // element is registered. Re-entrant and safe to retry: it never
+      // appends a second script or creates a duplicate widget.
+      function ensureWidget() {
+        if (window.customElements && customElements.get && customElements.get(WIDGET_TAG)) {
+          return Promise.resolve();
+        }
+        if (widgetReadyPromise) return widgetReadyPromise;
+
+        widgetReadyPromise = new Promise(function(resolve, reject) {
+          var settled = false;
+
+          var timer = window.setTimeout(function() {
+            if (settled) return;
+            settled = true;
+            reject(new Error('timeout'));
+          }, INIT_TIMEOUT);
+
+          function onReady() {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timer);
+            resolve();
+          }
+
+          if (window.customElements && customElements.whenDefined) {
+            customElements.whenDefined(WIDGET_TAG).then(onReady);
+          }
+
+          if (!scriptAppended) {
+            scriptAppended = true;
+            var s = document.createElement('script');
+            s.src = WIDGET_SCRIPT_SRC;
+            s.async = true;
+            s.type = 'text/javascript';
+            s.onerror = function() {
+              if (settled) return;
+              settled = true;
+              window.clearTimeout(timer);
+              scriptAppended = false;      // allow a fresh attempt on retry
+              widgetReadyPromise = null;
+              reject(new Error('script'));
+            };
+            document.body.appendChild(s);
+
+            // Fallback for environments without customElements support.
+            if (!(window.customElements && customElements.whenDefined)) {
+              s.onload = onReady;
+            }
+          }
+        });
+
+        return widgetReadyPromise;
+      }
+
+      function revealConnecting() {
+        connectState.hidden = false;
+        liveState.hidden = true;
+        panel.hidden = false;
+        // Trigger the reveal transition on the next frame.
+        window.requestAnimationFrame(function() {
+          panel.classList.add('revealed');
+        });
+        scrollIntoView(panel);
+      }
+
+      function revealLive() {
+        connectState.hidden = true;
+        liveState.hidden = false;
+
+        updateStatus('connected');
+        btn.dataset.state = 'connected';
+        setLabel('Scheduling Assistant Connected');
+
+        // Move focus to the heading directly above the assistant.
+        assistantHeading.focus();
+        scrollIntoView(liveState);
+      }
+
+      function handleFailure() {
+        // Reset to a usable state and invite another attempt.
+        panel.classList.remove('revealed');
+        panel.hidden = true;
+        connectState.hidden = false;
+        liveState.hidden = true;
+
+        inProgress = false;
+        btn.disabled = false;
+        btn.dataset.state = 'default';
+        setLabel('Call Scheduling Assistant');
+        updateStatus('ready');
+
+        showError(MSG_UNAVAILABLE);
+      }
+
+      function startCall() {
+        hideError();
+
+        if (!AGENT_ID) {
+          showError(MSG_NOT_CONFIGURED);
+          return;
+        }
+        if (inProgress) return;
+        inProgress = true;
+
+        // 1–2: lock the button and signal the transfer.
+        btn.disabled = true;
+        btn.dataset.state = 'connecting';
+        setLabel('Connecting…');
+
+        // 3–4: reveal the connecting card.
+        revealConnecting();
+
+        // 5–12: after a brief transfer pause, bring up the assistant.
+        window.setTimeout(function() {
+          ensureWidget().then(revealLive).catch(handleFailure);
+        }, CONNECT_DELAY);
+      }
+
+      btn.addEventListener('click', startCall);
+
+      // Configure the widget or disable the experience, per runtime config.
+      if (AGENT_ID) {
+        convaiWidget.setAttribute('agent-id', AGENT_ID);
+      } else {
+        btn.disabled = true;
+        showError(MSG_NOT_CONFIGURED);
+      }
+    })();
+  </script>
+
+</body>
+</html>

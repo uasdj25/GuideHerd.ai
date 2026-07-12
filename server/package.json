@@ -1,0 +1,14 @@
+{
+  "name": "guideherd-handoff-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GuideHerd Context Handoff API (v1) — passes short-lived caller context from the Receptionist Portal to the Scheduling Assistant.",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  }
+}

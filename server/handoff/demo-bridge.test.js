@@ -663,3 +663,96 @@ test('connect body tolerance does not weaken authorization', async () => {
     assert.equal((await fetch(`${base}/api/v1/demo/connect`, { method: 'POST', headers: { ...headers, authorization: 'Bearer wrong' }, body })).status, 403, 'wrong secret still 403');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Flat outcome format (webhook editors that cannot nest objects)
+// ---------------------------------------------------------------------------
+
+function flatBooked(sessionId) {
+  return {
+    sessionId,
+    status: 'booked',
+    appointment: {
+      startsAt: '2026-07-20T15:00:00-05:00',
+      timezone: 'America/Chicago',
+      attorneyId: 'clay-martinson',
+      consultationTypeId: 'initial-consultation',
+    },
+    reason: 'Initial consultation booked.',
+  };
+}
+
+test('flat booked payload works and reason maps to schedulingSummary', async () => {
+  const mailer = fakeMailer();
+  await withServer({ clock: fixedClock(AT_1515), mailer }, async (base, app) => {
+    const created = await connectOne(base);
+    const res = await post(base, '/api/v1/demo/outcome', flatBooked(created.sessionId), bridgeAuth);
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).status, 'booked');
+    const session = app.store.get(created.sessionId);
+    assert.equal(session.status, 'booked');
+    assert.equal(session.outcome.schedulingSummary, 'Initial consultation booked.', 'reason lifted into schedulingSummary');
+    assert.equal(session.outcome.appointment.startsAt, '2026-07-20T15:00:00-05:00');
+    assert.equal(mailer.sends.length, 1, 'summary delivered once');
+  });
+});
+
+test('flat failed and escalated payloads work', async () => {
+  for (const status of ['failed', 'escalated']) {
+    await withServer({ clock: fixedClock(AT_1515) }, async (base) => {
+      const created = await connectOne(base);
+      const res = await post(base, '/api/v1/demo/outcome', {
+        sessionId: created.sessionId, status, reason: 'Caller needs follow-up.',
+      }, bridgeAuth);
+      assert.equal(res.status, 200, `flat ${status} accepted`);
+      const st = await (await fetch(`${base}/api/v1/handoffs/${created.sessionId}`, {
+        headers: { authorization: `Bearer ${created.consoleToken}` },
+      })).json();
+      assert.equal(st.status, status);
+    });
+  }
+});
+
+test('flat and nested formats validate identically and stay strict', async () => {
+  await withServer({ clock: fixedClock(AT_1515) }, async (base) => {
+    const created = await connectOne(base);
+    const rejected = [
+      // flat with invalid appointment (validation preserved through lifting)
+      { sessionId: created.sessionId, status: 'booked', appointment: { startsAt: '2026-07-20', timezone: 'America/Chicago' } },
+      { sessionId: created.sessionId, status: 'booked', appointment: { startsAt: '2026-07-20T15:00:00-05:00', timezone: 'Central Time' } },
+      // flat with unknown/provider fields
+      { sessionId: created.sessionId, status: 'failed', calendarEvent: { uid: 'x' } },
+      { sessionId: created.sessionId, status: 'failed', transcript: 'caller said...' },
+      // both aliases at once is ambiguous
+      { sessionId: created.sessionId, status: 'failed', reason: 'a', schedulingSummary: 'b' },
+      // mixing nested and flat is ambiguous
+      { sessionId: created.sessionId, status: 'failed', outcome: { status: 'failed' } },
+    ];
+    for (const body of rejected) {
+      const res = await post(base, '/api/v1/demo/outcome', body, bridgeAuth);
+      assert.equal(res.status, 400, `rejected: ${JSON.stringify(body).slice(0, 70)}`);
+    }
+  });
+});
+
+test('flat and nested submissions of the same outcome are mutually idempotent', async () => {
+  const mailer = fakeMailer();
+  await withServer({ clock: fixedClock(AT_1515), mailer }, async (base) => {
+    const created = await connectOne(base);
+    const flat = { sessionId: created.sessionId, status: 'booked',
+      appointment: { startsAt: '2026-07-20T15:00:00-05:00', timezone: 'America/Chicago' },
+      reason: 'Initial consultation booked.' };
+    const nested = { sessionId: created.sessionId, outcome: { status: 'booked',
+      appointment: { startsAt: '2026-07-20T15:00:00-05:00', timezone: 'America/Chicago' },
+      schedulingSummary: 'Initial consultation booked.' } };
+
+    assert.equal((await post(base, '/api/v1/demo/outcome', flat, bridgeAuth)).status, 200);
+    // Same content in either format is an idempotent duplicate after lifting.
+    assert.equal((await post(base, '/api/v1/demo/outcome', flat, bridgeAuth)).status, 200);
+    assert.equal((await post(base, '/api/v1/demo/outcome', nested, bridgeAuth)).status, 200);
+    assert.equal(mailer.sends.length, 1, 'no duplicate summaries across formats');
+    // A genuinely different outcome still conflicts.
+    const conflict = await post(base, '/api/v1/demo/outcome', { sessionId: created.sessionId, status: 'failed' }, bridgeAuth);
+    assert.equal(conflict.status, 409);
+  });
+});

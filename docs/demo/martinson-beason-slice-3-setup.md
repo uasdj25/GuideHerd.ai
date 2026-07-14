@@ -56,8 +56,18 @@ Add a second **server tool**:
   or failure."
 - **Method/URL:** `POST https://api.guideherd.ai/api/v1/demo/outcome`
 - **Headers:** `Authorization: Bearer <DEMO_BRIDGE_SECRET>`
-- **Body:** the GuideHerd outcome contract from `docs/api/demo-bridge.md`,
-  using the `sessionId` returned by `get_prepared_caller`.
+- **Body:** use the **flat format** (the webhook editor cannot build nested
+  objects; the API accepts flat and lifts it internally — see
+  `docs/api/demo-bridge.md`). Configure these body properties as
+  **LLM-provided parameters** with descriptions:
+  - `sessionId` (string, required) — "the sessionId returned by
+    get_prepared_caller; copy it exactly"
+  - `status` (string, required) — "booked, failed, or escalated"
+  - `appointment` (object; required when booked) — `startsAt` (full ISO-8601
+    with UTC offset or Z), `timezone` (IANA identifier such as
+    America/Chicago), optional `attorneyId`, `consultationTypeId`
+  - `reason` (string, optional) — "one neutral sentence describing the
+    scheduling result; no legal detail"
 
 Update the assistant's playbook/prompt so that it:
 

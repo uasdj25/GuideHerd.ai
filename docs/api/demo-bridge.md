@@ -23,6 +23,11 @@ Connects the controlled demonstration to the prepared session: the server-held
 equivalent of handoff-token redemption. The raw handoff token never leaves the
 API process.
 
+The request **body is optional and ignored entirely** (`{}` and
+`{"request": "connect"}` behave identically). It is tolerated only because the
+external assistant runtime's webhook UI requires at least one JSON property on
+POST tools.
+
 Selection rules (deliberately safety-first):
 
 - Only **unexpired `awaiting-transfer`** sessions for the demo firm are

@@ -625,3 +625,41 @@ test('runtime caveat: ICU accepts legacy abbreviations like CST as identifiers (
   assert.doesNotThrow(() => new Intl.DateTimeFormat('en-US', { timeZone: 'CST' }));
   assert.throws(() => new Intl.DateTimeFormat('en-US', { timeZone: 'Central Time' }), RangeError);
 });
+
+// ---------------------------------------------------------------------------
+// Connect body tolerance (external assistant webhook UI requires a JSON body)
+// ---------------------------------------------------------------------------
+
+test('connect accepts no body, {}, {"request":"connect"}, and unknown fields identically', async () => {
+  const variants = [
+    { name: 'no body at all', init: { method: 'POST', headers: bridgeAuth } },
+    { name: 'empty object {}', init: { method: 'POST', headers: { ...bridgeAuth, 'content-type': 'application/json' }, body: '{}' } },
+    { name: '{"request":"connect"}', init: { method: 'POST', headers: { ...bridgeAuth, 'content-type': 'application/json' }, body: JSON.stringify({ request: 'connect' }) } },
+    { name: 'unknown fields ignored', init: { method: 'POST', headers: { ...bridgeAuth, 'content-type': 'application/json' }, body: JSON.stringify({ request: 'connect', anything: 'else', nested: { x: 1 } }) } },
+  ];
+
+  const responses = [];
+  for (const variant of variants) {
+    await withServer({ clock: fixedClock(AT_1515) }, async (base) => {
+      const created = await createSession(base);
+      const res = await fetch(`${base}/api/v1/demo/connect`, variant.init);
+      assert.equal(res.status, 200, `${variant.name} -> 200`);
+      const ctx = await res.json();
+      assert.equal(ctx.sessionId, created.sessionId, `${variant.name} connects the prepared session`);
+      // Normalize the per-run sessionId so shapes can be compared across variants.
+      responses.push(JSON.stringify({ ...ctx, sessionId: 'X' }));
+    });
+  }
+  // Every body variant produces the identical response shape and content.
+  assert.equal(new Set(responses).size, 1, 'all variants behave identically');
+});
+
+test('connect body tolerance does not weaken authorization', async () => {
+  await withServer({ clock: fixedClock(AT_1515) }, async (base) => {
+    await createSession(base);
+    const body = JSON.stringify({ request: 'connect' });
+    const headers = { 'content-type': 'application/json' };
+    assert.equal((await fetch(`${base}/api/v1/demo/connect`, { method: 'POST', headers, body })).status, 401, 'missing auth still 401');
+    assert.equal((await fetch(`${base}/api/v1/demo/connect`, { method: 'POST', headers: { ...headers, authorization: 'Bearer wrong' }, body })).status, 403, 'wrong secret still 403');
+  });
+});

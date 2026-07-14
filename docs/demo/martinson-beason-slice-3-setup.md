@@ -39,7 +39,9 @@ In the assistant's tool configuration, add a **server tool**:
   every conversation, before speaking."
 - **Method/URL:** `POST https://api.guideherd.ai/api/v1/demo/connect`
 - **Headers:** `Authorization: Bearer <DEMO_BRIDGE_SECRET>`
-- **Body:** none required.
+- **Body:** the endpoint needs no body, but the runtime's webhook UI requires
+  at least one JSON property on POST tools — configure a fixed body of
+  `{"request": "connect"}`. The API accepts and **ignores** any body here.
 - Expected responses: `200` with caller/scheduling context (see
   `docs/api/demo-bridge.md`); `404 no_prepared_session` (no one is prepared);
   `409 ambiguous_prepared_sessions` (receptionist must cancel extras).

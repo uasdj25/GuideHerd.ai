@@ -126,6 +126,11 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret 
       // DEMO_BRIDGE_SECRET via Authorization: Bearer only. No browser CORS.
       if (method === 'POST' && path === '/api/v1/demo/connect') {
         requireBridgeAuth(demoBridgeSecret, req.headers.authorization);
+        // The request body is OPTIONAL and IGNORED entirely. It exists only
+        // because the external assistant runtime's webhook UI requires at
+        // least one JSON property on POST tools (e.g. {"request":"connect"}).
+        // Drained explicitly (size-capped) for connection hygiene.
+        await drainBody(req);
         const context = service.connectDemo(DEMO_FIRM_ID);
         sessionId = context.sessionId;
         status = 200;
@@ -189,6 +194,25 @@ function readBearerToken(req) {
   const match = header.match(/^Bearer\s+(\S+)$/);
   if (!match) throw new UnauthorizedError();
   return match[1];
+}
+
+/**
+ * Consume and discard a request body without parsing it, enforcing the size
+ * cap. Used where a body is tolerated but carries no meaning.
+ */
+function drainBody(req) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        reject(new MalformedRequestError('Request body is too large.'));
+        req.destroy();
+      }
+    });
+    req.on('end', resolve);
+    req.on('error', resolve); // discarded anyway
+  });
 }
 
 /** Read and JSON-parse a request body, enforcing the size cap. */

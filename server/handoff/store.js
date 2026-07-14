@@ -5,6 +5,10 @@ const crypto = require('node:crypto');
 const { SessionStatus } = require('./status');
 const {
   UnknownTokenError,
+  NoPreparedSessionError,
+  AmbiguousSessionError,
+  OutcomeConflictError,
+  InvalidOutcomeStateError,
   TokenAlreadyRedeemedError,
   TokenExpiredError,
   TokenCancelledError,
@@ -162,6 +166,75 @@ function createInMemoryHandoffStore({ clock }) {
       session.status = SessionStatus.CANCELLED;
       session.cancelledAtMs = now;
       return session;
+    },
+
+    /**
+     * TEMPORARY DEMO INFRASTRUCTURE (Slice 3).
+     * Connect the single eligible prepared session for a firm — the
+     * server-held equivalent of handoff-token redemption. Eligible means
+     * status awaiting-transfer, unexpired, matching firmId.
+     *  - zero eligible   -> 404 no_prepared_session
+     *  - more than one   -> 409 ambiguous_prepared_sessions (redeems none;
+     *    deliberately favors safety over convenience)
+     *  - exactly one     -> atomically redeemed (same single-use semantics)
+     * Synchronous by design: concurrent connect attempts settle into exactly
+     * one successful redemption.
+     * @param {string} firmId
+     * @returns {import('./models').InternalSession}
+     */
+    connectDemo(firmId) {
+      const now = clock.now();
+      const eligible = [];
+      for (const session of sessionsById.values()) {
+        markExpiredIfNeeded(session, now);
+        if (session.firmId === firmId && session.status === SessionStatus.AWAITING_TRANSFER) {
+          eligible.push(session);
+        }
+      }
+      if (eligible.length === 0) throw new NoPreparedSessionError();
+      if (eligible.length > 1) throw new AmbiguousSessionError();
+
+      const session = eligible[0];
+      session.redeemedAtMs = now;
+      session.status = SessionStatus.CONNECTED;
+      return session;
+    },
+
+    /**
+     * Record a terminal scheduling outcome reported by the assistant.
+     *  - only CONNECTED or SCHEDULING sessions may accept an outcome;
+     *  - the first valid terminal outcome wins;
+     *  - an exactly identical duplicate is idempotent;
+     *  - a conflicting later outcome -> 409 outcome_conflict;
+     *  - invalid transitions never mutate the session.
+     * Synchronous by design (atomic under concurrency).
+     * @param {string} sessionId
+     * @param {{status: string, appointment?: object, schedulingSummary?: string,
+     *          unresolvedQuestions?: string[], escalationRequired?: boolean}} outcome
+     * @returns {{ session: import('./models').InternalSession, duplicate: boolean }}
+     */
+    applyOutcome(sessionId, outcome) {
+      const session = sessionsById.get(sessionId);
+      if (!session) throw new UnknownSessionError();
+      const now = clock.now();
+
+      const TERMINAL = [SessionStatus.BOOKED, SessionStatus.FAILED, SessionStatus.ESCALATED];
+      if (TERMINAL.includes(session.status)) {
+        // Idempotent only for an exactly identical outcome.
+        if (JSON.stringify(session.outcome) === JSON.stringify(outcome)) {
+          return { session, duplicate: true };
+        }
+        throw new OutcomeConflictError();
+      }
+      if (session.status !== SessionStatus.CONNECTED && session.status !== SessionStatus.SCHEDULING) {
+        // cancelled / expired / awaiting-transfer sessions never mutate here
+        throw new InvalidOutcomeStateError();
+      }
+
+      session.status = outcome.status;
+      session.outcome = outcome;
+      session.completedAtMs = now;
+      return { session, duplicate: false };
     },
 
     /** Read a session (marks it expired if its time has passed). For tests/introspection. */

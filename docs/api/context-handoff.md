@@ -74,6 +74,7 @@ Create a Scheduling Session and return a single-use handoff token.
 |-------|----------|-------|
 | `firmId` | yes | Firm the session belongs to |
 | `caller.fullName` | yes | Caller's full name |
+| `caller.email` | yes | Caller email. Trimmed; local part preserved exactly; domain lowercased; max 254 chars |
 | `caller.phone` | no | Caller phone (stored as provided; not parsed) |
 | `scheduling.attorneyId` | yes | Attorney the caller wants |
 | `scheduling.practiceAreaId` | no | Practice area |
@@ -86,12 +87,19 @@ Create a Scheduling Session and return a single-use handoff token.
 String fields are trimmed; blank required values are rejected. Each string field
 has a maximum length to reject oversized payloads.
 
+> **Contract change (Slice 3, intentional and coordinated):** `caller.email`
+> is now **required**. Existing create clients that do not send it receive
+> `400 validation_error`. All repository clients were updated in the same
+> change; the API is not version-bumped during the pilot. The email is
+> returned **only** through authorized context redemption (token redemption or
+> the demo connect) — never in status or cancellation responses.
+
 **Example request**
 
 ```json
 {
   "firmId": "martinson-beason",
-  "caller": { "fullName": "David Jones", "phone": "+14044232676" },
+  "caller": { "fullName": "David Jones", "email": "david.jones@example.com", "phone": "+14044232676" },
   "scheduling": {
     "attorneyId": "clay-martinson",
     "practiceAreaId": "personal-injury",
@@ -141,6 +149,7 @@ Scheduling Assistant needs. On success the session moves from
   "sessionId": "23d7d46b-933b-4dee-8675-41737cea85c5",
   "callerName": "David Jones",
   "callerLastName": "Jones",
+  "callerEmail": "david.jones@example.com",
   "callerPhone": "+14044232676",
   "attorneyId": "clay-martinson",
   "practiceAreaId": "personal-injury",
@@ -173,13 +182,19 @@ Authorization: Bearer gh_console_...
 }
 ```
 
-Returns **operational metadata only** — never caller name, phone, attorney,
-practice area, consultation type, receptionist user ID, or any token.
+Returns **operational metadata only** — never caller name, phone, email,
+receptionist user ID, or any token. Once a session is `booked`, the response
+additionally carries the confirmed appointment (scheduling metadata only):
+
+```json
+{ "status": "booked", "appointment": { "startsAt": "2026-07-20T15:00:00-05:00", "timezone": "America/Chicago", "attorneyId": "clay-martinson", "consultationTypeId": "initial-consultation" } }
+```
 
 | Session state | Result |
 |---|---|
 | Awaiting transfer | `200`, status `awaiting-transfer` |
 | Redeemed by the assistant | `200`, status `connected` |
+| Outcome recorded | `200`, status `booked` (with `appointment`), `failed`, or `escalated` |
 | Cancelled | `200`, status `cancelled` |
 | Past `expiresAt` | `200`, status `expired` (no caller context) |
 | Missing/malformed `Authorization` | `401` |
@@ -254,10 +269,13 @@ token material.
 ## Session lifecycle
 
 Statuses: `awaiting-transfer`, `connected`, `scheduling`, `booked`, `failed`,
-`expired`, `cancelled`. v1 implements only these transitions:
+`escalated`, `expired`, `cancelled`. v1 implements these transitions:
 
 - create → `awaiting-transfer`
-- successful redeem → `connected`
+- successful redeem (token or demo connect) → `connected`
+- assistant-reported outcome → `booked` | `failed` | `escalated`
+  (see [demo-bridge.md](demo-bridge.md); `booked` is reported only after the
+  calendar confirms the appointment — never inferred from connection)
 - receptionist cancellation → `cancelled`
 - expiry → `expired`
 
@@ -280,4 +298,10 @@ the [server README](../../server/README.md) for how this is guaranteed.
 - A browser refresh loses the console's active session state; the session
   simply expires server-side.
 - Telephony transfer and trusted delivery of the voice-side handoff token are
-  not part of this slice.
+  not part of this slice; the temporary [demo bridge](demo-bridge.md) covers
+  the controlled demonstration only — **no phone transfer occurs**.
+- Direct calendar-provider webhook confirmation remains deferred hardening;
+  the demo trusts the assistant's post-booking outcome report.
+- Consultation Summary delivery (Outlook) is a **separate outcome** from the
+  appointment booking; a mail failure never reverses a booking. PDF rendering
+  of the summary is deferred.

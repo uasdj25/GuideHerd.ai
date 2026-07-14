@@ -8,6 +8,7 @@
  *
  * @typedef {Object} Caller
  * @property {string} fullName
+ * @property {string} email
  * @property {string} [phone]
  *
  * @typedef {Object} Scheduling
@@ -64,6 +65,7 @@
  * @property {string} sessionId
  * @property {string} callerName
  * @property {string} callerLastName
+ * @property {string} callerEmail
  * @property {string|null} callerPhone
  * @property {string} attorneyId
  * @property {string|null} practiceAreaId
@@ -82,6 +84,7 @@ const HANDOFF_TTL_SECONDS = 600;
 const LIMITS = Object.freeze({
   firmId: 128,
   fullName: 200,
+  email: 254,
   phone: 40,
   attorneyId: 128,
   practiceAreaId: 128,

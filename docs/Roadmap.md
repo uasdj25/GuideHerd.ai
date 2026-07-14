@@ -17,8 +17,8 @@ The first end-to-end demonstration of GuideHerd-branded scheduling.
 
 First real receptionist-facing deployment.
 
-- GuideHerd Console MVP
-- Context Handoff API
+- GuideHerd Console MVP *(shipped)*
+- Context Handoff API *(shipped)*
 - Multi-Attorney Scheduling
 - Telephony Integration Research
 - Live Call Transfer Prototype

@@ -15,6 +15,7 @@ const SessionStatus = Object.freeze({
   SCHEDULING: 'scheduling',
   BOOKED: 'booked',
   FAILED: 'failed',
+  ESCALATED: 'escalated',
   EXPIRED: 'expired',
   CANCELLED: 'cancelled',
 });

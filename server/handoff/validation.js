@@ -27,6 +27,39 @@ function normalizeCreate(body) {
   const scheduling = isPlainObject(body.scheduling) ? body.scheduling : {};
   const handoff = isPlainObject(body.handoff) ? body.handoff : {};
 
+  /**
+   * Validate a required email. Trims whitespace, preserves the local part
+   * exactly, lowercases only the domain. Deliberately permissive format
+   * check (x@y.tld shape) so legitimate addresses are never rejected.
+   */
+  function email(value, field, max) {
+    if (value === undefined || value === null) {
+      details.push({ field, message: 'is required' });
+      return undefined;
+    }
+    if (typeof value !== 'string') {
+      details.push({ field, message: 'must be a string' });
+      return undefined;
+    }
+    const trimmed = value.trim();
+    if (trimmed === '') {
+      details.push({ field, message: 'must not be blank' });
+      return undefined;
+    }
+    if (trimmed.length > max) {
+      details.push({ field, message: `must be at most ${max} characters` });
+      return undefined;
+    }
+    const at = trimmed.lastIndexOf('@');
+    const local = trimmed.slice(0, at);
+    const domain = trimmed.slice(at + 1);
+    if (at < 1 || local === '' || !/^[^\s@]+\.[^\s@]+$/.test(domain) || /\s/.test(trimmed)) {
+      details.push({ field, message: 'must be a valid email address' });
+      return undefined;
+    }
+    return local + '@' + domain.toLowerCase();
+  }
+
   /** Validate one string field; returns the trimmed value or undefined. */
   function str(value, field, required, max) {
     if (value === undefined || value === null) {
@@ -62,6 +95,7 @@ function normalizeCreate(body) {
     firmId: str(body.firmId, 'firmId', true, LIMITS.firmId),
     caller: {
       fullName: str(caller.fullName, 'caller.fullName', true, LIMITS.fullName),
+      email: email(caller.email, 'caller.email', LIMITS.email),
       phone: str(caller.phone, 'caller.phone', false, LIMITS.phone),
     },
     scheduling: {

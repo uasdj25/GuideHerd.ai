@@ -88,9 +88,15 @@ calendar tool has confirmed success or failure**.
 Rules:
 
 - `outcome.status` ∈ `booked` | `failed` | `escalated`.
-- `booked` **requires** `appointment.startsAt` (valid ISO-8601) and
-  `appointment.timezone`. A session is never reported booked merely because it
-  connected.
+- `booked` **requires**:
+  - `appointment.startsAt` — a **complete ISO-8601 datetime with an explicit
+    UTC offset or `Z`** (e.g. `2026-07-20T15:00:00-05:00`). Date-only values
+    and offset-less local datetimes are rejected.
+  - `appointment.timezone` — a **valid IANA time-zone identifier** (e.g.
+    `America/Chicago`), validated against the runtime's IANA database.
+    Non-identifiers such as `Central Time` are rejected. (Note: the runtime's
+    ICU data also accepts a few legacy abbreviations like `CST`.)
+  A session is never reported booked merely because it connected.
 - Only `connected` or `scheduling` sessions accept an outcome. Cancelled,
   expired, and awaiting-transfer sessions reject it without mutation.
 - The **first valid terminal outcome wins**. An exactly identical duplicate is

@@ -42,6 +42,35 @@ const OUTCOME_LIMITS = Object.freeze({
   id: 128,
 });
 
+/**
+ * True when the value is a time-zone identifier the runtime's IANA database
+ * accepts (dependency-free: Intl.DateTimeFormat throws RangeError otherwise).
+ * Note: the runtime (ICU) also accepts a few legacy abbreviations such as
+ * "CST"/"EST" as valid identifiers; unambiguous non-identifiers ("Central
+ * Time", "Mars/Olympus") are rejected.
+ */
+function isIanaTimezone(value) {
+  if (typeof value !== 'string' || value.trim() === '') return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * True only for a complete ISO-8601 datetime: date, time, and an explicit
+ * UTC offset or `Z`. Date-only values and offset-less local datetimes are
+ * rejected — a booked appointment must be unambiguous in absolute time.
+ */
+const ISO_WITH_OFFSET = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:?\d{2})$/;
+function isCompleteIsoDateTime(value) {
+  return typeof value === 'string'
+    && ISO_WITH_OFFSET.test(value)
+    && !Number.isNaN(Date.parse(value));
+}
+
 /** Constant-time comparison via digest so length differences don't leak. */
 function secretsEqual(a, b) {
   const da = crypto.createHash('sha256').update(String(a), 'utf8').digest();
@@ -121,12 +150,12 @@ function normalizeOutcome(body) {
     assertOnlyKeys(a, ['startsAt', 'timezone', 'attorneyId', 'consultationTypeId'], 'outcome.appointment', details);
 
     const startsAt = typeof a.startsAt === 'string' ? a.startsAt.trim() : '';
-    if (startsAt === '' || startsAt.length > OUTCOME_LIMITS.startsAt || Number.isNaN(Date.parse(startsAt))) {
-      details.push({ field: 'outcome.appointment.startsAt', message: 'must be a valid ISO-8601 timestamp' });
+    if (startsAt.length > OUTCOME_LIMITS.startsAt || !isCompleteIsoDateTime(startsAt)) {
+      details.push({ field: 'outcome.appointment.startsAt', message: 'must be a complete ISO-8601 datetime with an explicit UTC offset or Z' });
     }
     const timezone = typeof a.timezone === 'string' ? a.timezone.trim() : '';
-    if (timezone === '' || timezone.length > OUTCOME_LIMITS.timezone) {
-      details.push({ field: 'outcome.appointment.timezone', message: 'is required' });
+    if (timezone.length > OUTCOME_LIMITS.timezone || !isIanaTimezone(timezone)) {
+      details.push({ field: 'outcome.appointment.timezone', message: 'must be a valid IANA time-zone identifier (e.g. America/Chicago)' });
     }
     appointment = { startsAt, timezone };
     for (const key of ['attorneyId', 'consultationTypeId']) {

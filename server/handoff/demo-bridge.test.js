@@ -554,3 +554,74 @@ test('the bridge secret is never written to the request log', async () => {
     console.log = original;
   }
 });
+
+// ---------------------------------------------------------------------------
+// Appointment validation: IANA timezone + complete ISO-8601 with offset
+// ---------------------------------------------------------------------------
+
+test('timezone must be a real IANA identifier; startsAt must carry an explicit offset or Z', async () => {
+  await withServer({ clock: fixedClock(AT_1515) }, async (base) => {
+    const created = await connectOne(base);
+    const attempt = (appointment) => post(base, '/api/v1/demo/outcome', {
+      sessionId: created.sessionId,
+      outcome: { status: 'booked', appointment },
+    }, bridgeAuth);
+
+    // Accepted
+    const accepted = [
+      { startsAt: '2026-07-20T15:00:00-05:00', timezone: 'America/Chicago' }, // offset
+      { startsAt: '2026-07-20T20:00:00Z', timezone: 'UTC' },                  // Z
+    ];
+    // The first success terminates the session, so only probe the FIRST
+    // accepted case live; validate the second shape on a fresh session below.
+    assert.equal((await attempt(accepted[0])).status, 200, 'offset timestamp + IANA zone accepted');
+  });
+
+  await withServer({ clock: fixedClock(AT_1515) }, async (base) => {
+    const created = await connectOne(base);
+    const res = await post(base, '/api/v1/demo/outcome', {
+      sessionId: created.sessionId,
+      outcome: { status: 'booked', appointment: { startsAt: '2026-07-20T20:00:00Z', timezone: 'UTC' } },
+    }, bridgeAuth);
+    assert.equal(res.status, 200, 'Z timestamp + UTC accepted');
+  });
+});
+
+test('invalid timezones and ambiguous timestamps are rejected without side effects', async () => {
+  const mailer = fakeMailer();
+  await withServer({ clock: fixedClock(AT_1515), mailer }, async (base) => {
+    const created = await connectOne(base);
+    const rejected = [
+      // timezone failures (startsAt valid)
+      { startsAt: '2026-07-20T15:00:00-05:00', timezone: 'Central Time' },
+      { startsAt: '2026-07-20T15:00:00-05:00', timezone: 'Mars/Olympus' },
+      { startsAt: '2026-07-20T15:00:00-05:00', timezone: '' },
+      // startsAt failures (timezone valid)
+      { startsAt: '2026-07-20', timezone: 'America/Chicago' },                 // date-only
+      { startsAt: '2026-07-20T15:00:00', timezone: 'America/Chicago' },        // no offset
+      { startsAt: 'July 20 2026 3pm', timezone: 'America/Chicago' },           // not ISO
+    ];
+    for (const appointment of rejected) {
+      const res = await post(base, '/api/v1/demo/outcome', {
+        sessionId: created.sessionId,
+        outcome: { status: 'booked', appointment },
+      }, bridgeAuth);
+      assert.equal(res.status, 400, `rejected: ${JSON.stringify(appointment)}`);
+    }
+
+    // No mutation, no summary delivery from any invalid attempt.
+    const status = await (await fetch(`${base}/api/v1/handoffs/${created.sessionId}`, {
+      headers: { authorization: `Bearer ${created.consoleToken}` },
+    })).json();
+    assert.equal(status.status, 'connected', 'session not mutated by invalid outcomes');
+    assert.equal(mailer.sends.length, 0, 'no summary delivery triggered');
+  });
+});
+
+test('runtime caveat: ICU accepts legacy abbreviations like CST as identifiers (documented)', () => {
+  // Node's Intl (ICU) treats "CST"/"EST" as valid identifiers even though they
+  // are not canonical IANA Zone names. We accept what the runtime accepts and
+  // use unambiguous non-identifiers for negative tests.
+  assert.doesNotThrow(() => new Intl.DateTimeFormat('en-US', { timeZone: 'CST' }));
+  assert.throws(() => new Intl.DateTimeFormat('en-US', { timeZone: 'Central Time' }), RangeError);
+});

@@ -6,7 +6,7 @@
 > (see the setup guide's teardown step). The shared secret used here is **not
 > production authentication**.
 
-Both endpoints are server-to-server only:
+All endpoints are server-to-server only:
 
 - Authorized by `Authorization: Bearer <DEMO_BRIDGE_SECRET>` — the secret is
   configured only in the API environment and in the external Scheduling
@@ -150,6 +150,35 @@ outcome call), or `not-configured` (mail settings absent — a controlled
 result, not an error). **Mail delivery failure never reverses a confirmed
 booking.** A summary that was `sent` is never resent, including under
 concurrent duplicate outcome calls.
+
+## GET /api/v1/demo/summary/latest
+
+> **Temporary operator view.** This endpoint exists only so the demo operator
+> can show the GuideHerd Consultation Summary before Microsoft Graph mail
+> delivery is configured. It does not replace delivery: the summary remains a
+> domain artifact, and the Graph mailer path is unchanged. Remove this endpoint
+> together with the rest of the demo bridge (see the setup guide's teardown
+> step).
+
+Returns the **most recently completed** Consultation Summary for the demo firm
+as a self-contained, GuideHerd-branded HTML document — the same rendering the
+mailer would send.
+
+- Authorization: `Authorization: Bearer <DEMO_BRIDGE_SECRET>` — identical auth
+  matrix to the other bridge endpoints (`401` missing/malformed, `403` wrong
+  secret, `503` unconfigured).
+- Selection: sessions in a terminal outcome state (`booked`, `failed`,
+  `escalated`) for the demo firm, newest by completion time. Prepared,
+  connected, cancelled, and expired sessions are never eligible.
+- **`404 no_completed_summary`** when no completed session exists.
+- Response: `200` with `Content-Type: text/html; charset=utf-8` and
+  `Cache-Control: no-store`. No browser CORS headers, ever.
+- The HTML contains only what the summary email would: caller-facing
+  scheduling details. It never contains tokens, hashes, session IDs, the
+  bridge secret, provider/vendor names, transcripts, or legal content.
+- This is an **operator tool for a terminal, not a web page**. Do not embed
+  the secret in any browser page, bookmark, or URL — see the setup guide for
+  the supported curl workflow.
 
 ## Deferred hardening
 

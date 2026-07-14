@@ -237,6 +237,25 @@ function createInMemoryHandoffStore({ clock }) {
       return { session, duplicate: false };
     },
 
+    /**
+     * TEMPORARY DEMO INFRASTRUCTURE (Slice 3).
+     * The most recently completed (booked/failed/escalated) session for a
+     * firm, by completedAtMs — used only to display the latest Consultation
+     * Summary during the demonstration. Returns undefined when none exist.
+     * @param {string} firmId
+     */
+    latestCompleted(firmId) {
+      const TERMINAL = [SessionStatus.BOOKED, SessionStatus.FAILED, SessionStatus.ESCALATED];
+      let latest;
+      for (const session of sessionsById.values()) {
+        if (session.firmId !== firmId || !TERMINAL.includes(session.status)) continue;
+        if (!latest || (session.completedAtMs ?? 0) > (latest.completedAtMs ?? 0)) {
+          latest = session;
+        }
+      }
+      return latest;
+    },
+
     /** Read a session (marks it expired if its time has passed). For tests/introspection. */
     get(sessionId) {
       const session = sessionsById.get(sessionId);

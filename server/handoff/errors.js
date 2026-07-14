@@ -134,6 +134,13 @@ class InvalidOutcomeStateError extends HandoffError {
   }
 }
 
+class NoCompletedSummaryError extends HandoffError {
+  constructor() {
+    super(404, 'no_completed_summary', 'No completed Consultation Summary exists yet.');
+    this.name = 'NoCompletedSummaryError';
+  }
+}
+
 class BridgeNotConfiguredError extends HandoffError {
   constructor() {
     super(503, 'demo_bridge_not_configured', 'The demonstration bridge is not configured.');
@@ -159,4 +166,5 @@ module.exports = {
   OutcomeConflictError,
   InvalidOutcomeStateError,
   BridgeNotConfiguredError,
+  NoCompletedSummaryError,
 };

@@ -632,6 +632,14 @@
           </div>
 
           <div class="field">
+            <label for="caller-email">Email address <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
+            <input type="email" id="caller-email" name="callerEmail" placeholder="name@example.com"
+                   maxlength="254" autocomplete="off" required
+                   aria-describedby="caller-email-error">
+            <p class="field-error" id="caller-email-error">Enter the caller's email address.</p>
+          </div>
+
+          <div class="field">
             <label for="attorney">Attorney <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
             <select id="attorney" name="attorney" required aria-describedby="attorney-error">
               <option value="" disabled selected>Select attorney</option>
@@ -701,6 +709,10 @@
               <dd class="expecting-name" id="sum-caller"></dd>
             </div>
             <div class="summary-row">
+              <dt>Email</dt>
+              <dd id="sum-email"></dd>
+            </div>
+            <div class="summary-row">
               <dt>Attorney</dt>
               <dd id="sum-attorney"></dd>
             </div>
@@ -749,6 +761,36 @@
           <p class="connected-name" id="connected-name"></p>
           <p class="state-sub">You can hang up your line. The scheduling assistant is taking it from here.</p>
           <button type="button" class="btn-primary" id="next-caller-btn" style="width:auto;">Ready for Next Caller</button>
+        </div>
+
+        <!-- ─── Booked panel ───────────────────────────────────────── -->
+        <div class="panel" id="booked-panel" hidden>
+          <p class="ready-head">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 6 9 17l-5-5"/>
+            </svg>
+            Appointment booked
+          </p>
+          <h2 class="state-title" id="booked-title" tabindex="-1">Appointment booked</h2>
+          <dl class="summary" id="booked-summary">
+            <div class="summary-row">
+              <dt>Date</dt>
+              <dd id="booked-date"></dd>
+            </div>
+            <div class="summary-row">
+              <dt>Time</dt>
+              <dd id="booked-time"></dd>
+            </div>
+            <div class="summary-row">
+              <dt>Timezone</dt>
+              <dd id="booked-tz"></dd>
+            </div>
+            <div class="summary-row" id="booked-attorney-row" hidden>
+              <dt>Attorney</dt>
+              <dd id="booked-attorney"></dd>
+            </div>
+          </dl>
+          <button type="button" class="btn-primary" id="booked-next-btn" style="width:auto;">Ready for Next Caller</button>
         </div>
 
         <!-- ─── Ended panel (cancelled or expired) ─────────────────── -->
@@ -839,6 +881,8 @@
       // ── Elements ─────────────────────────────────────────────────────
       var form = document.getElementById('caller-form');
       var nameInput = document.getElementById('caller-name');
+      var emailInput = document.getElementById('caller-email');
+      var emailError = document.getElementById('caller-email-error');
       var attorneySelect = document.getElementById('attorney');
       var phoneInput = document.getElementById('phone');
       var practiceSelect = document.getElementById('practice-area');
@@ -854,6 +898,9 @@
       var readyPanel = document.getElementById('ready-panel');
       var readyTitle = document.getElementById('ready-title');
       var connectedPanel = document.getElementById('connected-panel');
+      var bookedPanel = document.getElementById('booked-panel');
+      var bookedTitle = document.getElementById('booked-title');
+      var bookedNextBtn = document.getElementById('booked-next-btn');
       var connectedTitle = document.getElementById('connected-title');
       var connectedName = document.getElementById('connected-name');
       var endedPanel = document.getElementById('ended-panel');
@@ -918,35 +965,51 @@
         preparingPanel.hidden = panel !== preparingPanel;
         readyPanel.hidden = panel !== readyPanel;
         connectedPanel.hidden = panel !== connectedPanel;
+        bookedPanel.hidden = panel !== bookedPanel;
         endedPanel.hidden = panel !== endedPanel;
         errorPanel.hidden = panel !== errorPanel;
       }
 
       // ── Validation ───────────────────────────────────────────────────
+      // Permissive email shape check (x@y.tld); the API is the authority.
+      function emailLooksValid(value) {
+        var v = value.trim();
+        return v !== '' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+      }
+
       function requiredValid() {
-        return nameInput.value.trim() !== '' && attorneySelect.value !== '';
+        return nameInput.value.trim() !== ''
+          && emailLooksValid(emailInput.value)
+          && attorneySelect.value !== '';
       }
       function refreshButton() {
         prepareBtn.disabled = !requiredValid();
       }
       nameInput.addEventListener('input', refreshButton);
+      emailInput.addEventListener('input', refreshButton);
       attorneySelect.addEventListener('change', refreshButton);
 
       function showErrors() {
         var nameOk = nameInput.value.trim() !== '';
+        var emailOk = emailLooksValid(emailInput.value);
         var attorneyOk = attorneySelect.value !== '';
         nameError.classList.toggle('visible', !nameOk);
         nameInput.setAttribute('aria-invalid', String(!nameOk));
+        emailError.classList.toggle('visible', !emailOk);
+        emailInput.setAttribute('aria-invalid', String(!emailOk));
         attorneyError.classList.toggle('visible', !attorneyOk);
         attorneySelect.setAttribute('aria-invalid', String(!attorneyOk));
         if (!nameOk) nameInput.focus();
+        else if (!emailOk) emailInput.focus();
         else if (!attorneyOk) attorneySelect.focus();
-        return nameOk && attorneyOk;
+        return nameOk && emailOk && attorneyOk;
       }
       function clearErrors() {
         nameError.classList.remove('visible');
+        emailError.classList.remove('visible');
         attorneyError.classList.remove('visible');
         nameInput.removeAttribute('aria-invalid');
+        emailInput.removeAttribute('aria-invalid');
         attorneySelect.removeAttribute('aria-invalid');
       }
 
@@ -961,7 +1024,10 @@
       function buildCreatePayload() {
         var payload = {
           firmId: FIRM_ID,
-          caller: { fullName: nameInput.value.trim() },
+          caller: {
+            fullName: nameInput.value.trim(),
+            email: emailInput.value.trim(),
+          },
           scheduling: {
             attorneyId: attorneySelect.value,
             consultationTypeId: CONSULTATION_TYPE_ID,
@@ -980,6 +1046,7 @@
 
       function fillSummary() {
         document.getElementById('sum-caller').textContent = nameInput.value.trim();
+        document.getElementById('sum-email').textContent = emailInput.value.trim();
         var attorney = ATTORNEYS.filter(function(a) { return a.id === attorneySelect.value; })[0];
         document.getElementById('sum-attorney').textContent = attorney ? attorney.name : '';
 
@@ -1034,6 +1101,7 @@
       // ── Status polling ───────────────────────────────────────────────
       function scheduleNextPoll() {
         if (!session) return;
+        if (pollTimer) clearTimeout(pollTimer); // never run parallel poll chains
         pollTimer = setTimeout(pollOnce, POLL_INTERVAL_MS);
       }
 
@@ -1056,6 +1124,9 @@
             if (!body || !session || session !== current) return;
             pollFailures = 0;
             if (body.status === 'connected') return enterConnected();
+            if (body.status === 'booked') return enterBooked(body);
+            if (body.status === 'failed') return enterOutcomeEnded('Scheduling could not be completed', 'The scheduling assistant could not complete this booking. Follow up with the caller.', 'Scheduling not completed');
+            if (body.status === 'escalated') return enterOutcomeEnded('Human assistance required', 'The caller needs follow-up from your team.', 'Assistance required');
             if (body.status === 'cancelled') return enterCancelled();
             if (body.status === 'expired') return enterExpired();
             scheduleNextPoll();
@@ -1095,13 +1166,57 @@
       }
 
       function enterConnected() {
+        if (connectedPanel.hidden === false) { scheduleNextPoll(); return; } // already showing
         var callerName = session ? session.callerName : '';
-        stopTimers();
-        clearSession(); // tokens no longer needed once the caller is connected
+        // The countdown ends (the handoff succeeded) but the session and its
+        // console token are retained IN MEMORY ONLY so polling can report the
+        // truthful scheduling outcome (booked / failed / escalated).
+        if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
         connectedName.textContent = 'GuideHerd is speaking with ' + callerName + '.';
         showPanel(connectedPanel);
         setStatus('connected', 'Caller connected');
         connectedTitle.focus();
+        scheduleNextPoll();
+      }
+
+      /** Format the booked appointment via the server-provided timezone. */
+      function formatAppointment(appointment) {
+        var out = { date: '', time: '', tz: appointment.timezone || '' };
+        try {
+          var when = new Date(appointment.startsAt);
+          var opts = appointment.timezone ? { timeZone: appointment.timezone } : {};
+          out.date = new Intl.DateTimeFormat('en-US', Object.assign({ dateStyle: 'full' }, opts)).format(when);
+          out.time = new Intl.DateTimeFormat('en-US', Object.assign({ timeStyle: 'short' }, opts)).format(when);
+        } catch (_) {
+          out.date = appointment.startsAt; // show raw rather than invent
+        }
+        return out;
+      }
+
+      function enterBooked(statusBody) {
+        stopTimers();
+        clearSession();
+        var appointment = statusBody.appointment || {};
+        var when = formatAppointment(appointment);
+        document.getElementById('booked-date').textContent = when.date;
+        document.getElementById('booked-time').textContent = when.time;
+        document.getElementById('booked-tz').textContent = when.tz;
+        var attorney = ATTORNEYS.filter(function(a) { return a.id === appointment.attorneyId; })[0];
+        document.getElementById('booked-attorney-row').hidden = !attorney;
+        document.getElementById('booked-attorney').textContent = attorney ? attorney.name : '';
+        showPanel(bookedPanel);
+        setStatus('connected', 'Appointment booked');
+        bookedTitle.focus();
+      }
+
+      function enterOutcomeEnded(title, guidance, statusLabel) {
+        stopTimers();
+        clearSession();
+        endedTitle.textContent = title;
+        endedSub.textContent = guidance;
+        showPanel(endedPanel);
+        setStatus('ended', statusLabel);
+        endedTitle.focus();
       }
 
       function enterCancelled() {
@@ -1282,6 +1397,7 @@
 
       // ── Terminal-state buttons ───────────────────────────────────────
       nextCallerBtn.addEventListener('click', resetToForm);
+      bookedNextBtn.addEventListener('click', resetToForm);
       newSessionBtn.addEventListener('click', resetToForm);
       errorRetryBtn.addEventListener('click', function() {
         if (errorRetryAction) errorRetryAction();

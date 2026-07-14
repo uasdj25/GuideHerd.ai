@@ -12,7 +12,7 @@ const AT_1515 = Date.parse('2026-07-12T15:15:00Z');
 function validRequest(overrides = {}) {
   return {
     firmId: 'martinson-beason',
-    caller: { fullName: 'David Jones', phone: '+14044232676' },
+    caller: { fullName: 'David Jones', email: 'david.jones@example.com', phone: '+14044232676' },
     scheduling: {
       attorneyId: 'clay-martinson',
       practiceAreaId: 'personal-injury',
@@ -51,7 +51,7 @@ test('optional fields may be omitted', () => {
   const { service } = createApp({ clock: fixedClock(AT_1515) });
   const { handoffToken } = service.create({
     firmId: 'martinson-beason',
-    caller: { fullName: 'Casey Vega' },
+    caller: { fullName: 'Casey Vega', email: 'casey@example.com' },
     scheduling: { attorneyId: 'clay-martinson', consultationTypeId: 'initial-consultation' },
     handoff: { source: 'receptionist-portal', mode: 'live-transfer' },
   });
@@ -87,7 +87,7 @@ test('redeem response contains only scheduling context (no receptionist or vendo
 
   assert.deepEqual(
     Object.keys(ctx).sort(),
-    ['attorneyId', 'callerLastName', 'callerName', 'callerPhone', 'consultationTypeId', 'existingClient', 'practiceAreaId', 'sessionId', 'status'].sort(),
+    ['attorneyId', 'callerEmail', 'callerLastName', 'callerName', 'callerPhone', 'consultationTypeId', 'existingClient', 'practiceAreaId', 'sessionId', 'status'].sort(),
   );
   // createdByUserId / source / mode must not leak.
   assert.equal('createdByUserId' in ctx, false);

@@ -50,6 +50,9 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
         consoleTokenHash: idgen.hashToken(consoleToken),
         redeemedAtMs: null,
         cancelledAtMs: null,
+        completedAtMs: null,
+        outcome: null,
+        summaryDelivery: null, // null | 'pending' | 'sent' | 'failed' | 'not-configured'
         createdAtMs: now,
         expiresAtMs,
       };
@@ -84,12 +87,59 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
      */
     status(sessionId, consoleToken) {
       const session = store.statusByConsole(sessionId, idgen.hashToken(consoleToken));
-      return {
+      const body = {
         sessionId: session.sessionId,
         status: session.status,
         createdAt: toIso(session.createdAtMs),
         expiresAt: toIso(session.expiresAtMs),
       };
+      // Operational scheduling metadata only — never caller context.
+      // TODO(post-demo): appointment details likely belong on the future
+      // Operational Store / Consultation Summary API rather than living on a
+      // status endpoint long-term. Kept here for the demo so the Console can
+      // truthfully display the booked time.
+      if (session.status === SessionStatus.BOOKED && session.outcome && session.outcome.appointment) {
+        body.appointment = { ...session.outcome.appointment };
+      }
+      return body;
+    },
+
+    /**
+     * TEMPORARY DEMO INFRASTRUCTURE (Slice 3).
+     * Server-held connect for the controlled demonstration: redeems the
+     * single eligible prepared session for the firm and returns the caller
+     * and scheduling context. Raw tokens and hashes never appear here.
+     * @param {string} firmId
+     */
+    connectDemo(firmId) {
+      const session = store.connectDemo(firmId);
+      return {
+        sessionId: session.sessionId,
+        status: session.status,
+        caller: {
+          fullName: session.caller.fullName,
+          email: session.caller.email,
+          phone: session.caller.phone ?? null,
+          existingClient: session.scheduling.existingClient ?? false,
+        },
+        scheduling: {
+          attorneyId: session.scheduling.attorneyId,
+          practiceAreaId: session.scheduling.practiceAreaId ?? null,
+          consultationTypeId: session.scheduling.consultationTypeId,
+        },
+        firmId: session.firmId,
+      };
+    },
+
+    /**
+     * TEMPORARY DEMO INFRASTRUCTURE (Slice 3).
+     * Record a validated terminal outcome. Returns the session and whether
+     * this call was an idempotent duplicate.
+     * @param {string} sessionId
+     * @param {object} outcome validated GuideHerd outcome
+     */
+    applyOutcome(sessionId, outcome) {
+      return store.applyOutcome(sessionId, outcome);
     },
 
     /**
@@ -117,6 +167,7 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
         sessionId: session.sessionId,
         callerName: session.caller.fullName,
         callerLastName: deriveLastName(session.caller.fullName),
+        callerEmail: session.caller.email,
         callerPhone: session.caller.phone ?? null,
         attorneyId: session.scheduling.attorneyId,
         practiceAreaId: session.scheduling.practiceAreaId ?? null,

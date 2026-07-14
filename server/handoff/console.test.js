@@ -13,7 +13,7 @@ const AT_1515 = Date.parse('2026-07-12T15:15:00Z');
 function validRequest() {
   return {
     firmId: 'martinson-beason',
-    caller: { fullName: 'David Jones', phone: '+14044232676' },
+    caller: { fullName: 'David Jones', email: 'david.jones@example.com', phone: '+14044232676' },
     scheduling: {
       attorneyId: 'clay-martinson',
       practiceAreaId: 'personal-injury',

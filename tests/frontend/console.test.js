@@ -121,8 +121,9 @@ async function mockApi(page, behavior, calls) {
 
 function newCalls() { return { create: [], status: [], del: [] }; }
 
-async function fillRequired(page, name = 'David Jones') {
+async function fillRequired(page, name = 'David Jones', email = 'david.jones@example.com') {
   await page.fill('#caller-name', name);
+  await page.fill('#caller-email', email);
   await page.selectOption('#attorney', 'clay-martinson');
 }
 
@@ -164,7 +165,7 @@ async function fillRequired(page, name = 'David Jones') {
     const p = calls.create[0];
     ok('payload: full mapping exact', JSON.stringify(p) === JSON.stringify({
       firmId: 'martinson-beason',
-      caller: { fullName: 'David Jones', phone: '+1 404 423 2676' },
+      caller: { fullName: 'David Jones', email: 'david.jones@example.com', phone: '+1 404 423 2676' },
       scheduling: {
         attorneyId: 'clay-martinson',
         consultationTypeId: 'initial-consultation',
@@ -268,7 +269,7 @@ async function fillRequired(page, name = 'David Jones') {
     ok('focus moved to Connected heading', await page.evaluate(() => document.activeElement.id === 'connected-title'));
     const before = calls.status.length;
     await page.waitForTimeout(3200);
-    ok('polling stopped after connected', calls.status.length === before);
+    ok('polling continues after connected (awaiting outcome)', calls.status.length > before);
     // 19: reset
     await page.click('#next-caller-btn');
     ok('Ready for Next Caller resets to form', !(await page.isHidden('#caller-form')));
@@ -453,6 +454,99 @@ async function fillRequired(page, name = 'David Jones') {
     await page.setViewportSize({ width: 375, height: 720 });
     ok('mobile: no horizontal scroll', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     await page.close();
+  }
+
+  // ── Slice 3: required email ───────────────────────────────────────
+  console.log('— Required email —');
+  {
+    const calls = newCalls();
+    const page = await freshPage({
+      create: () => ({ status: 201, body: createBody(600000) }),
+      status: [{ status: 200, body: { status: 'awaiting-transfer' } }],
+    }, calls);
+    await page.fill('#caller-name', 'No Email');
+    await page.selectOption('#attorney', 'clay-martinson');
+    ok('name+attorney without email keeps button disabled', await page.isDisabled('#prepare-btn'));
+    await page.fill('#caller-email', 'not-an-email');
+    ok('malformed email keeps button disabled', await page.isDisabled('#prepare-btn'));
+    await page.fill('#caller-email', 'valid@example.com');
+    ok('valid email enables button', !(await page.isDisabled('#prepare-btn')));
+    // accessible validation attributes
+    const described = await page.getAttribute('#caller-email', 'aria-describedby');
+    ok('email field wired to its error message', described === 'caller-email-error');
+    await page.click('#prepare-btn');
+    await page.waitForSelector('#ready-panel:not([hidden])');
+    ok('email shown in prepared summary', (await page.textContent('#sum-email')).trim() === 'valid@example.com');
+    ok('payload carries trimmed email', calls.create[0].caller.email === 'valid@example.com');
+    const storage = await page.evaluate(() => JSON.stringify({ l: { ...localStorage }, s: { ...sessionStorage } }));
+    ok('email not persisted to browser storage', storage === '{"l":{},"s":{}}');
+    await page.close();
+  }
+  {
+    // create failure preserves the email value
+    const calls = newCalls();
+    const page = await freshPage({ create: 'abort' }, calls);
+    await fillRequired(page, 'Keep Values', 'keep.me@example.com');
+    await page.click('#prepare-btn');
+    await page.waitForSelector('#error-panel:not([hidden])');
+    await page.click('#error-form-btn');
+    ok('email preserved after create failure', (await page.inputValue('#caller-email')) === 'keep.me@example.com');
+    await page.close();
+  }
+
+  // ── Slice 3: truthful outcome states ─────────────────────────────
+  console.log('— Outcome states —');
+  {
+    const calls = newCalls();
+    const page = await freshPage({
+      create: () => ({ status: 201, body: createBody(600000) }),
+      status: [
+        { status: 200, body: { sessionId: MOCK.sessionId, status: 'connected' } },
+        { status: 200, body: {
+          sessionId: MOCK.sessionId, status: 'booked',
+          createdAt: new Date().toISOString(), expiresAt: new Date().toISOString(),
+          appointment: { startsAt: '2026-07-20T15:00:00-05:00', timezone: 'America/Chicago', attorneyId: 'clay-martinson' },
+        } },
+      ],
+    }, calls);
+    await fillRequired(page, 'Booked Caller');
+    await page.click('#prepare-btn');
+    await page.waitForSelector('#connected-panel:not([hidden])', { timeout: 10000 });
+    ok('connected first (never claims booked early)', true);
+    await page.waitForSelector('#booked-panel:not([hidden])', { timeout: 10000 });
+    ok('booked panel appears after API reports booked', true);
+    ok('status = Appointment booked', (await page.textContent('#status-text')).trim() === 'Appointment booked');
+    ok('booked date shown', (await page.textContent('#booked-date')).includes('July 20, 2026'));
+    ok('booked time shown', /3:00\s?PM/i.test(await page.textContent('#booked-time')));
+    ok('booked timezone shown', (await page.textContent('#booked-tz')).trim() === 'America/Chicago');
+    ok('booked attorney shown', (await page.textContent('#booked-attorney')).trim() === 'Clay Martinson');
+    ok('focus moved to booked heading', await page.evaluate(() => document.activeElement.id === 'booked-title'));
+    ok('no email-delivery claim in booked panel', !/email|summary sent|delivered/i.test(await page.textContent('#booked-panel')));
+    const before = calls.status.length;
+    await page.waitForTimeout(3200);
+    ok('polling stops after booked', calls.status.length === before);
+    await page.click('#booked-next-btn');
+    ok('booked resets to fresh form with focus on name', (await page.inputValue('#caller-name')) === ''
+      && await page.evaluate(() => document.activeElement.id === 'caller-name'));
+    await page.close();
+  }
+  {
+    // failed and escalated
+    for (const [status, title] of [['failed', 'Scheduling could not be completed'], ['escalated', 'Human assistance required']]) {
+      const calls = newCalls();
+      const page = await freshPage({
+        create: () => ({ status: 201, body: createBody(600000) }),
+        status: [
+          { status: 200, body: { status: 'connected' } },
+          { status: 200, body: { status } },
+        ],
+      }, calls);
+      await fillRequired(page);
+      await page.click('#prepare-btn');
+      await page.waitForSelector('#ended-panel:not([hidden])', { timeout: 12000 });
+      ok(`${status} -> "${title}"`, (await page.textContent('#ended-title')).trim() === title);
+      await page.close();
+    }
   }
 
   // ── apiBase override security ─────────────────────────────────────

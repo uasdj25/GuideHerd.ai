@@ -31,7 +31,18 @@ Configuration (environment variables):
 - `CORS_ALLOWED_ORIGINS` — comma-separated browser-origin allowlist (default
   `https://guideherd.ai,http://localhost:8080`). Wildcards are ignored; only
   `POST`/`GET`/`DELETE`/`OPTIONS` and the `Content-Type` and `Authorization`
-  headers are allowed cross-origin.
+  headers are allowed cross-origin. Demo bridge endpoints are never granted
+  browser CORS.
+- `DEMO_BRIDGE_SECRET` — TEMPORARY demo infrastructure: authorizes the
+  server-to-server demo bridge (`/api/v1/demo/*`, see
+  `docs/api/demo-bridge.md`). Unset ⇒ those endpoints return a controlled
+  `503`. This shared secret is **not** production authentication.
+- `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `SUMMARY_MAILBOX`,
+  `SUMMARY_RECIPIENT` — Microsoft Graph delivery of the GuideHerd Consultation
+  Summary. All five must be present or the mailer is disabled and outcome
+  calls report `summaryDelivery: "not-configured"`; the API starts and tests
+  run without any of them. Delivery is a separate outcome from booking — a
+  mail failure never reverses a confirmed appointment.
 
 ### Test
 
@@ -45,7 +56,17 @@ npm test           # node --test
 - **`handoff/`** — the Session/Handoff service, split into small modules:
   `models` (typedefs + limits), `validation`, `store` (in-memory), `service`
   (business logic), `app` (HTTP wiring), plus `clock`, `ids`, `status`,
-  `errors`.
+  `errors`. Slice 3 adds:
+  - `summary.js` — the GuideHerd Consultation Summary: structured domain model
+    built from trusted session context + validated outcome, with HTML
+    rendering kept separate (PDF rendering deferred).
+  - `mailer.js` — GuideHerd mailer boundary over Microsoft Graph
+    (client-credentials, native `fetch`, zero dependencies).
+  - `demo-bridge.js` — **TEMPORARY DEMO INFRASTRUCTURE**: server-held connect
+    (`POST /api/v1/demo/connect`, requires exactly one eligible prepared
+    session) and the GuideHerd-owned outcome contract
+    (`POST /api/v1/demo/outcome`). Remove when production telephony delivery
+    of the handoff token lands.
 - **Storage is in-memory** behind a small `create / redeem / get` interface, so a
   persistent store can replace it later without touching the service or routes.
 - **Single-use redemption** relies on Node's single-threaded event loop: the
@@ -79,5 +100,8 @@ npm test           # node --test
 - **No authentication for creating sessions**, and the receptionist page is
   not authenticated — both required before production (see `server.js`).
 - A browser refresh loses the console's active session state.
+- The demo bridge is temporary: no phone transfer occurs, selection requires
+  exactly one eligible prepared session, and direct calendar-webhook
+  confirmation remains deferred hardening.
 - No database, cache, queue, event bus, microservices, telephony, or vendor
   integrations.

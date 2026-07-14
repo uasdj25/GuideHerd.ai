@@ -106,6 +106,41 @@ class SessionExpiredError extends HandoffError {
   }
 }
 
+class NoPreparedSessionError extends HandoffError {
+  constructor() {
+    super(404, 'no_prepared_session', 'No prepared session is awaiting transfer.');
+    this.name = 'NoPreparedSessionError';
+  }
+}
+
+class AmbiguousSessionError extends HandoffError {
+  constructor() {
+    super(409, 'ambiguous_prepared_sessions', 'More than one prepared session is awaiting transfer. Cancel extras and retry.');
+    this.name = 'AmbiguousSessionError';
+  }
+}
+
+class OutcomeConflictError extends HandoffError {
+  constructor() {
+    super(409, 'outcome_conflict', 'A different outcome has already been recorded for this session.');
+    this.name = 'OutcomeConflictError';
+  }
+}
+
+class InvalidOutcomeStateError extends HandoffError {
+  constructor() {
+    super(409, 'invalid_outcome_state', 'The session cannot accept an outcome in its current state.');
+    this.name = 'InvalidOutcomeStateError';
+  }
+}
+
+class BridgeNotConfiguredError extends HandoffError {
+  constructor() {
+    super(503, 'demo_bridge_not_configured', 'The demonstration bridge is not configured.');
+    this.name = 'BridgeNotConfiguredError';
+  }
+}
+
 module.exports = {
   HandoffError,
   ValidationError,
@@ -119,4 +154,9 @@ module.exports = {
   UnknownSessionError,
   CannotCancelError,
   SessionExpiredError,
+  NoPreparedSessionError,
+  AmbiguousSessionError,
+  OutcomeConflictError,
+  InvalidOutcomeStateError,
+  BridgeNotConfiguredError,
 };

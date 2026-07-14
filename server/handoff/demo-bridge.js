@@ -1,0 +1,223 @@
+'use strict';
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────
+ * TEMPORARY DEMO INFRASTRUCTURE (Slice 3) — Martinson & Beason demonstration.
+ *
+ * This bridge lets the external GuideHerd Scheduling Assistant runtime reach
+ * a prepared session server-to-server, so the raw handoff token never leaves
+ * this process. It is NOT production authentication: a single shared secret
+ * (DEMO_BRIDGE_SECRET) authorizes the assistant's server tools. Production
+ * telephony delivery of the handoff token replaces this entire module —
+ * remove it (and its routes) at that point.
+ * ─────────────────────────────────────────────────────────────────────────
+ *
+ * Endpoints served through app.js:
+ *   POST /api/v1/demo/connect  — connect the single prepared session
+ *   POST /api/v1/demo/outcome  — record the scheduling outcome; triggers the
+ *                                Consultation Summary + Outlook delivery
+ *
+ * The bridge secret is accepted ONLY via `Authorization: Bearer` — never in
+ * URLs or request bodies — is compared in constant time, and is never logged.
+ */
+
+const crypto = require('node:crypto');
+
+const { SessionStatus } = require('./status');
+const { ValidationError, UnauthorizedError, ForbiddenError, BridgeNotConfiguredError } = require('./errors');
+const { buildConsultationSummary, renderSummaryHtml, summarySubject } = require('./summary');
+
+// The demo serves exactly one firm. Hardcoded on purpose: this module is
+// temporary, and a config knob that dies with the demo isn't worth having.
+const DEMO_FIRM_ID = 'martinson-beason';
+
+const OUTCOME_STATUSES = [SessionStatus.BOOKED, SessionStatus.FAILED, SessionStatus.ESCALATED];
+
+const OUTCOME_LIMITS = Object.freeze({
+  schedulingSummary: 500,
+  unresolvedQuestionItems: 10,
+  unresolvedQuestionLength: 300,
+  timezone: 64,
+  startsAt: 64,
+  id: 128,
+});
+
+/** Constant-time comparison via digest so length differences don't leak. */
+function secretsEqual(a, b) {
+  const da = crypto.createHash('sha256').update(String(a), 'utf8').digest();
+  const db = crypto.createHash('sha256').update(String(b), 'utf8').digest();
+  return crypto.timingSafeEqual(da, db);
+}
+
+/**
+ * Authorize a bridge request. Throws:
+ *   503 when DEMO_BRIDGE_SECRET is not configured (controlled, documented)
+ *   401 when the Authorization header is missing/malformed
+ *   403 when the secret does not match
+ * @param {string|undefined} configuredSecret
+ * @param {string|undefined} authorizationHeader
+ */
+function requireBridgeAuth(configuredSecret, authorizationHeader) {
+  if (!configuredSecret || configuredSecret.trim() === '') {
+    throw new BridgeNotConfiguredError();
+  }
+  if (typeof authorizationHeader !== 'string') throw new UnauthorizedError();
+  const match = authorizationHeader.match(/^Bearer\s+(\S+)$/);
+  if (!match) throw new UnauthorizedError();
+  if (!secretsEqual(match[1], configuredSecret)) throw new ForbiddenError();
+}
+
+function isPlainObject(v) {
+  return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
+/** Reject unknown keys so provider payloads can't be smuggled through. */
+function assertOnlyKeys(obj, allowed, where, details) {
+  for (const key of Object.keys(obj)) {
+    if (!allowed.includes(key)) {
+      details.push({ field: `${where}.${key}`, message: 'is not part of the GuideHerd outcome contract' });
+    }
+  }
+}
+
+/**
+ * Validate a GuideHerd-owned outcome request body. Strict allowlist: unknown
+ * keys (provider payloads, transcripts, legal content fields) are rejected.
+ * @param {unknown} body
+ * @returns {{ sessionId: string, outcome: object }}
+ */
+function normalizeOutcome(body) {
+  if (!isPlainObject(body)) {
+    throw new ValidationError('Request body must be a JSON object.', [
+      { field: '(body)', message: 'must be a JSON object' },
+    ]);
+  }
+  const details = [];
+  assertOnlyKeys(body, ['sessionId', 'outcome'], '(body)', details);
+
+  const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
+  if (sessionId === '' || sessionId.length > OUTCOME_LIMITS.id) {
+    details.push({ field: 'sessionId', message: 'is required' });
+  }
+
+  const raw = isPlainObject(body.outcome) ? body.outcome : {};
+  if (!isPlainObject(body.outcome)) {
+    details.push({ field: 'outcome', message: 'is required' });
+  }
+  assertOnlyKeys(raw, ['status', 'appointment', 'schedulingSummary', 'unresolvedQuestions', 'escalationRequired'], 'outcome', details);
+
+  const status = raw.status;
+  if (!OUTCOME_STATUSES.includes(status)) {
+    details.push({ field: 'outcome.status', message: `must be one of: ${OUTCOME_STATUSES.join(', ')}` });
+  }
+
+  let appointment = null;
+  if (status === SessionStatus.BOOKED) {
+    // booked requires a confirmed date/time and timezone
+    const a = isPlainObject(raw.appointment) ? raw.appointment : {};
+    if (!isPlainObject(raw.appointment)) {
+      details.push({ field: 'outcome.appointment', message: 'is required when status is booked' });
+    }
+    assertOnlyKeys(a, ['startsAt', 'timezone', 'attorneyId', 'consultationTypeId'], 'outcome.appointment', details);
+
+    const startsAt = typeof a.startsAt === 'string' ? a.startsAt.trim() : '';
+    if (startsAt === '' || startsAt.length > OUTCOME_LIMITS.startsAt || Number.isNaN(Date.parse(startsAt))) {
+      details.push({ field: 'outcome.appointment.startsAt', message: 'must be a valid ISO-8601 timestamp' });
+    }
+    const timezone = typeof a.timezone === 'string' ? a.timezone.trim() : '';
+    if (timezone === '' || timezone.length > OUTCOME_LIMITS.timezone) {
+      details.push({ field: 'outcome.appointment.timezone', message: 'is required' });
+    }
+    appointment = { startsAt, timezone };
+    for (const key of ['attorneyId', 'consultationTypeId']) {
+      if (a[key] !== undefined) {
+        if (typeof a[key] !== 'string' || a[key].trim() === '' || a[key].length > OUTCOME_LIMITS.id) {
+          details.push({ field: `outcome.appointment.${key}`, message: 'must be a nonblank string' });
+        } else {
+          appointment[key] = a[key].trim();
+        }
+      }
+    }
+  } else if (raw.appointment !== undefined) {
+    details.push({ field: 'outcome.appointment', message: 'is only accepted when status is booked' });
+  }
+
+  let schedulingSummary;
+  if (raw.schedulingSummary !== undefined) {
+    if (typeof raw.schedulingSummary !== 'string' || raw.schedulingSummary.length > OUTCOME_LIMITS.schedulingSummary) {
+      details.push({ field: 'outcome.schedulingSummary', message: `must be a string of at most ${OUTCOME_LIMITS.schedulingSummary} characters` });
+    } else {
+      schedulingSummary = raw.schedulingSummary.trim();
+    }
+  }
+
+  let unresolvedQuestions;
+  if (raw.unresolvedQuestions !== undefined) {
+    const list = raw.unresolvedQuestions;
+    const valid = Array.isArray(list)
+      && list.length <= OUTCOME_LIMITS.unresolvedQuestionItems
+      && list.every((q) => typeof q === 'string' && q.length <= OUTCOME_LIMITS.unresolvedQuestionLength);
+    if (!valid) {
+      details.push({ field: 'outcome.unresolvedQuestions', message: `must be an array of at most ${OUTCOME_LIMITS.unresolvedQuestionItems} short strings` });
+    } else {
+      unresolvedQuestions = list.map((q) => q.trim()).filter((q) => q !== '');
+    }
+  }
+
+  let escalationRequired;
+  if (raw.escalationRequired !== undefined) {
+    if (typeof raw.escalationRequired !== 'boolean') {
+      details.push({ field: 'outcome.escalationRequired', message: 'must be a boolean' });
+    } else {
+      escalationRequired = raw.escalationRequired;
+    }
+  }
+
+  if (details.length > 0) {
+    throw new ValidationError('One or more fields are invalid.', details);
+  }
+
+  const outcome = { status };
+  if (appointment) outcome.appointment = appointment;
+  if (schedulingSummary !== undefined && schedulingSummary !== '') outcome.schedulingSummary = schedulingSummary;
+  if (unresolvedQuestions !== undefined) outcome.unresolvedQuestions = unresolvedQuestions;
+  if (escalationRequired !== undefined) outcome.escalationRequired = escalationRequired;
+  return { sessionId, outcome };
+}
+
+/**
+ * Record an outcome and deliver the Consultation Summary exactly once.
+ *
+ * Delivery idempotency: the summaryDelivery flag is set to 'pending'
+ * SYNCHRONOUSLY before the first await, so concurrent duplicate outcome
+ * requests on Node's single thread cannot both enter the send path. A retry
+ * is permitted after 'failed'; a 'sent' summary is never resent. Mail
+ * failure never reverses the recorded booking outcome — the appointment and
+ * the notification are separate concerns.
+ *
+ * @param {{ service: any, store: any, mailer: any }} deps
+ * @param {string} sessionId
+ * @param {object} outcome validated outcome
+ * @returns {Promise<{ sessionId: string, status: string, summaryDelivery: string }>}
+ */
+async function recordOutcomeAndDeliver({ service, store, mailer }, sessionId, outcome) {
+  const { session } = service.applyOutcome(sessionId, outcome); // throws on invalid transitions
+
+  if (session.summaryDelivery !== 'sent' && session.summaryDelivery !== 'pending') {
+    session.summaryDelivery = 'pending'; // synchronous claim — blocks concurrent duplicates
+    const model = buildConsultationSummary(session);
+    const result = await mailer.sendSummary({
+      subject: summarySubject(model),
+      html: renderSummaryHtml(model),
+    });
+    session.summaryDelivery = result.status; // 'sent' | 'failed' | 'not-configured'
+  }
+
+  return {
+    sessionId: session.sessionId,
+    status: session.status,
+    summaryDelivery: session.summaryDelivery,
+  };
+}
+
+module.exports = { requireBridgeAuth, normalizeOutcome, recordOutcomeAndDeliver, DEMO_FIRM_ID };

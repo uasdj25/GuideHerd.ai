@@ -4,6 +4,8 @@ const { systemClock } = require('./clock');
 const { createInMemoryHandoffStore } = require('./store');
 const { createHandoffService } = require('./service');
 const { normalizeCreate, normalizeRedeem } = require('./validation');
+const { requireBridgeAuth, normalizeOutcome, recordOutcomeAndDeliver, DEMO_FIRM_ID } = require('./demo-bridge');
+const { createMailer } = require('./mailer');
 const { HandoffError, MalformedRequestError, UnauthorizedError } = require('./errors');
 
 // Scheduling context is tiny; cap the body to reject oversized payloads early.
@@ -34,14 +36,23 @@ function parseAllowedOrigins(raw) {
  *
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret } = {}) {
   const store = createInMemoryHandoffStore({ clock });
   const service = createHandoffService({ store, clock, ttlSeconds });
   const allowedOrigins = parseAllowedOrigins(
     corsAllowedOrigins !== undefined ? corsAllowedOrigins : process.env.CORS_ALLOWED_ORIGINS,
   );
-  const handler = makeHandler(service, allowedOrigins);
-  return { handler, store, service, clock, allowedOrigins };
+  const deps = {
+    service,
+    store,
+    allowedOrigins,
+    // Mailer is injectable so automated tests never touch Microsoft endpoints.
+    mailer: mailer || createMailer(),
+    // TEMPORARY DEMO INFRASTRUCTURE — see demo-bridge.js.
+    demoBridgeSecret: demoBridgeSecret !== undefined ? demoBridgeSecret : process.env.DEMO_BRIDGE_SECRET,
+  };
+  const handler = makeHandler(deps);
+  return { handler, store, service, clock, allowedOrigins, mailer: deps.mailer };
 }
 
 /**
@@ -61,13 +72,16 @@ function corsHeadersFor(req, allowedOrigins) {
   };
 }
 
-/** Build the raw Node http request handler for the two routes. */
-function makeHandler(service, allowedOrigins) {
+/** Build the raw Node http request handler. */
+function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret }) {
   return async function handle(req, res) {
     const startedAt = Date.now();
     let status = 500;
-    let sessionId; // captured for logging only — never a token
-    const cors = corsHeadersFor(req, allowedOrigins);
+    let sessionId; // captured for logging only — never a token or secret
+    // Demo bridge endpoints are server-to-server only: they are never
+    // granted browser CORS headers, regardless of Origin.
+    const isDemoPath = typeof req.url === 'string' && req.url.startsWith('/api/v1/demo/');
+    const cors = isDemoPath ? null : corsHeadersFor(req, allowedOrigins);
 
     try {
       const method = req.method;
@@ -105,6 +119,27 @@ function makeHandler(service, allowedOrigins) {
         sessionId = context.sessionId;
         status = 200;
         return sendJson(res, status, context, cors);
+      }
+
+      // ── TEMPORARY DEMO INFRASTRUCTURE (Slice 3) ─────────────────────
+      // Server-held bridge for the controlled demonstration. Authorized by
+      // DEMO_BRIDGE_SECRET via Authorization: Bearer only. No browser CORS.
+      if (method === 'POST' && path === '/api/v1/demo/connect') {
+        requireBridgeAuth(demoBridgeSecret, req.headers.authorization);
+        const context = service.connectDemo(DEMO_FIRM_ID);
+        sessionId = context.sessionId;
+        status = 200;
+        return sendJson(res, status, context, null);
+      }
+
+      if (method === 'POST' && path === '/api/v1/demo/outcome') {
+        requireBridgeAuth(demoBridgeSecret, req.headers.authorization);
+        const body = await readJsonBody(req);
+        const { sessionId: outcomeSessionId, outcome } = normalizeOutcome(body);
+        const result = await recordOutcomeAndDeliver({ service, store, mailer }, outcomeSessionId, outcome);
+        sessionId = result.sessionId;
+        status = 200;
+        return sendJson(res, status, result, null);
       }
 
       // Console operations: GET (status) / DELETE (cancel) on a session,

@@ -8,7 +8,7 @@ const { normalizeCreate, normalizeRedeem } = require('./validation');
 function base() {
   return {
     firmId: 'martinson-beason',
-    caller: { fullName: 'David Jones', phone: '+14044232676' },
+    caller: { fullName: 'David Jones', email: 'david.jones@example.com', phone: '+14044232676' },
     scheduling: { attorneyId: 'clay-martinson', consultationTypeId: 'initial-consultation' },
     handoff: { source: 'receptionist-portal', mode: 'live-transfer' },
   };
@@ -80,7 +80,7 @@ test('wrong type for existingClient is rejected', () => {
 test('optional fields may be omitted', () => {
   const out = normalizeCreate({
     firmId: 'martinson-beason',
-    caller: { fullName: 'David Jones' },
+    caller: { fullName: 'David Jones', email: 'david@example.com' },
     scheduling: { attorneyId: 'clay-martinson', consultationTypeId: 'initial-consultation' },
     handoff: { source: 'receptionist-portal', mode: 'live-transfer' },
   });

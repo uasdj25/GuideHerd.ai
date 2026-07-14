@@ -7,6 +7,8 @@ const { normalizeCreate, normalizeRedeem } = require('./validation');
 const { requireBridgeAuth, normalizeOutcome, recordOutcomeAndDeliver, DEMO_FIRM_ID } = require('./demo-bridge');
 const { createMailer } = require('./mailer');
 const { HandoffError, MalformedRequestError, UnauthorizedError } = require('./errors');
+const { ConfigError } = require('../config/errors');
+const { getSchedulingOptions } = require('../config/options');
 
 // Scheduling context is tiny; cap the body to reject oversized payloads early.
 const MAX_BODY_BYTES = 16 * 1024;
@@ -34,9 +36,10 @@ function parseAllowedOrigins(raw) {
  * Compose the application (store + service + HTTP handler) with injectable
  * dependencies so tests can supply a deterministic clock, TTL, and origins.
  *
- * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string }} [deps]
+ * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
+ *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService } = {}) {
   const store = createInMemoryHandoffStore({ clock });
   const service = createHandoffService({ store, clock, ttlSeconds });
   const allowedOrigins = parseAllowedOrigins(
@@ -50,6 +53,9 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     mailer: mailer || createMailer(),
     // TEMPORARY DEMO INFRASTRUCTURE — see demo-bridge.js.
     demoBridgeSecret: demoBridgeSecret !== undefined ? demoBridgeSecret : process.env.DEMO_BRIDGE_SECRET,
+    // Configuration Store service (read-only use here). Optional: when
+    // absent, configuration endpoints answer 503 rather than failing boot.
+    configService: configService || null,
   };
   const handler = makeHandler(deps);
   return { handler, store, service, clock, allowedOrigins, mailer: deps.mailer };
@@ -73,7 +79,7 @@ function corsHeadersFor(req, allowedOrigins) {
 }
 
 /** Build the raw Node http request handler. */
-function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret }) {
+function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret, configService }) {
   return async function handle(req, res) {
     const startedAt = Date.now();
     let status = 500;
@@ -101,6 +107,24 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret 
           : { 'Vary': 'Origin' };
         res.writeHead(status, headers);
         return res.end();
+      }
+
+      // Scheduling options for the GuideHerd Console: the firm's practice
+      // areas and, per practice area, the attorneys its routing groups reach.
+      // Read-only, browser-facing (same CORS posture as the handoff routes),
+      // and served from the Configuration Store.
+      const optionsMatch = path.match(/^\/api\/v1\/firms\/([^/]+)\/scheduling-options$/);
+      if (optionsMatch && method === 'GET') {
+        if (!configService) {
+          status = 503;
+          return sendJson(res, status, {
+            error: { code: 'config_unavailable', message: 'The configuration store is not available.' },
+          }, cors);
+        }
+        const firmId = decodeURIComponent(optionsMatch[1]);
+        const options = getSchedulingOptions(configService, firmId);
+        status = 200;
+        return sendJson(res, status, options, cors);
       }
 
       if (method === 'POST' && path === '/api/v1/handoffs') {
@@ -168,7 +192,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret 
       status = 404;
       return sendJson(res, status, { error: { code: 'not_found', message: 'Resource not found.' } }, cors);
     } catch (err) {
-      if (err instanceof HandoffError) {
+      if (err instanceof HandoffError || err instanceof ConfigError) {
         status = err.status;
         return sendJson(res, status, err.toBody(), cors);
       }

@@ -41,9 +41,16 @@ test('missing caller name is rejected', () => {
   assert.ok(fieldErrors(body).includes('caller.fullName'));
 });
 
-test('missing attorney ID is rejected', () => {
+test('missing attorney ID is accepted (attorney is optional)', () => {
   const body = base();
   delete body.scheduling.attorneyId;
+  const normalized = normalizeCreate(body);
+  assert.ok(!('attorneyId' in normalized.scheduling));
+});
+
+test('wrong type for attorney ID is still rejected', () => {
+  const body = base();
+  body.scheduling.attorneyId = 42;
   assert.ok(fieldErrors(body).includes('scheduling.attorneyId'));
 });
 

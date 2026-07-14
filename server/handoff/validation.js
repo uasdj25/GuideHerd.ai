@@ -99,7 +99,10 @@ function normalizeCreate(body) {
       phone: str(caller.phone, 'caller.phone', false, LIMITS.phone),
     },
     scheduling: {
-      attorneyId: str(scheduling.attorneyId, 'scheduling.attorneyId', true, LIMITS.attorneyId),
+      // Optional since the console filters attorneys by practice area: a
+      // caller may have no attorney preference (or the area may have no
+      // routing configured yet).
+      attorneyId: str(scheduling.attorneyId, 'scheduling.attorneyId', false, LIMITS.attorneyId),
       practiceAreaId: str(scheduling.practiceAreaId, 'scheduling.practiceAreaId', false, LIMITS.practiceAreaId),
       consultationTypeId: str(scheduling.consultationTypeId, 'scheduling.consultationTypeId', true, LIMITS.consultationTypeId),
       existingClient: bool(scheduling.existingClient, 'scheduling.existingClient'),
@@ -117,6 +120,7 @@ function normalizeCreate(body) {
 
   // Drop optional fields that were omitted, and default existingClient.
   if (normalized.caller.phone === undefined) delete normalized.caller.phone;
+  if (normalized.scheduling.attorneyId === undefined) delete normalized.scheduling.attorneyId;
   if (normalized.scheduling.practiceAreaId === undefined) delete normalized.scheduling.practiceAreaId;
   if (normalized.handoff.createdByUserId === undefined) delete normalized.handoff.createdByUserId;
   if (normalized.scheduling.existingClient === undefined) normalized.scheduling.existingClient = false;

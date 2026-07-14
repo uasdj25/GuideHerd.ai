@@ -12,7 +12,7 @@
  * @property {string} [phone]
  *
  * @typedef {Object} Scheduling
- * @property {string} attorneyId
+ * @property {string} [attorneyId]   optional: the caller may have no preference
  * @property {string} [practiceAreaId]
  * @property {string} consultationTypeId
  * @property {boolean} [existingClient]
@@ -67,7 +67,7 @@
  * @property {string} callerLastName
  * @property {string} callerEmail
  * @property {string|null} callerPhone
- * @property {string} attorneyId
+ * @property {string|null} attorneyId
  * @property {string|null} practiceAreaId
  * @property {string} consultationTypeId
  * @property {boolean} existingClient

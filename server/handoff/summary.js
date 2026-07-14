@@ -48,7 +48,7 @@ function buildConsultationSummary(session) {
       existingClient: session.scheduling.existingClient ?? false,
     },
     request: {
-      attorneyId: session.scheduling.attorneyId,
+      attorneyId: session.scheduling.attorneyId ?? null,
       practiceAreaId: session.scheduling.practiceAreaId ?? null,
       consultationTypeId: session.scheduling.consultationTypeId,
     },

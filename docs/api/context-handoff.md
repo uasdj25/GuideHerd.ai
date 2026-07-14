@@ -76,7 +76,7 @@ Create a Scheduling Session and return a single-use handoff token.
 | `caller.fullName` | yes | Caller's full name |
 | `caller.email` | yes | Caller email. Trimmed; local part preserved exactly; domain lowercased; max 254 chars |
 | `caller.phone` | no | Caller phone (stored as provided; not parsed) |
-| `scheduling.attorneyId` | yes | Attorney the caller wants |
+| `scheduling.attorneyId` | no | Attorney the caller wants; omitted when the caller has no preference or the practice area has no attorneys configured |
 | `scheduling.practiceAreaId` | no | Practice area |
 | `scheduling.consultationTypeId` | yes | Consultation type |
 | `scheduling.existingClient` | no | Boolean; defaults to `false` |

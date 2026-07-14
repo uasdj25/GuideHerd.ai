@@ -640,12 +640,12 @@
           </div>
 
           <div class="field">
-            <label for="attorney">Attorney <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
-            <select id="attorney" name="attorney" required aria-describedby="attorney-error">
-              <option value="" disabled selected>Select attorney</option>
-              <!-- Options are populated from the ATTORNEYS list in the script below. -->
+            <label for="practice-area">Practice area <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
+            <select id="practice-area" name="practiceArea" required disabled aria-describedby="practice-area-error">
+              <option value="" disabled selected>Loading practice areas&hellip;</option>
+              <!-- Options are populated from the firm's configuration (scheduling-options API). -->
             </select>
-            <p class="field-error" id="attorney-error">Select an attorney.</p>
+            <p class="field-error" id="practice-area-error">Select a practice area.</p>
           </div>
 
           <div class="field-row">
@@ -656,14 +656,10 @@
             </div>
 
             <div class="field">
-              <label for="practice-area">Practice area</label>
-              <select id="practice-area" name="practiceArea">
-                <option value="" selected>Not specified</option>
-                <option value="personal-injury">Personal Injury</option>
-                <option value="family-law">Family Law</option>
-                <option value="criminal-defense">Criminal Defense</option>
-                <option value="business-law">Business Law</option>
-                <option value="other">Other</option>
+              <label for="attorney">Attorney</label>
+              <select id="attorney" name="attorney" disabled>
+                <option value="" selected>Select practice area first</option>
+                <!-- Options are the attorneys routed for the selected practice area. -->
               </select>
             </div>
           </div>
@@ -684,7 +680,7 @@
             <span class="btn-spinner" aria-hidden="true"></span>
             <span id="prepare-btn-label">Prepare Scheduling Assistant</span>
           </button>
-          <p class="helper" id="form-helper">Only caller name and attorney are required.</p>
+          <p class="helper" id="form-helper">Caller name, email, and practice area are required.</p>
         </form>
 
         <!-- ─── Preparing panel ────────────────────────────────────── -->
@@ -857,19 +853,14 @@
       var FIRM_ID = 'martinson-beason';
       var CONSULTATION_TYPE_ID = 'initial-consultation';
 
-      // Attorneys shown in the select. Add new attorneys here.
-      var ATTORNEYS = [
-        { id: 'clay-martinson', name: 'Clay Martinson' },
-      ];
+      // Scheduling options (practice areas + the attorneys routed for each)
+      // come from the firm's configuration via the GuideHerd API — nothing is
+      // hardcoded here. Populated by loadSchedulingOptions() at page load.
+      var schedulingOptions = null;   // { practiceAreas, attorneysByPracticeArea }
+      var practiceAreaNameById = {};  // id -> display name
+      var attorneyNameById = {};      // id -> display name (across all areas)
 
-      var PRACTICE_AREAS = {
-        'personal-injury': 'Personal Injury',
-        'family-law': 'Family Law',
-        'criminal-defense': 'Criminal Defense',
-        'business-law': 'Business Law',
-        'other': 'Other',
-      };
-
+      var OPTIONS_TIMEOUT_MS = 10000;
       var CREATE_TIMEOUT_MS = 10000;
       var POLL_INTERVAL_MS = 2500;
       var POLL_TIMEOUT_MS = 8000;
@@ -877,6 +868,9 @@
 
       var MSG_CREATE_FAILED = "We couldn't prepare the scheduling assistant. Please try again.";
       var MSG_STATUS_UNCERTAIN = 'We temporarily lost contact with the scheduling service. The session may still be active.';
+      var MSG_OPTIONS_FAILED = "We couldn't load the firm's scheduling options. Check your connection and try again.";
+      var NO_ATTORNEYS_LABEL = 'No Attorneys Configured';
+      var NO_PREFERENCE_LABEL = 'No preference';
 
       // ── Elements ─────────────────────────────────────────────────────
       var form = document.getElementById('caller-form');
@@ -889,7 +883,7 @@
       var prepareBtn = document.getElementById('prepare-btn');
       var prepareBtnLabel = document.getElementById('prepare-btn-label');
       var nameError = document.getElementById('caller-name-error');
-      var attorneyError = document.getElementById('attorney-error');
+      var practiceError = document.getElementById('practice-area-error');
 
       var statusValue = document.getElementById('status-value');
       var statusText = document.getElementById('status-text');
@@ -946,13 +940,100 @@
         if (pollAbort) { pollAbort.abort(); pollAbort = null; }
       }
 
-      // ── Attorney options ─────────────────────────────────────────────
-      ATTORNEYS.forEach(function(a) {
-        var opt = document.createElement('option');
-        opt.value = a.id;
-        opt.textContent = a.name;
-        attorneySelect.appendChild(opt);
-      });
+      // ── Scheduling options (from the firm's configuration) ───────────
+      function setSelectOptions(select, options, placeholder) {
+        select.textContent = ''; // remove all existing options
+        if (placeholder) {
+          var ph = document.createElement('option');
+          ph.value = '';
+          ph.textContent = placeholder.label;
+          // defaultSelected so form.reset() returns to the placeholder.
+          ph.defaultSelected = true;
+          ph.selected = true;
+          ph.disabled = !!placeholder.disabled;
+          select.appendChild(ph);
+        }
+        options.forEach(function(o) {
+          var opt = document.createElement('option');
+          opt.value = o.id;
+          opt.textContent = o.name;
+          select.appendChild(opt);
+        });
+      }
+
+      function applySchedulingOptions(options) {
+        schedulingOptions = options;
+        practiceAreaNameById = {};
+        attorneyNameById = {};
+        options.practiceAreas.forEach(function(a) {
+          practiceAreaNameById[a.id] = a.name;
+        });
+        Object.keys(options.attorneysByPracticeArea).forEach(function(areaId) {
+          options.attorneysByPracticeArea[areaId].forEach(function(a) {
+            attorneyNameById[a.id] = a.name;
+          });
+        });
+        setSelectOptions(practiceSelect, options.practiceAreas,
+          { label: 'Select practice area', disabled: true });
+        practiceSelect.disabled = false;
+        refreshAttorneyOptions();
+      }
+
+      // The attorney list follows the selected practice area: only attorneys
+      // in that area's routing groups are offered. The attorney is optional.
+      function refreshAttorneyOptions() {
+        // The practice select is only usable once options have loaded,
+        // regardless of how the form was re-enabled.
+        practiceSelect.disabled = !schedulingOptions;
+        var areaId = practiceSelect.value;
+        if (!schedulingOptions || areaId === '') {
+          setSelectOptions(attorneySelect, [], { label: 'Select practice area first' });
+          attorneySelect.disabled = true;
+          refreshButton();
+          return;
+        }
+        var previous = attorneySelect.value;
+        var attorneys = schedulingOptions.attorneysByPracticeArea[areaId] || [];
+        if (attorneys.length === 0) {
+          setSelectOptions(attorneySelect, [], { label: NO_ATTORNEYS_LABEL });
+          attorneySelect.disabled = true;
+        } else {
+          setSelectOptions(attorneySelect, attorneys, { label: NO_PREFERENCE_LABEL });
+          attorneySelect.disabled = false;
+          // Keep the previous choice when it is still offered for this area.
+          if (previous && attorneys.some(function(a) { return a.id === previous; })) {
+            attorneySelect.value = previous;
+          }
+        }
+        refreshButton();
+      }
+      practiceSelect.addEventListener('change', refreshAttorneyOptions);
+
+      function loadSchedulingOptions() {
+        setStatus('idle', 'Loading scheduling options…');
+        var req = fetchWithTimeout(
+          API_BASE_URL + '/api/v1/firms/' + encodeURIComponent(FIRM_ID) + '/scheduling-options',
+          {},
+          OPTIONS_TIMEOUT_MS
+        );
+        req.promise
+          .then(function(res) {
+            if (!res.ok) throw new Error('status ' + res.status);
+            return res.json();
+          })
+          .then(function(body) {
+            applySchedulingOptions(body);
+            showPanel(form);
+            setStatus('idle', 'Ready for caller information');
+          })
+          .catch(function() {
+            errorSub.textContent = MSG_OPTIONS_FAILED;
+            errorRetryAction = loadSchedulingOptions;
+            showPanel(errorPanel);
+            setStatus('error', 'Options unavailable');
+            errorTitle.focus();
+          });
+      }
 
       // ── Status + panels ──────────────────────────────────────────────
       function setStatus(state, text) {
@@ -980,7 +1061,7 @@
       function requiredValid() {
         return nameInput.value.trim() !== ''
           && emailLooksValid(emailInput.value)
-          && attorneySelect.value !== '';
+          && practiceSelect.value !== '';
       }
       function refreshButton() {
         prepareBtn.disabled = !requiredValid();
@@ -992,25 +1073,25 @@
       function showErrors() {
         var nameOk = nameInput.value.trim() !== '';
         var emailOk = emailLooksValid(emailInput.value);
-        var attorneyOk = attorneySelect.value !== '';
+        var practiceOk = practiceSelect.value !== '';
         nameError.classList.toggle('visible', !nameOk);
         nameInput.setAttribute('aria-invalid', String(!nameOk));
         emailError.classList.toggle('visible', !emailOk);
         emailInput.setAttribute('aria-invalid', String(!emailOk));
-        attorneyError.classList.toggle('visible', !attorneyOk);
-        attorneySelect.setAttribute('aria-invalid', String(!attorneyOk));
+        practiceError.classList.toggle('visible', !practiceOk);
+        practiceSelect.setAttribute('aria-invalid', String(!practiceOk));
         if (!nameOk) nameInput.focus();
         else if (!emailOk) emailInput.focus();
-        else if (!attorneyOk) attorneySelect.focus();
-        return nameOk && emailOk && attorneyOk;
+        else if (!practiceOk) practiceSelect.focus();
+        return nameOk && emailOk && practiceOk;
       }
       function clearErrors() {
         nameError.classList.remove('visible');
         emailError.classList.remove('visible');
-        attorneyError.classList.remove('visible');
+        practiceError.classList.remove('visible');
         nameInput.removeAttribute('aria-invalid');
         emailInput.removeAttribute('aria-invalid');
-        attorneySelect.removeAttribute('aria-invalid');
+        practiceSelect.removeAttribute('aria-invalid');
       }
 
       function setFormDisabled(disabled) {
@@ -1029,14 +1110,16 @@
             email: emailInput.value.trim(),
           },
           scheduling: {
-            attorneyId: attorneySelect.value,
+            practiceAreaId: practiceSelect.value,
             consultationTypeId: CONSULTATION_TYPE_ID,
           },
           handoff: { source: 'receptionist-portal', mode: 'live-transfer' },
         };
         var phone = phoneInput.value.trim();
         if (phone !== '') payload.caller.phone = phone;
-        if (practiceSelect.value !== '') payload.scheduling.practiceAreaId = practiceSelect.value;
+        // Attorney is optional: "No preference" (or an area with no attorneys
+        // configured) omits attorneyId entirely, never sends ''.
+        if (attorneySelect.value !== '') payload.scheduling.attorneyId = attorneySelect.value;
         var cs = form.querySelector('input[name="clientStatus"]:checked');
         if (cs && cs.value === 'prospective') payload.scheduling.existingClient = false;
         if (cs && cs.value === 'existing') payload.scheduling.existingClient = true;
@@ -1047,8 +1130,8 @@
       function fillSummary() {
         document.getElementById('sum-caller').textContent = nameInput.value.trim();
         document.getElementById('sum-email').textContent = emailInput.value.trim();
-        var attorney = ATTORNEYS.filter(function(a) { return a.id === attorneySelect.value; })[0];
-        document.getElementById('sum-attorney').textContent = attorney ? attorney.name : '';
+        document.getElementById('sum-attorney').textContent =
+          attorneyNameById[attorneySelect.value] || NO_PREFERENCE_LABEL;
 
         var phone = phoneInput.value.trim();
         document.getElementById('sum-phone-row').hidden = phone === '';
@@ -1056,7 +1139,7 @@
 
         var practice = practiceSelect.value;
         document.getElementById('sum-practice-row').hidden = practice === '';
-        document.getElementById('sum-practice').textContent = PRACTICE_AREAS[practice] || '';
+        document.getElementById('sum-practice').textContent = practiceAreaNameById[practice] || '';
 
         var cs = form.querySelector('input[name="clientStatus"]:checked');
         var csLabel = cs && cs.value === 'prospective' ? 'Prospective client'
@@ -1201,9 +1284,9 @@
         document.getElementById('booked-date').textContent = when.date;
         document.getElementById('booked-time').textContent = when.time;
         document.getElementById('booked-tz').textContent = when.tz;
-        var attorney = ATTORNEYS.filter(function(a) { return a.id === appointment.attorneyId; })[0];
-        document.getElementById('booked-attorney-row').hidden = !attorney;
-        document.getElementById('booked-attorney').textContent = attorney ? attorney.name : '';
+        var attorneyName = attorneyNameById[appointment.attorneyId];
+        document.getElementById('booked-attorney-row').hidden = !attorneyName;
+        document.getElementById('booked-attorney').textContent = attorneyName || '';
         showPanel(bookedPanel);
         setStatus('connected', 'Appointment booked');
         bookedTitle.focus();
@@ -1277,6 +1360,7 @@
         clearErrors();
         prepareBtn.dataset.busy = 'false';
         prepareBtnLabel.textContent = 'Prepare Scheduling Assistant';
+        refreshAttorneyOptions(); // re-derives the attorney list + disabled state
         refreshButton();
         cancelConfirm.hidden = true;
         setStatus('idle', 'Ready for caller information');
@@ -1289,6 +1373,10 @@
         stopTimers();
         clearSession();
         setFormDisabled(false);
+        // Re-derive the attorney list (and its disabled state) for the
+        // preserved practice-area selection; setFormDisabled(false) above
+        // would otherwise re-enable a "No Attorneys Configured" select.
+        refreshAttorneyOptions();
         prepareBtn.dataset.busy = 'false';
         prepareBtnLabel.textContent = 'Prepare Scheduling Assistant';
         refreshButton();
@@ -1415,6 +1503,7 @@
       });
 
       refreshButton();
+      loadSchedulingOptions();
     })();
   </script>
 

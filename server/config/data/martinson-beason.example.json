@@ -86,6 +86,20 @@
   ],
   "routingGroups": [
     {
+      "key": "auto-accidents",
+      "name": "Auto Accidents",
+      "serviceArea": "auto-accidents",
+      "active": true,
+      "providers": ["morris-lilienthal", "caleb-ballew"]
+    },
+    {
+      "key": "personal-injury",
+      "name": "Personal Injury",
+      "serviceArea": "personal-injury",
+      "active": true,
+      "providers": ["clay-martinson", "morris-lilienthal", "carter-montgomery"]
+    },
+    {
       "key": "probate",
       "name": "Probate & Estate Administration",
       "serviceArea": "probate",
@@ -93,11 +107,32 @@
       "providers": ["clay-martinson", "doug-martinson"]
     },
     {
-      "key": "personal-injury",
-      "name": "Personal Injury",
-      "serviceArea": "personal-injury",
+      "key": "criminal-defense",
+      "name": "Criminal Law",
+      "serviceArea": "criminal-defense",
       "active": true,
-      "providers": ["clay-martinson"]
+      "providers": ["carter-montgomery", "raina-baugher"]
+    },
+    {
+      "key": "real-estate",
+      "name": "Real Estate Law",
+      "serviceArea": "real-estate",
+      "active": true,
+      "providers": ["doug-martinson", "mac-martinson"]
+    },
+    {
+      "key": "family-law",
+      "name": "Family Law & Divorce",
+      "serviceArea": "family-law",
+      "active": true,
+      "providers": ["raina-baugher", "caleb-ballew"]
+    },
+    {
+      "key": "workers-compensation",
+      "name": "Workers' Compensation",
+      "serviceArea": "workers-compensation",
+      "active": true,
+      "providers": ["mac-martinson", "morris-lilienthal"]
     }
   ],
   "settings": [

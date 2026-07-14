@@ -313,7 +313,10 @@ function comparable(doc) {
     providers: [...(doc.providers ?? [])].sort(byKey),
     serviceAreas: [...(doc.serviceAreas ?? [])].sort(byKey),
     consultationTypes: [...(doc.consultationTypes ?? [])].sort(byKey),
-    routingGroups: [...(doc.routingGroups ?? [])].sort(byKey),
+    routingGroups: [...(doc.routingGroups ?? [])].sort(byKey).map((g) => ({
+      ...g,
+      providers: g.providers ? [...g.providers].sort() : g.providers,
+    })),
     settings: [...(doc.settings ?? [])].sort(bySetting),
   };
 }

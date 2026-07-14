@@ -756,3 +756,88 @@ test('flat and nested submissions of the same outcome are mutually idempotent', 
     assert.equal(conflict.status, 409);
   });
 });
+
+// ---------------------------------------------------------------------------
+// GET /api/v1/demo/summary/latest — operator summary view (temporary)
+// ---------------------------------------------------------------------------
+
+test('summary/latest: missing auth 401, malformed 401, wrong secret 403', async () => {
+  await withServer({ clock: fixedClock(AT_1515) }, async (base) => {
+    assert.equal((await fetch(`${base}/api/v1/demo/summary/latest`)).status, 401);
+    assert.equal((await fetch(`${base}/api/v1/demo/summary/latest`, { headers: { authorization: 'Token x' } })).status, 401);
+    assert.equal((await fetch(`${base}/api/v1/demo/summary/latest`, { headers: { authorization: 'Bearer wrong' } })).status, 403);
+  });
+});
+
+test('summary/latest: 404 with no completed summary (even with active sessions)', async () => {
+  await withServer({ clock: fixedClock(AT_1515) }, async (base) => {
+    // none at all
+    let res = await fetch(`${base}/api/v1/demo/summary/latest`, { headers: bridgeAuth });
+    assert.equal(res.status, 404);
+    assert.equal((await res.json()).error.code, 'no_completed_summary');
+    // an awaiting/connected session is not a completed summary
+    await createSession(base);
+    await post(base, '/api/v1/demo/connect', {}, bridgeAuth);
+    res = await fetch(`${base}/api/v1/demo/summary/latest`, { headers: bridgeAuth });
+    assert.equal(res.status, 404);
+  });
+});
+
+test('summary/latest: returns branded HTML with no-store and no CORS', async () => {
+  await withServer({ clock: fixedClock(AT_1515), corsAllowedOrigins: 'https://guideherd.ai' }, async (base) => {
+    const created = await connectOne(base);
+    await post(base, '/api/v1/demo/outcome', bookedOutcome(created.sessionId), bridgeAuth);
+
+    const res = await fetch(`${base}/api/v1/demo/summary/latest`, {
+      headers: { ...bridgeAuth, origin: 'https://guideherd.ai' }, // allowlisted origin still gets no CORS
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('content-type'), 'text/html; charset=utf-8');
+    assert.equal(res.headers.get('cache-control'), 'no-store');
+    assert.equal(res.headers.get('access-control-allow-origin'), null, 'no browser CORS');
+
+    const html = await res.text();
+    assert.ok(html.startsWith('<!DOCTYPE html>'));
+    assert.ok(html.includes('Consultation Summary'));
+    assert.ok(html.includes('Ryan Scoggins'));
+    assert.ok(html.includes('Appointment booked'));
+    assert.ok(/powered by guideherd/i.test(html), 'GuideHerd branding present');
+    // Forbidden-content scan: credentials, internals, vendors, transcripts.
+    assert.equal(/gh_handoff_|gh_console_|tokenHash|consoleTokenHash|sessionId|DEMO_BRIDGE|transcript/i.test(html), false, 'no internals');
+    assert.equal(/ElevenLabs|Cal\.com|Microsoft|Graph|Railway|Cloudflare/i.test(html), false, 'no vendors');
+    assert.equal(html.includes(SECRET), false, 'no secret leakage');
+  });
+});
+
+test('summary/latest: selects the most recently completed summary', async () => {
+  const clock = fixedClock(AT_1515);
+  await withServer({ clock }, async (base) => {
+    // First completed session (earlier completedAt)
+    const first = await createSession(base, { caller: { fullName: 'First Caller', email: 'first@example.com' } });
+    await post(base, '/api/v1/demo/connect', {}, bridgeAuth);
+    await post(base, '/api/v1/demo/outcome', { sessionId: first.sessionId, status: 'failed', reason: 'No suitable time.' }, bridgeAuth);
+
+    clock.set(Date.parse('2026-07-12T15:18:00Z')); // later completion time
+
+    const second = await createSession(base, { caller: { fullName: 'Second Caller', email: 'second@example.com' } });
+    await post(base, '/api/v1/demo/connect', {}, bridgeAuth);
+    await post(base, '/api/v1/demo/outcome', bookedOutcome(second.sessionId), bridgeAuth);
+
+    const html = await (await fetch(`${base}/api/v1/demo/summary/latest`, { headers: bridgeAuth })).text();
+    assert.ok(html.includes('Second Caller'), 'latest summary wins');
+    assert.equal(html.includes('First Caller'), false, 'earlier summary not shown');
+  });
+});
+
+test('summary/latest: the Graph mailer is untouched by the view path', async () => {
+  const mailer = fakeMailer();
+  await withServer({ clock: fixedClock(AT_1515), mailer }, async (base) => {
+    const created = await connectOne(base);
+    await post(base, '/api/v1/demo/outcome', bookedOutcome(created.sessionId), bridgeAuth);
+    assert.equal(mailer.sends.length, 1);
+    // Viewing repeatedly triggers zero additional sends.
+    await fetch(`${base}/api/v1/demo/summary/latest`, { headers: bridgeAuth });
+    await fetch(`${base}/api/v1/demo/summary/latest`, { headers: bridgeAuth });
+    assert.equal(mailer.sends.length, 1, 'viewing never sends mail');
+  });
+});

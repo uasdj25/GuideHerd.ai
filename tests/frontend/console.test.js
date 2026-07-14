@@ -64,6 +64,11 @@ const MOCK_OPTIONS = {
     'family-law': [{ id: 'raina-baugher', name: 'Raina Baugher' }],
     'military-law': [],
   },
+  consultationTypes: [
+    { id: 'initial-consultation', name: 'Initial Consultation' },
+    { id: 'follow-up', name: 'Follow-up' },
+    { id: 'existing-client', name: 'Existing Client' },
+  ],
 };
 
 function createBody(expiresInMs) {
@@ -154,7 +159,8 @@ function newCalls() { return { create: [], status: [], del: [], options: [] }; }
 /**
  * Fill the required fields. Practice area drives the attorney list, so it is
  * selected first; pass `opts.attorney = null` to leave the (optional)
- * attorney as "No preference".
+ * attorney as "No preference". A consultation type is required — the default
+ * is initial-consultation; override with `opts.consultationType`.
  */
 async function fillRequired(page, name = 'David Jones', email = 'david.jones@example.com', opts = {}) {
   await page.fill('#caller-name', name);
@@ -164,6 +170,7 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
   if (opts.attorney !== null) {
     await page.selectOption('#attorney', opts.attorney || 'clay-martinson');
   }
+  await page.click('label[for="ct-' + (opts.consultationType || 'initial-consultation') + '"]');
 }
 
 (async () => {
@@ -194,7 +201,6 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
 
     await fillRequired(page);
     await page.fill('#phone', '+1 404 423 2676');
-    await page.click('label[for="cs-prospective"]');
     await page.click('#prepare-btn');
     await page.waitForSelector('#ready-panel:not([hidden])', { timeout: 5000 });
 
@@ -208,7 +214,6 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
         practiceAreaId: 'personal-injury',
         consultationTypeId: 'initial-consultation',
         attorneyId: 'clay-martinson',
-        existingClient: false,
       },
       handoff: { source: 'receptionist-portal', mode: 'live-transfer' },
     }), JSON.stringify(p));
@@ -236,25 +241,26 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
     const calls = newCalls();
     const page = await freshPage({ create: { status: 201, body: createBody(600000) }, status: [{ status: 200, body: { status: 'awaiting-transfer' } }] }, calls);
     await fillRequired(page, 'Blank Optional', 'david.jones@example.com', { attorney: null });
-    await page.click('label[for="cs-existing"]');
     await page.click('#prepare-btn');
     await page.waitForSelector('#ready-panel:not([hidden])');
     const p = calls.create[0];
-    ok('existing client -> existingClient: true', p.scheduling.existingClient === true);
     ok('blank phone omitted', !('phone' in p.caller));
     ok('no-preference attorney omitted', !('attorneyId' in p.scheduling));
     ok('practice area always sent', p.scheduling.practiceAreaId === 'personal-injury');
+    ok('retired existingClient never sent', !('existingClient' in p.scheduling));
     ok('summary shows No preference for attorney', (await page.textContent('#sum-attorney')).trim() === 'No preference');
     await page.close();
   }
 
   {
+    // The selected consultation type flows into the payload and summary.
     const calls = newCalls();
     const page = await freshPage({ create: { status: 201, body: createBody(600000) }, status: [{ status: 200, body: { status: 'awaiting-transfer' } }] }, calls);
-    await fillRequired(page, 'Not Specified');
+    await fillRequired(page, 'Follow Up Caller', 'follow.up@example.com', { consultationType: 'follow-up' });
     await page.click('#prepare-btn');
     await page.waitForSelector('#ready-panel:not([hidden])');
-    ok('not-specified omits existingClient', !('existingClient' in calls.create[0].scheduling));
+    ok('selected consultation type sent', calls.create[0].scheduling.consultationTypeId === 'follow-up');
+    ok('summary shows consultation type', (await page.textContent('#sum-consultation')).trim() === 'Follow-up');
     await page.close();
   }
 
@@ -513,7 +519,8 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
     await page.fill('#caller-name', 'No Email');
     await page.waitForSelector('#practice-area:not([disabled])');
     await page.selectOption('#practice-area', 'personal-injury');
-    ok('name+practice area without email keeps button disabled', await page.isDisabled('#prepare-btn'));
+    await page.click('label[for="ct-initial-consultation"]');
+    ok('name+practice+type without email keeps button disabled', await page.isDisabled('#prepare-btn'));
     await page.fill('#caller-email', 'not-an-email');
     ok('malformed email keeps button disabled', await page.isDisabled('#prepare-btn'));
     await page.fill('#caller-email', 'valid@example.com');
@@ -630,15 +637,25 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
       await page.isDisabled('#attorney')
       && (await page.textContent('#attorney option')).trim() === 'No Attorneys Configured');
 
-    // The attorney is optional: an unrouted area is still fully submittable.
+    // Consultation types come from configuration and are required.
+    const typeValues = await page.$$eval('#consultation-type-options input[type="radio"]',
+      (radios) => radios.map((r) => r.value));
+    ok('consultation types come from configuration', JSON.stringify(typeValues)
+      === JSON.stringify(['initial-consultation', 'follow-up', 'existing-client']), JSON.stringify(typeValues));
+
+    // The attorney is optional; the consultation type is not.
     await page.fill('#caller-name', 'No Attorney Needed');
     await page.fill('#caller-email', 'none@example.com');
-    ok('prepare enabled without an attorney', !(await page.isDisabled('#prepare-btn')));
+    ok('prepare disabled until a consultation type is chosen', await page.isDisabled('#prepare-btn'));
+    await page.click('label[for="ct-existing-client"]');
+    ok('prepare enabled without an attorney once a type is chosen', !(await page.isDisabled('#prepare-btn')));
     await page.click('#prepare-btn');
     await page.waitForSelector('#ready-panel:not([hidden])');
     const p = calls.create[0];
     ok('payload omits attorneyId and carries the practice area',
       !('attorneyId' in p.scheduling) && p.scheduling.practiceAreaId === 'military-law');
+    ok('payload carries the chosen consultation type', p.scheduling.consultationTypeId === 'existing-client');
+    ok('retired existingClient absent from payload', !('existingClient' in p.scheduling));
     await page.close();
   }
   {

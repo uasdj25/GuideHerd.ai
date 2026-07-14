@@ -82,15 +82,6 @@ function normalizeCreate(body) {
     return trimmed;
   }
 
-  function bool(value, field) {
-    if (value === undefined || value === null) return undefined;
-    if (typeof value !== 'boolean') {
-      details.push({ field, message: 'must be a boolean' });
-      return undefined;
-    }
-    return value;
-  }
-
   const normalized = {
     firmId: str(body.firmId, 'firmId', true, LIMITS.firmId),
     caller: {
@@ -105,7 +96,6 @@ function normalizeCreate(body) {
       attorneyId: str(scheduling.attorneyId, 'scheduling.attorneyId', false, LIMITS.attorneyId),
       practiceAreaId: str(scheduling.practiceAreaId, 'scheduling.practiceAreaId', false, LIMITS.practiceAreaId),
       consultationTypeId: str(scheduling.consultationTypeId, 'scheduling.consultationTypeId', true, LIMITS.consultationTypeId),
-      existingClient: bool(scheduling.existingClient, 'scheduling.existingClient'),
     },
     handoff: {
       createdByUserId: str(handoff.createdByUserId, 'handoff.createdByUserId', false, LIMITS.createdByUserId),
@@ -118,12 +108,11 @@ function normalizeCreate(body) {
     throw new ValidationError('One or more fields are invalid.', details);
   }
 
-  // Drop optional fields that were omitted, and default existingClient.
+  // Drop optional fields that were omitted.
   if (normalized.caller.phone === undefined) delete normalized.caller.phone;
   if (normalized.scheduling.attorneyId === undefined) delete normalized.scheduling.attorneyId;
   if (normalized.scheduling.practiceAreaId === undefined) delete normalized.scheduling.practiceAreaId;
   if (normalized.handoff.createdByUserId === undefined) delete normalized.handoff.createdByUserId;
-  if (normalized.scheduling.existingClient === undefined) normalized.scheduling.existingClient = false;
 
   return normalized;
 }

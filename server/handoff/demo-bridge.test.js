@@ -20,7 +20,6 @@ function validRequest(overrides = {}) {
       attorneyId: 'clay-martinson',
       practiceAreaId: 'personal-injury',
       consultationTypeId: 'initial-consultation',
-      existingClient: false,
     },
     handoff: { source: 'receptionist-portal', mode: 'live-transfer' },
     ...overrides,
@@ -193,7 +192,6 @@ test('exactly one eligible session connects with full GuideHerd context', async 
         fullName: 'Ryan Scoggins',
         email: 'Ryan.Scoggins@example.com',
         phone: '+12565551212',
-        existingClient: false,
       },
       scheduling: {
         attorneyId: 'clay-martinson',
@@ -385,7 +383,7 @@ test('summary model maps trusted fields exactly and invents nothing', async () =
     const session = app.store.get(created.sessionId);
     const model = buildConsultationSummary(session);
     assert.deepEqual(model, {
-      caller: { fullName: 'Ryan Scoggins', email: 'Ryan.Scoggins@example.com', phone: '+12565551212', existingClient: false },
+      caller: { fullName: 'Ryan Scoggins', email: 'Ryan.Scoggins@example.com', phone: '+12565551212' },
       request: { attorneyId: 'clay-martinson', practiceAreaId: 'personal-injury', consultationTypeId: 'initial-consultation' },
       outcome: { status: 'booked', appointmentStartsAt: '2026-07-20T15:00:00-05:00', timezone: 'America/Chicago' },
       notes: { schedulingSummary: 'Initial consultation booked.', unresolvedQuestions: [], escalationRequired: false },

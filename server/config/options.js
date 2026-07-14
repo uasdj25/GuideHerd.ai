@@ -14,7 +14,8 @@
  *
  *   {
  *     practiceAreas: [ { id, name } ],                 // active, display order
- *     attorneysByPracticeArea: { [practiceAreaId]: [ { id, name } ] }
+ *     attorneysByPracticeArea: { [practiceAreaId]: [ { id, name } ] },
+ *     consultationTypes: [ { id, name } ]               // active, display order
  *   }
  *
  * Every active practice area appears as a key in `attorneysByPracticeArea`;
@@ -22,6 +23,10 @@
  * to an empty array, which the console renders as "No Attorneys Configured".
  * Attorneys reached through several routing groups for the same area are
  * de-duplicated.
+ *
+ * Consultation types are firm-wide (not filtered by practice area). The
+ * console requires the receptionist to pick one of the firm's configured
+ * types — there is no "not specified" fallback.
  *
  * @param {ReturnType<typeof import('./service').createConfigService>} configService
  * @param {string} firmId organization key
@@ -31,6 +36,7 @@ function getSchedulingOptions(configService, firmId) {
   const areas = configService.serviceAreas.list(firmId, { activeOnly: true });
   const groups = configService.routingGroups.list(firmId, { activeOnly: true });
   const providers = configService.providers.list(firmId, { activeOnly: true });
+  const consultationTypes = configService.consultationTypes.list(firmId, { activeOnly: true });
 
   const providerByKey = new Map(providers.map((p) => [p.key, p]));
 
@@ -55,6 +61,7 @@ function getSchedulingOptions(configService, firmId) {
   return {
     practiceAreas: areas.map((a) => ({ id: a.key, name: a.name })),
     attorneysByPracticeArea,
+    consultationTypes: consultationTypes.map((c) => ({ id: c.key, name: c.name })),
   };
 }
 

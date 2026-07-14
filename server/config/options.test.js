@@ -77,6 +77,28 @@ test('options: attorneys reached via multiple groups for one area are de-duplica
   assert.ok(ids.includes('raina-baugher'));
 });
 
+test('options: consultation types come back active-only, in display order', () => {
+  const options = getSchedulingOptions(seededService(), 'martinson-beason');
+  assert.deepEqual(
+    options.consultationTypes,
+    [
+      { id: 'initial-consultation', name: 'Initial Consultation' },
+      { id: 'follow-up', name: 'Follow-up' },
+      { id: 'existing-client', name: 'Existing Client' },
+    ],
+  );
+});
+
+test('options: an inactive consultation type is excluded', () => {
+  const service = seededService();
+  service.consultationTypes.update('martinson-beason', 'follow-up', { active: false });
+  const options = getSchedulingOptions(service, 'martinson-beason');
+  assert.deepEqual(
+    options.consultationTypes.map((c) => c.id),
+    ['initial-consultation', 'existing-client'],
+  );
+});
+
 test('options: unknown firm throws unknown_organization', () => {
   assert.throws(
     () => getSchedulingOptions(seededService(), 'nobody'),
@@ -108,6 +130,7 @@ test('GET scheduling-options returns 200 with areas and attorneys', async () => 
     assert.equal(body.practiceAreas.length, 8);
     assert.deepEqual(body.attorneysByPracticeArea['military-law'], []);
     assert.ok(body.attorneysByPracticeArea['personal-injury'].length >= 1);
+    assert.equal(body.consultationTypes.length, 3);
   });
 });
 

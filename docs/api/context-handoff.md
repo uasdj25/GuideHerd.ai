@@ -78,8 +78,7 @@ Create a Scheduling Session and return a single-use handoff token.
 | `caller.phone` | no | Caller phone (stored as provided; not parsed) |
 | `scheduling.attorneyId` | no | Attorney the caller wants; omitted when the caller has no preference or the practice area has no attorneys configured |
 | `scheduling.practiceAreaId` | no | Practice area |
-| `scheduling.consultationTypeId` | yes | Consultation type |
-| `scheduling.existingClient` | no | Boolean; defaults to `false` |
+| `scheduling.consultationTypeId` | yes | One of the firm's configured consultation types |
 | `handoff.createdByUserId` | no | Receptionist who created the handoff |
 | `handoff.source` | yes | Where the handoff originated |
 | `handoff.mode` | yes | Handoff mode (e.g. live transfer) |
@@ -94,6 +93,13 @@ has a maximum length to reject oversized payloads.
 > returned **only** through authorized context redemption (token redemption or
 > the demo connect) — never in status or cancellation responses.
 
+> **Contract change (config-driven console, intentional and coordinated):**
+> `scheduling.existingClient` has been **removed**. The console's former
+> prospective/existing-client toggle has been replaced by required consultation
+> type selection from the firm's configuration (which includes an
+> "Existing Client" type). Clients still sending `existingClient` have it
+> silently ignored, consistent with the API's handling of unknown fields.
+
 **Example request**
 
 ```json
@@ -103,8 +109,7 @@ has a maximum length to reject oversized payloads.
   "scheduling": {
     "attorneyId": "clay-martinson",
     "practiceAreaId": "personal-injury",
-    "consultationTypeId": "initial-consultation",
-    "existingClient": false
+    "consultationTypeId": "initial-consultation"
   },
   "handoff": {
     "createdByUserId": "receptionist-001",
@@ -154,7 +159,6 @@ Scheduling Assistant needs. On success the session moves from
   "attorneyId": "clay-martinson",
   "practiceAreaId": "personal-injury",
   "consultationTypeId": "initial-consultation",
-  "existingClient": false,
   "status": "connected"
 }
 ```

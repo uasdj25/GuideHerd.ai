@@ -665,22 +665,19 @@
           </div>
 
           <fieldset class="field" style="border:0; padding:0; margin:0 0 var(--sp-3);">
-            <legend class="field-label" style="padding:0; margin-bottom:6px;">Client status</legend>
-            <div class="segments" role="radiogroup" aria-label="Client status">
-              <input type="radio" id="cs-prospective" name="clientStatus" value="prospective">
-              <label for="cs-prospective">Prospective client</label>
-              <input type="radio" id="cs-existing" name="clientStatus" value="existing">
-              <label for="cs-existing">Existing client</label>
-              <input type="radio" id="cs-none" name="clientStatus" value="" checked>
-              <label for="cs-none">Not specified</label>
+            <legend class="field-label" style="padding:0; margin-bottom:6px;">Consultation type <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></legend>
+            <div class="segments" id="consultation-type-options" role="radiogroup" aria-label="Consultation type" aria-describedby="consultation-type-error">
+              <p class="helper" style="margin:0;">Loading consultation types&hellip;</p>
+              <!-- Options are populated from the firm's configuration (scheduling-options API). -->
             </div>
+            <p class="field-error" id="consultation-type-error">Select a consultation type.</p>
           </fieldset>
 
           <button type="submit" class="btn-primary" id="prepare-btn" disabled>
             <span class="btn-spinner" aria-hidden="true"></span>
             <span id="prepare-btn-label">Prepare Scheduling Assistant</span>
           </button>
-          <p class="helper" id="form-helper">Caller name, email, and practice area are required.</p>
+          <p class="helper" id="form-helper">Caller name, email, practice area, and consultation type are required.</p>
         </form>
 
         <!-- ─── Preparing panel ────────────────────────────────────── -->
@@ -720,9 +717,9 @@
               <dt>Practice area</dt>
               <dd id="sum-practice"></dd>
             </div>
-            <div class="summary-row" id="sum-status-row" hidden>
-              <dt>Client status</dt>
-              <dd id="sum-status"></dd>
+            <div class="summary-row" id="sum-consultation-row" hidden>
+              <dt>Consultation type</dt>
+              <dd id="sum-consultation"></dd>
             </div>
           </dl>
 
@@ -851,14 +848,15 @@
       })();
 
       var FIRM_ID = 'martinson-beason';
-      var CONSULTATION_TYPE_ID = 'initial-consultation';
 
-      // Scheduling options (practice areas + the attorneys routed for each)
-      // come from the firm's configuration via the GuideHerd API — nothing is
-      // hardcoded here. Populated by loadSchedulingOptions() at page load.
-      var schedulingOptions = null;   // { practiceAreas, attorneysByPracticeArea }
+      // Scheduling options (practice areas, the attorneys routed for each,
+      // and the firm's consultation types) come from the firm's configuration
+      // via the GuideHerd API — nothing is hardcoded here. Populated by
+      // loadSchedulingOptions() at page load.
+      var schedulingOptions = null;   // { practiceAreas, attorneysByPracticeArea, consultationTypes }
       var practiceAreaNameById = {};  // id -> display name
       var attorneyNameById = {};      // id -> display name (across all areas)
+      var consultationTypeNameById = {}; // id -> display name
 
       var OPTIONS_TIMEOUT_MS = 10000;
       var CREATE_TIMEOUT_MS = 10000;
@@ -884,6 +882,8 @@
       var prepareBtnLabel = document.getElementById('prepare-btn-label');
       var nameError = document.getElementById('caller-name-error');
       var practiceError = document.getElementById('practice-area-error');
+      var consultationTypeOptionsEl = document.getElementById('consultation-type-options');
+      var consultationTypeError = document.getElementById('consultation-type-error');
 
       var statusValue = document.getElementById('status-value');
       var statusText = document.getElementById('status-text');
@@ -961,10 +961,39 @@
         });
       }
 
+      /** Render the consultation-type segmented control (radio + label pairs). */
+      function renderConsultationTypeOptions(consultationTypes) {
+        consultationTypeOptionsEl.textContent = ''; // remove loading placeholder / prior options
+        consultationTypes.forEach(function(c) {
+          var input = document.createElement('input');
+          input.type = 'radio';
+          input.id = 'ct-' + c.id;
+          input.name = 'consultationType';
+          input.value = c.id;
+          var label = document.createElement('label');
+          label.setAttribute('for', 'ct-' + c.id);
+          label.textContent = c.name;
+          consultationTypeOptionsEl.appendChild(input);
+          consultationTypeOptionsEl.appendChild(label);
+        });
+      }
+
+      function getSelectedConsultationTypeId() {
+        var checked = form.querySelector('input[name="consultationType"]:checked');
+        return checked ? checked.value : '';
+      }
+
+      // Event delegation on the (stable) container: only its children are
+      // replaced across re-renders, never the container itself.
+      consultationTypeOptionsEl.addEventListener('change', function(e) {
+        if (e.target && e.target.name === 'consultationType') refreshButton();
+      });
+
       function applySchedulingOptions(options) {
         schedulingOptions = options;
         practiceAreaNameById = {};
         attorneyNameById = {};
+        consultationTypeNameById = {};
         options.practiceAreas.forEach(function(a) {
           practiceAreaNameById[a.id] = a.name;
         });
@@ -973,9 +1002,13 @@
             attorneyNameById[a.id] = a.name;
           });
         });
+        options.consultationTypes.forEach(function(c) {
+          consultationTypeNameById[c.id] = c.name;
+        });
         setSelectOptions(practiceSelect, options.practiceAreas,
           { label: 'Select practice area', disabled: true });
         practiceSelect.disabled = false;
+        renderConsultationTypeOptions(options.consultationTypes);
         refreshAttorneyOptions();
       }
 
@@ -1061,7 +1094,8 @@
       function requiredValid() {
         return nameInput.value.trim() !== ''
           && emailLooksValid(emailInput.value)
-          && practiceSelect.value !== '';
+          && practiceSelect.value !== ''
+          && getSelectedConsultationTypeId() !== '';
       }
       function refreshButton() {
         prepareBtn.disabled = !requiredValid();
@@ -1074,21 +1108,28 @@
         var nameOk = nameInput.value.trim() !== '';
         var emailOk = emailLooksValid(emailInput.value);
         var practiceOk = practiceSelect.value !== '';
+        var consultationOk = getSelectedConsultationTypeId() !== '';
         nameError.classList.toggle('visible', !nameOk);
         nameInput.setAttribute('aria-invalid', String(!nameOk));
         emailError.classList.toggle('visible', !emailOk);
         emailInput.setAttribute('aria-invalid', String(!emailOk));
         practiceError.classList.toggle('visible', !practiceOk);
         practiceSelect.setAttribute('aria-invalid', String(!practiceOk));
+        consultationTypeError.classList.toggle('visible', !consultationOk);
         if (!nameOk) nameInput.focus();
         else if (!emailOk) emailInput.focus();
         else if (!practiceOk) practiceSelect.focus();
-        return nameOk && emailOk && practiceOk;
+        else if (!consultationOk) {
+          var firstRadio = consultationTypeOptionsEl.querySelector('input[type="radio"]');
+          if (firstRadio) firstRadio.focus();
+        }
+        return nameOk && emailOk && practiceOk && consultationOk;
       }
       function clearErrors() {
         nameError.classList.remove('visible');
         emailError.classList.remove('visible');
         practiceError.classList.remove('visible');
+        consultationTypeError.classList.remove('visible');
         nameInput.removeAttribute('aria-invalid');
         emailInput.removeAttribute('aria-invalid');
         practiceSelect.removeAttribute('aria-invalid');
@@ -1111,7 +1152,7 @@
           },
           scheduling: {
             practiceAreaId: practiceSelect.value,
-            consultationTypeId: CONSULTATION_TYPE_ID,
+            consultationTypeId: getSelectedConsultationTypeId(),
           },
           handoff: { source: 'receptionist-portal', mode: 'live-transfer' },
         };
@@ -1120,10 +1161,6 @@
         // Attorney is optional: "No preference" (or an area with no attorneys
         // configured) omits attorneyId entirely, never sends ''.
         if (attorneySelect.value !== '') payload.scheduling.attorneyId = attorneySelect.value;
-        var cs = form.querySelector('input[name="clientStatus"]:checked');
-        if (cs && cs.value === 'prospective') payload.scheduling.existingClient = false;
-        if (cs && cs.value === 'existing') payload.scheduling.existingClient = true;
-        // "Not specified" omits existingClient entirely.
         return payload;
       }
 
@@ -1141,11 +1178,9 @@
         document.getElementById('sum-practice-row').hidden = practice === '';
         document.getElementById('sum-practice').textContent = practiceAreaNameById[practice] || '';
 
-        var cs = form.querySelector('input[name="clientStatus"]:checked');
-        var csLabel = cs && cs.value === 'prospective' ? 'Prospective client'
-                    : cs && cs.value === 'existing' ? 'Existing client' : '';
-        document.getElementById('sum-status-row').hidden = csLabel === '';
-        document.getElementById('sum-status').textContent = csLabel;
+        var consultationTypeId = getSelectedConsultationTypeId();
+        document.getElementById('sum-consultation-row').hidden = consultationTypeId === '';
+        document.getElementById('sum-consultation').textContent = consultationTypeNameById[consultationTypeId] || '';
       }
 
       // ── Fetch helpers ────────────────────────────────────────────────

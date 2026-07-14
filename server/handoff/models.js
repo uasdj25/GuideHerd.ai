@@ -14,8 +14,7 @@
  * @typedef {Object} Scheduling
  * @property {string} [attorneyId]   optional: the caller may have no preference
  * @property {string} [practiceAreaId]
- * @property {string} consultationTypeId
- * @property {boolean} [existingClient]
+ * @property {string} consultationTypeId   the firm's configured consultation type
  *
  * @typedef {Object} HandoffMeta
  * @property {string} [createdByUserId]
@@ -70,7 +69,6 @@
  * @property {string|null} attorneyId
  * @property {string|null} practiceAreaId
  * @property {string} consultationTypeId
- * @property {boolean} existingClient
  * @property {string} status
  */
 

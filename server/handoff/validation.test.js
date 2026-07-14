@@ -26,7 +26,6 @@ function fieldErrors(body) {
 test('a fully valid request normalizes and trims', () => {
   const out = normalizeCreate({ ...base(), firmId: '  martinson-beason  ' });
   assert.equal(out.firmId, 'martinson-beason');
-  assert.equal(out.scheduling.existingClient, false); // defaulted
 });
 
 test('missing firmId is rejected', () => {
@@ -78,10 +77,11 @@ test('oversized string is rejected', () => {
   assert.ok(fieldErrors(body).includes('firmId'));
 });
 
-test('wrong type for existingClient is rejected', () => {
+test('unknown fields like the retired existingClient are ignored, not rejected', () => {
   const body = base();
-  body.scheduling.existingClient = 'nope';
-  assert.ok(fieldErrors(body).includes('scheduling.existingClient'));
+  body.scheduling.existingClient = true; // retired field — silently ignored
+  const out = normalizeCreate(body);
+  assert.equal('existingClient' in out.scheduling, false);
 });
 
 test('optional fields may be omitted', () => {

@@ -1,0 +1,110 @@
+{
+  "organization": {
+    "key": "martinson-beason",
+    "name": "Martinson & Beason, P.C.",
+    "displayName": "Martinson & Beason",
+    "timezone": "America/Chicago",
+    "active": true
+  },
+  "locations": [
+    {
+      "key": "huntsville",
+      "name": "Huntsville Office",
+      "addressLine1": "115 Northside Square",
+      "city": "Huntsville",
+      "region": "AL",
+      "postalCode": "35801",
+      "phone": "+18552622154",
+      "active": true,
+      "officeHours": [
+        { "dayOfWeek": 1, "opens": "08:30", "closes": "17:00" },
+        { "dayOfWeek": 2, "opens": "08:30", "closes": "17:00" },
+        { "dayOfWeek": 3, "opens": "08:30", "closes": "17:00" },
+        { "dayOfWeek": 4, "opens": "08:30", "closes": "17:00" },
+        { "dayOfWeek": 5, "opens": "08:30", "closes": "17:00" }
+      ]
+    }
+  ],
+  "providers": [
+    {
+      "key": "doug-martinson",
+      "name": "Douglas C. Martinson, II",
+      "displayName": "Doug Martinson",
+      "active": true
+    },
+    {
+      "key": "mac-martinson",
+      "name": "A. Mac Martinson",
+      "displayName": "Mac Martinson",
+      "active": true
+    },
+    {
+      "key": "morris-lilienthal",
+      "name": "Morris H. Lilienthal",
+      "displayName": "Morris Lilienthal",
+      "active": true
+    },
+    {
+      "key": "caleb-ballew",
+      "name": "Caleb W. Ballew",
+      "displayName": "Caleb Ballew",
+      "active": true
+    },
+    {
+      "key": "carter-montgomery",
+      "name": "W. Carter Montgomery",
+      "displayName": "Carter Montgomery",
+      "active": true
+    },
+    {
+      "key": "clay-martinson",
+      "name": "Clay Martinson",
+      "displayName": "Clay Martinson",
+      "active": true
+    },
+    {
+      "key": "raina-baugher",
+      "name": "Raina Hooie Baugher",
+      "displayName": "Raina Baugher",
+      "active": true
+    }
+  ],
+  "serviceAreas": [
+    { "key": "auto-accidents", "name": "Auto Accidents", "displayOrder": 1, "active": true },
+    { "key": "personal-injury", "name": "Personal Injury", "displayOrder": 2, "active": true },
+    { "key": "probate", "name": "Probate & Estate Administration", "displayOrder": 3, "active": true },
+    { "key": "criminal-defense", "name": "Criminal Law", "displayOrder": 4, "active": true },
+    { "key": "real-estate", "name": "Real Estate Law", "displayOrder": 5, "active": true },
+    { "key": "family-law", "name": "Family Law & Divorce", "displayOrder": 6, "active": true },
+    { "key": "workers-compensation", "name": "Workers' Compensation", "displayOrder": 7, "active": true },
+    { "key": "military-law", "name": "Military Law", "displayOrder": 8, "active": true }
+  ],
+  "consultationTypes": [
+    { "key": "initial-consultation", "name": "Initial Consultation", "displayOrder": 1, "active": true },
+    { "key": "follow-up", "name": "Follow-up", "displayOrder": 2, "active": true },
+    { "key": "existing-client", "name": "Existing Client", "displayOrder": 3, "active": true }
+  ],
+  "routingGroups": [
+    {
+      "key": "probate",
+      "name": "Probate & Estate Administration",
+      "serviceArea": "probate",
+      "active": true,
+      "providers": ["clay-martinson", "doug-martinson"]
+    },
+    {
+      "key": "personal-injury",
+      "name": "Personal Injury",
+      "serviceArea": "personal-injury",
+      "active": true,
+      "providers": ["clay-martinson"]
+    }
+  ],
+  "settings": [
+    {
+      "namespace": "scheduling",
+      "key": "default-consultation-type",
+      "value": "initial-consultation"
+    }
+  ]
+}

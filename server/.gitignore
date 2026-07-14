@@ -1,0 +1,4 @@
+# Local Configuration Store databases (never commit customer configuration)
+*.db
+*.db-wal
+*.db-shm

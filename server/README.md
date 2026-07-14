@@ -1,8 +1,10 @@
 # GuideHerd Backend
 
 Node.js services for GuideHerd. Zero runtime dependencies — Node built-ins only
-(`node:http`, `node:crypto`, `node:test`), matching the repository's existing
-scripts. Requires Node 20+ (developed on Node 22).
+(`node:http`, `node:crypto`, `node:sqlite`, `node:test`), matching the
+repository's existing scripts. Requires Node 22.5+ (`node:sqlite`; the npm
+scripts pass `--experimental-sqlite`, needed below Node 22.13 / 23.4 and
+accepted harmlessly above).
 
 This directory is **not** part of the static website deploy.
 
@@ -50,6 +52,39 @@ Configuration (environment variables):
 cd server
 npm test           # node --test
 ```
+
+## Configuration Store
+
+`config/` is the GuideHerd Configuration Store (see
+[ADR-0004](../docs/architecture-decisions/ADR-0004-embedded-configuration-store.md)
+and issue #26): an embedded SQLite database for per-customer configuration —
+organizations (firms), providers (attorneys), service areas (practice areas),
+consultation types, routing groups, locations, office hours, and namespaced
+JSON settings.
+
+It is a **sibling of `handoff/` with no imports in either direction** and no
+HTTP surface yet: a library (`config/service.js`) plus a seed CLI. It stores
+configuration only — clients, sessions, appointments, and other operational
+data are excluded by design (future Operational Store).
+
+```bash
+cd server
+npm run config:seed -- --db guideherd-config.db --file config/data/martinson-beason.example.json
+```
+
+The seed command applies pending migrations
+(`config/migrations/NNNN-*.sql`, recorded in `schema_migrations`) and then
+upserts the organization document by key — non-destructive and safe to
+re-run. `service.exportOrganization(key)` produces the same document shape
+back. Backup is a file copy of the `.db` (WAL mode; use `VACUUM INTO` for a
+consistent snapshot of a live database). Local databases are gitignored.
+
+Module layout mirrors `handoff/`: `models` (typedefs + limits),
+`validation`, `store` (the only module containing SQL), `service` (business
+logic), plus `db`, `migrate`, `clock`, `errors`, and `seed` (CLI). Entities
+are addressed by stable kebab-case keys (e.g. `clay-martinson`,
+`initial-consultation`) scoped to an organization key; integer row ids never
+leave the store layer.
 
 ## Design notes
 

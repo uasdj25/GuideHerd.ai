@@ -121,6 +121,32 @@ function normalizeOutcome(body) {
       { field: '(body)', message: 'must be a JSON object' },
     ]);
   }
+
+  // FLAT-FORMAT TOLERANCE: the external assistant runtime's webhook editor
+  // cannot practically construct the nested `outcome` object, so a flat body
+  //   { sessionId, status, appointment, reason, ... }
+  // is lifted into the canonical nested shape here, then flows through the
+  // EXACT same validation below. `reason` is an alias for
+  // `schedulingSummary`. A body carrying both `outcome` and flat fields is
+  // rejected by the nested path's key allowlist (no ambiguity allowed).
+  if (!('outcome' in body) && 'status' in body) {
+    const flatDetails = [];
+    assertOnlyKeys(body, ['sessionId', 'status', 'appointment', 'reason', 'schedulingSummary', 'unresolvedQuestions', 'escalationRequired'], '(body)', flatDetails);
+    if (body.reason !== undefined && body.schedulingSummary !== undefined) {
+      flatDetails.push({ field: 'reason', message: 'must not be combined with schedulingSummary' });
+    }
+    if (flatDetails.length > 0) {
+      throw new ValidationError('One or more fields are invalid.', flatDetails);
+    }
+    const lifted = { status: body.status };
+    if (body.appointment !== undefined) lifted.appointment = body.appointment;
+    const summaryText = body.reason !== undefined ? body.reason : body.schedulingSummary;
+    if (summaryText !== undefined) lifted.schedulingSummary = summaryText;
+    if (body.unresolvedQuestions !== undefined) lifted.unresolvedQuestions = body.unresolvedQuestions;
+    if (body.escalationRequired !== undefined) lifted.escalationRequired = body.escalationRequired;
+    body = { sessionId: body.sessionId, outcome: lifted };
+  }
+
   const details = [];
   assertOnlyKeys(body, ['sessionId', 'outcome'], '(body)', details);
 

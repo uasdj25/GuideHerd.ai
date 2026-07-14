@@ -70,7 +70,32 @@ Records the scheduling outcome using a **GuideHerd-owned contract** — never a
 provider payload. The Scheduling Assistant reports the result **only after its
 calendar tool has confirmed success or failure**.
 
-**Request**
+**Two accepted request formats.** The canonical nested format is below; a
+**flat format** is also accepted because the external assistant runtime's
+webhook editor cannot practically construct nested objects. The flat body is
+lifted into the nested shape internally and passes through **identical
+validation** — nothing is looser about it. `reason` is an alias for
+`schedulingSummary` (supplying both is rejected). Mixing formats in one body
+(`outcome` plus flat fields) is rejected. The same outcome submitted in either
+format counts as an idempotent duplicate.
+
+**Flat request** (webhook-editor friendly)
+
+```json
+{
+  "sessionId": "23d7d46b-933b-4dee-8675-41737cea85c5",
+  "status": "booked",
+  "appointment": {
+    "startsAt": "2026-07-20T15:00:00-05:00",
+    "timezone": "America/Chicago",
+    "attorneyId": "clay-martinson",
+    "consultationTypeId": "initial-consultation"
+  },
+  "reason": "Initial consultation booked."
+}
+```
+
+**Nested request** (canonical)
 
 ```json
 {

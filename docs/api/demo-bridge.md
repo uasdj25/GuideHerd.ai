@@ -48,8 +48,7 @@ Selection rules (deliberately safety-first):
   "caller": {
     "fullName": "Ryan Scoggins",
     "email": "ryan@example.com",
-    "phone": "+12565551212",
-    "existingClient": false
+    "phone": "+12565551212"
   },
   "scheduling": {
     "attorneyId": "clay-martinson",

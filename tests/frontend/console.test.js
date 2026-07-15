@@ -48,6 +48,29 @@ const MOCK = {
   consoleToken: 'gh_console_MOCKMOCKMOCKMOCKMOCKMOCKMOCK',
 };
 
+// Scheduling options served by the mock configuration endpoint. military-law
+// is deliberately unrouted so the "No Attorneys Configured" path is covered.
+const MOCK_OPTIONS = {
+  practiceAreas: [
+    { id: 'personal-injury', name: 'Personal Injury' },
+    { id: 'family-law', name: 'Family Law & Divorce' },
+    { id: 'military-law', name: 'Military Law' },
+  ],
+  attorneysByPracticeArea: {
+    'personal-injury': [
+      { id: 'clay-martinson', name: 'Clay Martinson' },
+      { id: 'morris-lilienthal', name: 'Morris Lilienthal' },
+    ],
+    'family-law': [{ id: 'raina-baugher', name: 'Raina Baugher' }],
+    'military-law': [],
+  },
+  consultationTypes: [
+    { id: 'initial-consultation', name: 'Initial Consultation' },
+    { id: 'follow-up', name: 'Follow-up' },
+    { id: 'existing-client', name: 'Existing Client' },
+  ],
+};
+
 function createBody(expiresInMs) {
   const now = Date.now();
   return {
@@ -81,6 +104,18 @@ async function mockApi(page, behavior, calls) {
 
     if (method === 'OPTIONS') {
       return route.fulfill({ status: 204, headers: CORS(origin) });
+    }
+
+    if (method === 'GET' && /\/api\/v1\/firms\/[^/]+\/scheduling-options$/.test(url)) {
+      calls.options.push(url);
+      const queue = behavior.options;
+      const b = Array.isArray(queue) ? (queue.length > 1 ? queue.shift() : queue[0]) : queue;
+      if (b === 'abort') return route.abort('failed');
+      const resolved = b || { status: 200, body: MOCK_OPTIONS };
+      return route.fulfill({
+        status: resolved.status, headers: { 'content-type': 'application/json', ...CORS(origin) },
+        body: JSON.stringify(resolved.body),
+      });
     }
 
     if (method === 'POST' && url.endsWith('/api/v1/handoffs')) {
@@ -119,12 +154,23 @@ async function mockApi(page, behavior, calls) {
   });
 }
 
-function newCalls() { return { create: [], status: [], del: [] }; }
+function newCalls() { return { create: [], status: [], del: [], options: [] }; }
 
-async function fillRequired(page, name = 'David Jones', email = 'david.jones@example.com') {
+/**
+ * Fill the required fields. Practice area drives the attorney list, so it is
+ * selected first; pass `opts.attorney = null` to leave the (optional)
+ * attorney as "No preference". A consultation type is required — the default
+ * is initial-consultation; override with `opts.consultationType`.
+ */
+async function fillRequired(page, name = 'David Jones', email = 'david.jones@example.com', opts = {}) {
   await page.fill('#caller-name', name);
   await page.fill('#caller-email', email);
-  await page.selectOption('#attorney', 'clay-martinson');
+  await page.waitForSelector('#practice-area:not([disabled])');
+  await page.selectOption('#practice-area', opts.practiceArea || 'personal-injury');
+  if (opts.attorney !== null) {
+    await page.selectOption('#attorney', opts.attorney || 'clay-martinson');
+  }
+  await page.click('label[for="ct-' + (opts.consultationType || 'initial-consultation') + '"]');
 }
 
 (async () => {
@@ -155,8 +201,6 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
 
     await fillRequired(page);
     await page.fill('#phone', '+1 404 423 2676');
-    await page.selectOption('#practice-area', 'personal-injury');
-    await page.click('label[for="cs-prospective"]');
     await page.click('#prepare-btn');
     await page.waitForSelector('#ready-panel:not([hidden])', { timeout: 5000 });
 
@@ -167,10 +211,9 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
       firmId: 'martinson-beason',
       caller: { fullName: 'David Jones', email: 'david.jones@example.com', phone: '+1 404 423 2676' },
       scheduling: {
-        attorneyId: 'clay-martinson',
-        consultationTypeId: 'initial-consultation',
         practiceAreaId: 'personal-injury',
-        existingClient: false,
+        consultationTypeId: 'initial-consultation',
+        attorneyId: 'clay-martinson',
       },
       handoff: { source: 'receptionist-portal', mode: 'live-transfer' },
     }), JSON.stringify(p));
@@ -197,24 +240,27 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
   {
     const calls = newCalls();
     const page = await freshPage({ create: { status: 201, body: createBody(600000) }, status: [{ status: 200, body: { status: 'awaiting-transfer' } }] }, calls);
-    await fillRequired(page, 'Blank Optional');
-    await page.click('label[for="cs-existing"]');
+    await fillRequired(page, 'Blank Optional', 'david.jones@example.com', { attorney: null });
     await page.click('#prepare-btn');
     await page.waitForSelector('#ready-panel:not([hidden])');
     const p = calls.create[0];
-    ok('existing client -> existingClient: true', p.scheduling.existingClient === true);
     ok('blank phone omitted', !('phone' in p.caller));
-    ok('blank practice area omitted', !('practiceAreaId' in p.scheduling));
+    ok('no-preference attorney omitted', !('attorneyId' in p.scheduling));
+    ok('practice area always sent', p.scheduling.practiceAreaId === 'personal-injury');
+    ok('retired existingClient never sent', !('existingClient' in p.scheduling));
+    ok('summary shows No preference for attorney', (await page.textContent('#sum-attorney')).trim() === 'No preference');
     await page.close();
   }
 
   {
+    // The selected consultation type flows into the payload and summary.
     const calls = newCalls();
     const page = await freshPage({ create: { status: 201, body: createBody(600000) }, status: [{ status: 200, body: { status: 'awaiting-transfer' } }] }, calls);
-    await fillRequired(page, 'Not Specified');
+    await fillRequired(page, 'Follow Up Caller', 'follow.up@example.com', { consultationType: 'follow-up' });
     await page.click('#prepare-btn');
     await page.waitForSelector('#ready-panel:not([hidden])');
-    ok('not-specified omits existingClient', !('existingClient' in calls.create[0].scheduling));
+    ok('selected consultation type sent', calls.create[0].scheduling.consultationTypeId === 'follow-up');
+    ok('summary shows consultation type', (await page.textContent('#sum-consultation')).trim() === 'Follow-up');
     await page.close();
   }
 
@@ -229,6 +275,9 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
       const req = route.request();
       const origin = (await req.headerValue('origin')) || '*';
       if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS(origin) });
+      if (req.method() === 'GET' && req.url().includes('/scheduling-options')) {
+        return route.fulfill({ status: 200, headers: { 'content-type': 'application/json', ...CORS(origin) }, body: JSON.stringify(MOCK_OPTIONS) });
+      }
       if (req.method() === 'POST' && req.url().endsWith('/handoffs')) {
         calls.create.push(1);
         await gate; // hold the first create open
@@ -376,6 +425,9 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
       const req = route.request();
       const origin = (await req.headerValue('origin')) || '*';
       if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS(origin) });
+      if (req.method() === 'GET' && req.url().includes('/scheduling-options')) {
+        return route.fulfill({ status: 200, headers: { 'content-type': 'application/json', ...CORS(origin) }, body: JSON.stringify(MOCK_OPTIONS) });
+      }
       if (req.method() === 'POST' && req.url().endsWith('/handoffs')) {
         calls.create.push(1);
         if (fail) { fail = false; return route.abort('failed'); }
@@ -465,8 +517,10 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
       status: [{ status: 200, body: { status: 'awaiting-transfer' } }],
     }, calls);
     await page.fill('#caller-name', 'No Email');
-    await page.selectOption('#attorney', 'clay-martinson');
-    ok('name+attorney without email keeps button disabled', await page.isDisabled('#prepare-btn'));
+    await page.waitForSelector('#practice-area:not([disabled])');
+    await page.selectOption('#practice-area', 'personal-injury');
+    await page.click('label[for="ct-initial-consultation"]');
+    ok('name+practice+type without email keeps button disabled', await page.isDisabled('#prepare-btn'));
     await page.fill('#caller-email', 'not-an-email');
     ok('malformed email keeps button disabled', await page.isDisabled('#prepare-btn'));
     await page.fill('#caller-email', 'valid@example.com');
@@ -549,6 +603,77 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
     }
   }
 
+  // ── Config-driven scheduling options ──────────────────────────────
+  console.log('— Config-driven scheduling options —');
+  {
+    const calls = newCalls();
+    const page = await freshPage({
+      create: () => ({ status: 201, body: createBody(600000) }),
+      status: [{ status: 200, body: { status: 'awaiting-transfer' } }],
+    }, calls);
+    await page.waitForSelector('#practice-area:not([disabled])');
+    ok('options fetched once at load', calls.options.length === 1);
+    ok('options URL targets the firm', calls.options[0].endsWith('/api/v1/firms/martinson-beason/scheduling-options'));
+
+    const areaValues = await page.$$eval('#practice-area option', (os) => os.map((o) => o.value).filter((v) => v !== ''));
+    ok('practice areas come from configuration', JSON.stringify(areaValues)
+      === JSON.stringify(['personal-injury', 'family-law', 'military-law']), JSON.stringify(areaValues));
+    ok('attorney disabled before a practice area is chosen', await page.isDisabled('#attorney'));
+
+    await page.selectOption('#practice-area', 'personal-injury');
+    const attorneyValues = await page.$$eval('#attorney option', (os) => os.map((o) => o.value));
+    ok('attorneys filtered to the area\'s routing groups', JSON.stringify(attorneyValues)
+      === JSON.stringify(['', 'clay-martinson', 'morris-lilienthal']), JSON.stringify(attorneyValues));
+    ok('attorney enabled with No preference default', !(await page.isDisabled('#attorney'))
+      && (await page.inputValue('#attorney')) === '');
+
+    await page.selectOption('#practice-area', 'family-law');
+    const familyValues = await page.$$eval('#attorney option', (os) => os.map((o) => o.value));
+    ok('attorney list follows the selected area', JSON.stringify(familyValues)
+      === JSON.stringify(['', 'raina-baugher']), JSON.stringify(familyValues));
+
+    await page.selectOption('#practice-area', 'military-law');
+    ok('unrouted area disables attorney with "No Attorneys Configured"',
+      await page.isDisabled('#attorney')
+      && (await page.textContent('#attorney option')).trim() === 'No Attorneys Configured');
+
+    // Consultation types come from configuration and are required.
+    const typeValues = await page.$$eval('#consultation-type-options input[type="radio"]',
+      (radios) => radios.map((r) => r.value));
+    ok('consultation types come from configuration', JSON.stringify(typeValues)
+      === JSON.stringify(['initial-consultation', 'follow-up', 'existing-client']), JSON.stringify(typeValues));
+
+    // The attorney is optional; the consultation type is not.
+    await page.fill('#caller-name', 'No Attorney Needed');
+    await page.fill('#caller-email', 'none@example.com');
+    ok('prepare disabled until a consultation type is chosen', await page.isDisabled('#prepare-btn'));
+    await page.click('label[for="ct-existing-client"]');
+    ok('prepare enabled without an attorney once a type is chosen', !(await page.isDisabled('#prepare-btn')));
+    await page.click('#prepare-btn');
+    await page.waitForSelector('#ready-panel:not([hidden])');
+    const p = calls.create[0];
+    ok('payload omits attorneyId and carries the practice area',
+      !('attorneyId' in p.scheduling) && p.scheduling.practiceAreaId === 'military-law');
+    ok('payload carries the chosen consultation type', p.scheduling.consultationTypeId === 'existing-client');
+    ok('retired existingClient absent from payload', !('existingClient' in p.scheduling));
+    await page.close();
+  }
+  {
+    // Options load failure shows the error panel; retry recovers.
+    const calls = newCalls();
+    const page = await freshPage({
+      options: ['abort', { status: 200, body: MOCK_OPTIONS }],
+    }, calls);
+    await page.waitForSelector('#error-panel:not([hidden])', { timeout: 15000 });
+    ok('options failure shows error panel', true);
+    ok('options failure status', (await page.textContent('#status-text')).trim() === 'Options unavailable');
+    await page.click('#error-retry-btn');
+    await page.waitForSelector('#caller-form:not([hidden])');
+    await page.waitForSelector('#practice-area:not([disabled])');
+    ok('retry reloads options and returns to the form', calls.options.length === 2);
+    await page.close();
+  }
+
   // ── apiBase override security ─────────────────────────────────────
   console.log('— apiBase override security —');
   {
@@ -570,6 +695,9 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
       const origin = (await req.headerValue('origin')) || 'https://guideherd.ai';
       if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS(origin) });
       prodApiCalls.push(req.url());
+      if (req.method() === 'GET' && req.url().includes('/scheduling-options')) {
+        return route.fulfill({ status: 200, headers: { 'content-type': 'application/json', ...CORS(origin) }, body: JSON.stringify(MOCK_OPTIONS) });
+      }
       return route.fulfill({ status: 201, headers: { 'content-type': 'application/json', ...CORS(origin) }, body: JSON.stringify(createBody(600000)) });
     });
 
@@ -595,6 +723,9 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
       const origin = (await req.headerValue('origin')) || '*';
       if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS(origin) });
       prodApiCalls.push(1);
+      if (req.method() === 'GET' && req.url().includes('/scheduling-options')) {
+        return route.fulfill({ status: 200, headers: { 'content-type': 'application/json', ...CORS(origin) }, body: JSON.stringify(MOCK_OPTIONS) });
+      }
       return route.fulfill({ status: 201, headers: { 'content-type': 'application/json', ...CORS(origin) }, body: JSON.stringify(createBody(600000)) });
     });
     await page.goto(PAGE_URL + '?apiBase=https://attacker.example');
@@ -613,6 +744,9 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
       const origin = (await req.headerValue('origin')) || '*';
       if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS(origin) });
       localApiCalls.push(req.url());
+      if (req.method() === 'GET' && req.url().includes('/scheduling-options')) {
+        return route.fulfill({ status: 200, headers: { 'content-type': 'application/json', ...CORS(origin) }, body: JSON.stringify(MOCK_OPTIONS) });
+      }
       return route.fulfill({ status: 201, headers: { 'content-type': 'application/json', ...CORS(origin) }, body: JSON.stringify(createBody(600000)) });
     });
     await page.goto(PAGE_URL + '?apiBase=http://localhost:4949');

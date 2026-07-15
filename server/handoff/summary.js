@@ -84,10 +84,9 @@ function buildConsultationSummary(session) {
       fullName: session.caller.fullName,
       email: session.caller.email,
       phone: session.caller.phone ?? null,
-      existingClient: session.scheduling.existingClient ?? false,
     },
     request: {
-      attorneyId: session.scheduling.attorneyId,
+      attorneyId: session.scheduling.attorneyId ?? null,
       practiceAreaId: session.scheduling.practiceAreaId ?? null,
       consultationTypeId: session.scheduling.consultationTypeId,
     },
@@ -215,7 +214,6 @@ function renderSummaryHtml(model) {
         ${row('Caller', model.caller.fullName)}
         ${emailRow('Email', model.caller.email)}
         ${row('Phone', model.caller.phone)}
-        ${row('Client status', model.caller.existingClient ? 'Existing client' : 'Prospective client')}
         ${row('Attorney', displayLabel(model.request.attorneyId))}
         ${row('Practice area', displayLabel(model.request.practiceAreaId))}
         ${row('Consultation type', displayLabel(model.request.consultationTypeId))}

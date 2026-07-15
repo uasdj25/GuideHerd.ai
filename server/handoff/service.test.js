@@ -17,7 +17,6 @@ function validRequest(overrides = {}) {
       attorneyId: 'clay-martinson',
       practiceAreaId: 'personal-injury',
       consultationTypeId: 'initial-consultation',
-      existingClient: false,
     },
     handoff: { createdByUserId: 'receptionist-001', source: 'receptionist-portal', mode: 'live-transfer' },
     ...overrides,
@@ -58,7 +57,6 @@ test('optional fields may be omitted', () => {
   const ctx = service.redeem(handoffToken);
   assert.equal(ctx.callerPhone, null);
   assert.equal(ctx.practiceAreaId, null);
-  assert.equal(ctx.existingClient, false);
 });
 
 // --------------------------------------------------------------------------
@@ -77,7 +75,6 @@ test('valid token redeems once and moves the session to connected', () => {
   assert.equal(ctx.attorneyId, 'clay-martinson');
   assert.equal(ctx.practiceAreaId, 'personal-injury');
   assert.equal(ctx.consultationTypeId, 'initial-consultation');
-  assert.equal(ctx.existingClient, false);
 });
 
 test('redeem response contains only scheduling context (no receptionist or vendor fields)', () => {
@@ -87,7 +84,7 @@ test('redeem response contains only scheduling context (no receptionist or vendo
 
   assert.deepEqual(
     Object.keys(ctx).sort(),
-    ['attorneyId', 'callerEmail', 'callerLastName', 'callerName', 'callerPhone', 'consultationTypeId', 'existingClient', 'practiceAreaId', 'sessionId', 'status'].sort(),
+    ['attorneyId', 'callerEmail', 'callerLastName', 'callerName', 'callerPhone', 'consultationTypeId', 'practiceAreaId', 'sessionId', 'status'].sort(),
   );
   // createdByUserId / source / mode must not leak.
   assert.equal('createdByUserId' in ctx, false);

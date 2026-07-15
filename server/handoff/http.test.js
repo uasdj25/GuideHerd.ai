@@ -17,7 +17,6 @@ function validRequest() {
       attorneyId: 'clay-martinson',
       practiceAreaId: 'personal-injury',
       consultationTypeId: 'initial-consultation',
-      existingClient: false,
     },
     handoff: { createdByUserId: 'receptionist-001', source: 'receptionist-portal', mode: 'live-transfer' },
   };

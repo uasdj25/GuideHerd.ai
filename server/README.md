@@ -1,8 +1,10 @@
 # GuideHerd Backend
 
 Node.js services for GuideHerd. Zero runtime dependencies — Node built-ins only
-(`node:http`, `node:crypto`, `node:test`), matching the repository's existing
-scripts. Requires Node 20+ (developed on Node 22).
+(`node:http`, `node:crypto`, `node:sqlite`, `node:test`), matching the
+repository's existing scripts. Requires Node 22.5+ (`node:sqlite`; the npm
+scripts pass `--experimental-sqlite`, needed below Node 22.13 / 23.4 and
+accepted harmlessly above).
 
 This directory is **not** part of the static website deploy.
 
@@ -43,6 +45,11 @@ Configuration (environment variables):
   calls report `summaryDelivery: "not-configured"`; the API starts and tests
   run without any of them. Delivery is a separate outcome from booking — a
   mail failure never reverses a confirmed appointment.
+- `GUIDEHERD_CONFIG_DB` — path to the Configuration Store SQLite file
+  (default `./guideherd-config.db`). Pending migrations apply automatically
+  at boot regardless of this setting.
+- `GUIDEHERD_SEED_FILE` — **optional**, off by default. See "Configuration
+  Store deployment modes" below.
 
 ### Test
 
@@ -50,6 +57,65 @@ Configuration (environment variables):
 cd server
 npm test           # node --test
 ```
+
+## Configuration Store
+
+`config/` is the GuideHerd Configuration Store (see
+[ADR-0004](../docs/architecture-decisions/ADR-0004-embedded-configuration-store.md)
+and issue #26): an embedded SQLite database for per-customer configuration —
+organizations (firms), providers (attorneys), service areas (practice areas),
+consultation types, routing groups, locations, office hours, and namespaced
+JSON settings.
+
+It is a **sibling of `handoff/` with no imports in either direction** and no
+HTTP surface yet: a library (`config/service.js`) plus a seed CLI. It stores
+configuration only — clients, sessions, appointments, and other operational
+data are excluded by design (future Operational Store).
+
+```bash
+cd server
+npm run config:seed -- --db guideherd-config.db --file config/data/martinson-beason.example.json
+```
+
+The seed command applies pending migrations
+(`config/migrations/NNNN-*.sql`, recorded in `schema_migrations`) and then
+upserts the organization document by key — non-destructive and safe to
+re-run. `service.exportOrganization(key)` produces the same document shape
+back. Backup is a file copy of the `.db` (WAL mode; use `VACUUM INTO` for a
+consistent snapshot of a live database). Local databases are gitignored.
+
+Module layout mirrors `handoff/`: `models` (typedefs + limits),
+`validation`, `store` (the only module containing SQL), `service` (business
+logic), plus `db`, `migrate`, `clock`, `errors`, and `seed` (CLI + the
+`loadSeedDocument` helper `server.js` also uses — see below). Entities are
+addressed by stable kebab-case keys (e.g. `clay-martinson`,
+`initial-consultation`) scoped to an organization key; integer row ids never
+leave the store layer.
+
+### Configuration Store deployment modes
+
+The Configuration Store is a **file**, not a service — nothing separate runs.
+How that file gets populated depends on where it's deployed:
+
+- **Persistent disk** (e.g. this host's own filesystem, or a Railway volume):
+  seed once with the CLI above; the file survives restarts and deploys.
+  `GUIDEHERD_SEED_FILE` stays unset.
+- **Ephemeral filesystem, no volume** (e.g. Railway without one attached):
+  the file is wiped on every deploy, so it must be rebuilt at every boot.
+  Set `GUIDEHERD_SEED_FILE=config/data/martinson-beason.example.json` (or a
+  real firm's document) and `server.js` imports it automatically before
+  accepting traffic — **git is the source of truth** in this mode. The
+  import is an idempotent upsert (safe on every boot), and a malformed or
+  invalid seed document makes the process **exit immediately with a
+  non-zero code** rather than start serving an incomplete configuration —
+  this is deliberate, so a bad deploy fails loudly (visible as a
+  crash/restart in platform logs) instead of quietly breaking the console.
+
+  **Do not enable this mode once a firm's configuration can be edited
+  through a live channel a git deploy doesn't know about** (e.g. a future
+  Administration Portal) — the next deploy's re-import would silently
+  overwrite those edits with whatever's in git. Until such a channel
+  exists, git-as-source-of-truth is the intended and only mode.
 
 ## Design notes
 

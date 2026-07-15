@@ -5,11 +5,12 @@
   "description": "GuideHerd Context Handoff API (v1) — passes short-lived caller context from the GuideHerd Console to the Scheduling Assistant.",
   "type": "commonjs",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.5"
   },
   "scripts": {
-    "start": "node server.js",
-    "test": "node --test",
+    "start": "node --experimental-sqlite server.js",
+    "test": "node --experimental-sqlite --test",
+    "config:seed": "node --experimental-sqlite config/seed.js",
     "test:frontend": "npm --prefix ../tests/frontend install --no-audit --no-fund && npm --prefix ../tests/frontend test"
   }
 }

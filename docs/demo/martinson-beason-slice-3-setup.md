@@ -170,6 +170,11 @@ Rules for this workflow:
   committed file, and never build a public "view summary" button around it.
 - The endpoint returns the summary for the **most recently completed** session
   only, and `404 no_completed_summary` before any outcome has been recorded.
+- The summary shows friendly display names (e.g. `Clay Martinson`,
+  `Personal Injury`, `Central Time`) — internal identifiers are unchanged;
+  this is presentation only. The caller email is rendered as plain text (not
+  a link) with the CDN email-obfuscation opt-out, so a saved local copy shows
+  the real address instead of `[email protected]`.
 - Fetch it **promptly after the outcome**: summaries live in API memory, so a
   Railway restart or deploy erases them.
 - This is temporary demo infrastructure. Once Graph mail delivery works,

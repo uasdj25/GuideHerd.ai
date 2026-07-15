@@ -176,6 +176,22 @@ mailer would send.
 - The HTML contains only what the summary email would: caller-facing
   scheduling details. It never contains tokens, hashes, session IDs, the
   bridge secret, provider/vendor names, transcripts, or legal content.
+- **Presentation-layer display labels.** The renderer shows human-readable
+  names for known demo identifiers (`clay-martinson` → `Clay Martinson`,
+  `personal-injury` → `Personal Injury`, `initial-consultation` → `Initial
+  Consultation`) and friendly timezone names (`America/Chicago` → `Central
+  Time`). Unknown identifiers fall back to a mechanical kebab-case →
+  Title Case conversion; unknown timezones display their raw IANA id. The
+  stored values, the summary model, and every API response keep the stable
+  kebab-case identifiers unchanged — this is display formatting only, and
+  because the same renderer builds the summary email, delivered mail gets the
+  same friendly labels.
+- **Email is plain escaped text, never a link.** The caller address is
+  rendered without `mailto:` (there are no anchor elements in the document)
+  and is wrapped in the CDN's documented `email_off` opt-out guards so
+  email-address obfuscation does not rewrite it to `[email protected]` in
+  saved copies of the operator view. The guards are invisible comments and do
+  not alter the address.
 - This is an **operator tool for a terminal, not a web page**. Do not embed
   the secret in any browser page, bookmark, or URL — see the setup guide for
   the supported curl workflow.

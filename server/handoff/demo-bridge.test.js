@@ -829,6 +829,116 @@ test('summary/latest: selects the most recently completed summary', async () => 
   });
 });
 
+// ---------------------------------------------------------------------------
+// Summary presentation polish: friendly labels, plain-text email
+// ---------------------------------------------------------------------------
+
+test('summary renders friendly names for known demo identifiers, never raw ids', async () => {
+  await withServer({ clock: fixedClock(AT_1515) }, async (base, app) => {
+    const created = await connectOne(base);
+    await post(base, '/api/v1/demo/outcome', bookedOutcome(created.sessionId), bridgeAuth);
+    const html = await (await fetch(`${base}/api/v1/demo/summary/latest`, { headers: bridgeAuth })).text();
+
+    assert.ok(html.includes('Clay Martinson'), 'attorney friendly name');
+    assert.ok(html.includes('Personal Injury'), 'practice-area friendly name');
+    assert.ok(html.includes('Initial Consultation'), 'consultation-type friendly name');
+    assert.ok(html.includes('(Central Time)'), 'friendly timezone label');
+    assert.equal(html.includes('clay-martinson'), false, 'raw attorney id hidden');
+    assert.equal(html.includes('personal-injury'), false, 'raw practice-area id hidden');
+    assert.equal(html.includes('initial-consultation'), false, 'raw consultation-type id hidden');
+    assert.equal(html.includes('America/Chicago'), false, 'raw IANA id hidden when label known');
+
+    // family-law is in the label map too (rendered directly — the demo firm
+    // fixture uses personal-injury).
+    const model = buildConsultationSummary(app.store.get(created.sessionId));
+    model.request.practiceAreaId = 'family-law';
+    assert.ok(renderSummaryHtml(model).includes('Family Law'));
+  });
+});
+
+test('unknown identifiers get a title-case fallback; stored values stay kebab-case', async () => {
+  await withServer({ clock: fixedClock(AT_1515) }, async (base, app) => {
+    const created = await createSession(base, {
+      scheduling: {
+        attorneyId: 'sarah-beason',
+        practiceAreaId: 'estate-planning',
+        consultationTypeId: 'follow-up-review',
+        existingClient: false,
+      },
+    });
+    await post(base, '/api/v1/demo/connect', {}, bridgeAuth);
+    await post(base, '/api/v1/demo/outcome', {
+      sessionId: created.sessionId,
+      status: 'booked',
+      appointment: { startsAt: '2026-07-21T10:00:00+12:00', timezone: 'Pacific/Auckland' },
+    }, bridgeAuth);
+    const html = await (await fetch(`${base}/api/v1/demo/summary/latest`, { headers: bridgeAuth })).text();
+
+    assert.ok(html.includes('Sarah Beason'), 'unknown attorney title-cased');
+    assert.ok(html.includes('Estate Planning'), 'unknown practice area title-cased');
+    assert.ok(html.includes('Follow Up Review'), 'unknown consultation type title-cased');
+    assert.ok(html.includes('(Pacific/Auckland)'), 'unknown timezone shows raw IANA id, not a guessed name');
+
+    // Display formatting never mutates the model or the stored session.
+    const session = app.store.get(created.sessionId);
+    const model = buildConsultationSummary(session);
+    assert.equal(model.request.attorneyId, 'sarah-beason');
+    assert.equal(model.request.practiceAreaId, 'estate-planning');
+    assert.equal(model.request.consultationTypeId, 'follow-up-review');
+    assert.equal(model.outcome.timezone, 'Pacific/Auckland');
+    assert.equal(session.scheduling.attorneyId, 'sarah-beason');
+    assert.equal(session.outcome.appointment.timezone, 'Pacific/Auckland');
+  });
+});
+
+test('email renders as escaped plain text: no links, no CDN email-protection artifacts', async () => {
+  await withServer({ clock: fixedClock(AT_1515) }, async (base) => {
+    const created = await connectOne(base);
+    await post(base, '/api/v1/demo/outcome', bookedOutcome(created.sessionId), bridgeAuth);
+    const html = await (await fetch(`${base}/api/v1/demo/summary/latest`, { headers: bridgeAuth })).text();
+
+    assert.ok(
+      html.includes('<!--email_off-->Ryan.Scoggins@example.com<!--/email_off-->'),
+      'address is literal escaped text inside the obfuscation opt-out guards',
+    );
+    assert.equal(/mailto:/i.test(html), false, 'no mailto link');
+    assert.equal(/<a[\s>]/i.test(html), false, 'no anchor elements anywhere');
+    assert.equal(
+      /cdn-cgi|email-protection|__cf_email__|data-cfemail|email-decode/i.test(html),
+      false,
+      'no email-protection path, class, attribute, or decoder script',
+    );
+  });
+});
+
+test('renderer escaping holds for malicious name/email/identifier values', () => {
+  // Direct renderer unit test: API validation rejects these values, but the
+  // renderer must stay safe on its own.
+  const model = {
+    caller: {
+      fullName: '<img src=x onerror=1>',
+      email: '"><script>alert(1)</script>@example.com',
+      phone: null,
+      existingClient: false,
+    },
+    request: {
+      attorneyId: '<b>evil</b>-attorney',
+      practiceAreaId: null,
+      consultationTypeId: 'x"-onmouseover-y',
+    },
+    outcome: { status: 'failed', appointmentStartsAt: null, timezone: null },
+    notes: { schedulingSummary: '', unresolvedQuestions: [], escalationRequired: false },
+    timestamps: { createdAt: null, connectedAt: null, completedAt: null },
+  };
+  const html = renderSummaryHtml(model);
+  assert.equal(html.includes('<script>'), false, 'script tag escaped');
+  assert.equal(html.includes('<img'), false, 'img tag escaped');
+  assert.equal(html.includes('<b>evil</b>'), false, 'markup in identifiers escaped');
+  assert.equal(/"\s*onmouseover/i.test(html), false, 'attribute breakout escaped');
+  assert.ok(html.includes('&lt;script&gt;'), 'escaped email survives as text');
+  assert.ok(html.includes('&lt;img'), 'escaped name survives as text');
+});
+
 test('summary/latest: the Graph mailer is untouched by the view path', async () => {
   const mailer = fakeMailer();
   await withServer({ clock: fixedClock(AT_1515), mailer }, async (base) => {

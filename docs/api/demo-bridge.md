@@ -6,7 +6,7 @@
 > (see the setup guide's teardown step). The shared secret used here is **not
 > production authentication**.
 
-Both endpoints are server-to-server only:
+All endpoints are server-to-server only:
 
 - Authorized by `Authorization: Bearer <DEMO_BRIDGE_SECRET>` — the secret is
   configured only in the API environment and in the external Scheduling
@@ -69,7 +69,32 @@ Records the scheduling outcome using a **GuideHerd-owned contract** — never a
 provider payload. The Scheduling Assistant reports the result **only after its
 calendar tool has confirmed success or failure**.
 
-**Request**
+**Two accepted request formats.** The canonical nested format is below; a
+**flat format** is also accepted because the external assistant runtime's
+webhook editor cannot practically construct nested objects. The flat body is
+lifted into the nested shape internally and passes through **identical
+validation** — nothing is looser about it. `reason` is an alias for
+`schedulingSummary` (supplying both is rejected). Mixing formats in one body
+(`outcome` plus flat fields) is rejected. The same outcome submitted in either
+format counts as an idempotent duplicate.
+
+**Flat request** (webhook-editor friendly)
+
+```json
+{
+  "sessionId": "23d7d46b-933b-4dee-8675-41737cea85c5",
+  "status": "booked",
+  "appointment": {
+    "startsAt": "2026-07-20T15:00:00-05:00",
+    "timezone": "America/Chicago",
+    "attorneyId": "clay-martinson",
+    "consultationTypeId": "initial-consultation"
+  },
+  "reason": "Initial consultation booked."
+}
+```
+
+**Nested request** (canonical)
 
 ```json
 {
@@ -124,6 +149,51 @@ outcome call), or `not-configured` (mail settings absent — a controlled
 result, not an error). **Mail delivery failure never reverses a confirmed
 booking.** A summary that was `sent` is never resent, including under
 concurrent duplicate outcome calls.
+
+## GET /api/v1/demo/summary/latest
+
+> **Temporary operator view.** This endpoint exists only so the demo operator
+> can show the GuideHerd Consultation Summary before Microsoft Graph mail
+> delivery is configured. It does not replace delivery: the summary remains a
+> domain artifact, and the Graph mailer path is unchanged. Remove this endpoint
+> together with the rest of the demo bridge (see the setup guide's teardown
+> step).
+
+Returns the **most recently completed** Consultation Summary for the demo firm
+as a self-contained, GuideHerd-branded HTML document — the same rendering the
+mailer would send.
+
+- Authorization: `Authorization: Bearer <DEMO_BRIDGE_SECRET>` — identical auth
+  matrix to the other bridge endpoints (`401` missing/malformed, `403` wrong
+  secret, `503` unconfigured).
+- Selection: sessions in a terminal outcome state (`booked`, `failed`,
+  `escalated`) for the demo firm, newest by completion time. Prepared,
+  connected, cancelled, and expired sessions are never eligible.
+- **`404 no_completed_summary`** when no completed session exists.
+- Response: `200` with `Content-Type: text/html; charset=utf-8` and
+  `Cache-Control: no-store`. No browser CORS headers, ever.
+- The HTML contains only what the summary email would: caller-facing
+  scheduling details. It never contains tokens, hashes, session IDs, the
+  bridge secret, provider/vendor names, transcripts, or legal content.
+- **Presentation-layer display labels.** The renderer shows human-readable
+  names for known demo identifiers (`clay-martinson` → `Clay Martinson`,
+  `personal-injury` → `Personal Injury`, `initial-consultation` → `Initial
+  Consultation`) and friendly timezone names (`America/Chicago` → `Central
+  Time`). Unknown identifiers fall back to a mechanical kebab-case →
+  Title Case conversion; unknown timezones display their raw IANA id. The
+  stored values, the summary model, and every API response keep the stable
+  kebab-case identifiers unchanged — this is display formatting only, and
+  because the same renderer builds the summary email, delivered mail gets the
+  same friendly labels.
+- **Email is plain escaped text, never a link.** The caller address is
+  rendered without `mailto:` (there are no anchor elements in the document)
+  and is wrapped in the CDN's documented `email_off` opt-out guards so
+  email-address obfuscation does not rewrite it to `[email protected]` in
+  saved copies of the operator view. The guards are invisible comments and do
+  not alter the address.
+- This is an **operator tool for a terminal, not a web page**. Do not embed
+  the secret in any browser page, bookmark, or URL — see the setup guide for
+  the supported curl workflow.
 
 ## Deferred hardening
 

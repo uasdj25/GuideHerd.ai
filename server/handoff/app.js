@@ -5,6 +5,8 @@ const { createInMemoryHandoffStore } = require('./store');
 const { createHandoffService } = require('./service');
 const { normalizeCreate, normalizeRedeem } = require('./validation');
 const { requireBridgeAuth, normalizeOutcome, recordOutcomeAndDeliver, DEMO_FIRM_ID } = require('./demo-bridge');
+const { buildConsultationSummary, renderSummaryHtml } = require('./summary');
+const { NoCompletedSummaryError } = require('./errors');
 const { createMailer } = require('./mailer');
 const { HandoffError, MalformedRequestError, UnauthorizedError } = require('./errors');
 const { ConfigError } = require('../config/errors');
@@ -159,6 +161,23 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret,
         sessionId = context.sessionId;
         status = 200;
         return sendJson(res, status, context, null);
+      }
+
+      // TEMPORARY DEMO INFRASTRUCTURE: operator view of the latest completed
+      // Consultation Summary, for demos where Microsoft Graph is not yet
+      // configured. Bridge-secret authorized; the Graph mailer is untouched.
+      if (method === 'GET' && path === '/api/v1/demo/summary/latest') {
+        requireBridgeAuth(demoBridgeSecret, req.headers.authorization);
+        const session = store.latestCompleted(DEMO_FIRM_ID);
+        if (!session) throw new NoCompletedSummaryError();
+        sessionId = session.sessionId;
+        status = 200;
+        const html = renderSummaryHtml(buildConsultationSummary(session));
+        res.writeHead(status, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store',
+        });
+        return res.end(html);
       }
 
       if (method === 'POST' && path === '/api/v1/demo/outcome') {

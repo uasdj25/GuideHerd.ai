@@ -661,3 +661,291 @@ test('connect body tolerance does not weaken authorization', async () => {
     assert.equal((await fetch(`${base}/api/v1/demo/connect`, { method: 'POST', headers: { ...headers, authorization: 'Bearer wrong' }, body })).status, 403, 'wrong secret still 403');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Flat outcome format (webhook editors that cannot nest objects)
+// ---------------------------------------------------------------------------
+
+function flatBooked(sessionId) {
+  return {
+    sessionId,
+    status: 'booked',
+    appointment: {
+      startsAt: '2026-07-20T15:00:00-05:00',
+      timezone: 'America/Chicago',
+      attorneyId: 'clay-martinson',
+      consultationTypeId: 'initial-consultation',
+    },
+    reason: 'Initial consultation booked.',
+  };
+}
+
+test('flat booked payload works and reason maps to schedulingSummary', async () => {
+  const mailer = fakeMailer();
+  await withServer({ clock: fixedClock(AT_1515), mailer }, async (base, app) => {
+    const created = await connectOne(base);
+    const res = await post(base, '/api/v1/demo/outcome', flatBooked(created.sessionId), bridgeAuth);
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).status, 'booked');
+    const session = app.store.get(created.sessionId);
+    assert.equal(session.status, 'booked');
+    assert.equal(session.outcome.schedulingSummary, 'Initial consultation booked.', 'reason lifted into schedulingSummary');
+    assert.equal(session.outcome.appointment.startsAt, '2026-07-20T15:00:00-05:00');
+    assert.equal(mailer.sends.length, 1, 'summary delivered once');
+  });
+});
+
+test('flat failed and escalated payloads work', async () => {
+  for (const status of ['failed', 'escalated']) {
+    await withServer({ clock: fixedClock(AT_1515) }, async (base) => {
+      const created = await connectOne(base);
+      const res = await post(base, '/api/v1/demo/outcome', {
+        sessionId: created.sessionId, status, reason: 'Caller needs follow-up.',
+      }, bridgeAuth);
+      assert.equal(res.status, 200, `flat ${status} accepted`);
+      const st = await (await fetch(`${base}/api/v1/handoffs/${created.sessionId}`, {
+        headers: { authorization: `Bearer ${created.consoleToken}` },
+      })).json();
+      assert.equal(st.status, status);
+    });
+  }
+});
+
+test('flat and nested formats validate identically and stay strict', async () => {
+  await withServer({ clock: fixedClock(AT_1515) }, async (base) => {
+    const created = await connectOne(base);
+    const rejected = [
+      // flat with invalid appointment (validation preserved through lifting)
+      { sessionId: created.sessionId, status: 'booked', appointment: { startsAt: '2026-07-20', timezone: 'America/Chicago' } },
+      { sessionId: created.sessionId, status: 'booked', appointment: { startsAt: '2026-07-20T15:00:00-05:00', timezone: 'Central Time' } },
+      // flat with unknown/provider fields
+      { sessionId: created.sessionId, status: 'failed', calendarEvent: { uid: 'x' } },
+      { sessionId: created.sessionId, status: 'failed', transcript: 'caller said...' },
+      // both aliases at once is ambiguous
+      { sessionId: created.sessionId, status: 'failed', reason: 'a', schedulingSummary: 'b' },
+      // mixing nested and flat is ambiguous
+      { sessionId: created.sessionId, status: 'failed', outcome: { status: 'failed' } },
+    ];
+    for (const body of rejected) {
+      const res = await post(base, '/api/v1/demo/outcome', body, bridgeAuth);
+      assert.equal(res.status, 400, `rejected: ${JSON.stringify(body).slice(0, 70)}`);
+    }
+  });
+});
+
+test('flat and nested submissions of the same outcome are mutually idempotent', async () => {
+  const mailer = fakeMailer();
+  await withServer({ clock: fixedClock(AT_1515), mailer }, async (base) => {
+    const created = await connectOne(base);
+    const flat = { sessionId: created.sessionId, status: 'booked',
+      appointment: { startsAt: '2026-07-20T15:00:00-05:00', timezone: 'America/Chicago' },
+      reason: 'Initial consultation booked.' };
+    const nested = { sessionId: created.sessionId, outcome: { status: 'booked',
+      appointment: { startsAt: '2026-07-20T15:00:00-05:00', timezone: 'America/Chicago' },
+      schedulingSummary: 'Initial consultation booked.' } };
+
+    assert.equal((await post(base, '/api/v1/demo/outcome', flat, bridgeAuth)).status, 200);
+    // Same content in either format is an idempotent duplicate after lifting.
+    assert.equal((await post(base, '/api/v1/demo/outcome', flat, bridgeAuth)).status, 200);
+    assert.equal((await post(base, '/api/v1/demo/outcome', nested, bridgeAuth)).status, 200);
+    assert.equal(mailer.sends.length, 1, 'no duplicate summaries across formats');
+    // A genuinely different outcome still conflicts.
+    const conflict = await post(base, '/api/v1/demo/outcome', { sessionId: created.sessionId, status: 'failed' }, bridgeAuth);
+    assert.equal(conflict.status, 409);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/v1/demo/summary/latest — operator summary view (temporary)
+// ---------------------------------------------------------------------------
+
+test('summary/latest: missing auth 401, malformed 401, wrong secret 403', async () => {
+  await withServer({ clock: fixedClock(AT_1515) }, async (base) => {
+    assert.equal((await fetch(`${base}/api/v1/demo/summary/latest`)).status, 401);
+    assert.equal((await fetch(`${base}/api/v1/demo/summary/latest`, { headers: { authorization: 'Token x' } })).status, 401);
+    assert.equal((await fetch(`${base}/api/v1/demo/summary/latest`, { headers: { authorization: 'Bearer wrong' } })).status, 403);
+  });
+});
+
+test('summary/latest: 404 with no completed summary (even with active sessions)', async () => {
+  await withServer({ clock: fixedClock(AT_1515) }, async (base) => {
+    // none at all
+    let res = await fetch(`${base}/api/v1/demo/summary/latest`, { headers: bridgeAuth });
+    assert.equal(res.status, 404);
+    assert.equal((await res.json()).error.code, 'no_completed_summary');
+    // an awaiting/connected session is not a completed summary
+    await createSession(base);
+    await post(base, '/api/v1/demo/connect', {}, bridgeAuth);
+    res = await fetch(`${base}/api/v1/demo/summary/latest`, { headers: bridgeAuth });
+    assert.equal(res.status, 404);
+  });
+});
+
+test('summary/latest: returns branded HTML with no-store and no CORS', async () => {
+  await withServer({ clock: fixedClock(AT_1515), corsAllowedOrigins: 'https://guideherd.ai' }, async (base) => {
+    const created = await connectOne(base);
+    await post(base, '/api/v1/demo/outcome', bookedOutcome(created.sessionId), bridgeAuth);
+
+    const res = await fetch(`${base}/api/v1/demo/summary/latest`, {
+      headers: { ...bridgeAuth, origin: 'https://guideherd.ai' }, // allowlisted origin still gets no CORS
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('content-type'), 'text/html; charset=utf-8');
+    assert.equal(res.headers.get('cache-control'), 'no-store');
+    assert.equal(res.headers.get('access-control-allow-origin'), null, 'no browser CORS');
+
+    const html = await res.text();
+    assert.ok(html.startsWith('<!DOCTYPE html>'));
+    assert.ok(html.includes('Consultation Summary'));
+    assert.ok(html.includes('Ryan Scoggins'));
+    assert.ok(html.includes('Appointment booked'));
+    assert.ok(/powered by guideherd/i.test(html), 'GuideHerd branding present');
+    // Forbidden-content scan: credentials, internals, vendors, transcripts.
+    assert.equal(/gh_handoff_|gh_console_|tokenHash|consoleTokenHash|sessionId|DEMO_BRIDGE|transcript/i.test(html), false, 'no internals');
+    assert.equal(/ElevenLabs|Cal\.com|Microsoft|Graph|Railway|Cloudflare/i.test(html), false, 'no vendors');
+    assert.equal(html.includes(SECRET), false, 'no secret leakage');
+  });
+});
+
+test('summary/latest: selects the most recently completed summary', async () => {
+  const clock = fixedClock(AT_1515);
+  await withServer({ clock }, async (base) => {
+    // First completed session (earlier completedAt)
+    const first = await createSession(base, { caller: { fullName: 'First Caller', email: 'first@example.com' } });
+    await post(base, '/api/v1/demo/connect', {}, bridgeAuth);
+    await post(base, '/api/v1/demo/outcome', { sessionId: first.sessionId, status: 'failed', reason: 'No suitable time.' }, bridgeAuth);
+
+    clock.set(Date.parse('2026-07-12T15:18:00Z')); // later completion time
+
+    const second = await createSession(base, { caller: { fullName: 'Second Caller', email: 'second@example.com' } });
+    await post(base, '/api/v1/demo/connect', {}, bridgeAuth);
+    await post(base, '/api/v1/demo/outcome', bookedOutcome(second.sessionId), bridgeAuth);
+
+    const html = await (await fetch(`${base}/api/v1/demo/summary/latest`, { headers: bridgeAuth })).text();
+    assert.ok(html.includes('Second Caller'), 'latest summary wins');
+    assert.equal(html.includes('First Caller'), false, 'earlier summary not shown');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Summary presentation polish: friendly labels, plain-text email
+// ---------------------------------------------------------------------------
+
+test('summary renders friendly names for known demo identifiers, never raw ids', async () => {
+  await withServer({ clock: fixedClock(AT_1515) }, async (base, app) => {
+    const created = await connectOne(base);
+    await post(base, '/api/v1/demo/outcome', bookedOutcome(created.sessionId), bridgeAuth);
+    const html = await (await fetch(`${base}/api/v1/demo/summary/latest`, { headers: bridgeAuth })).text();
+
+    assert.ok(html.includes('Clay Martinson'), 'attorney friendly name');
+    assert.ok(html.includes('Personal Injury'), 'practice-area friendly name');
+    assert.ok(html.includes('Initial Consultation'), 'consultation-type friendly name');
+    assert.ok(html.includes('(Central Time)'), 'friendly timezone label');
+    assert.equal(html.includes('clay-martinson'), false, 'raw attorney id hidden');
+    assert.equal(html.includes('personal-injury'), false, 'raw practice-area id hidden');
+    assert.equal(html.includes('initial-consultation'), false, 'raw consultation-type id hidden');
+    assert.equal(html.includes('America/Chicago'), false, 'raw IANA id hidden when label known');
+
+    // family-law is in the label map too (rendered directly — the demo firm
+    // fixture uses personal-injury).
+    const model = buildConsultationSummary(app.store.get(created.sessionId));
+    model.request.practiceAreaId = 'family-law';
+    assert.ok(renderSummaryHtml(model).includes('Family Law'));
+  });
+});
+
+test('unknown identifiers get a title-case fallback; stored values stay kebab-case', async () => {
+  await withServer({ clock: fixedClock(AT_1515) }, async (base, app) => {
+    const created = await createSession(base, {
+      scheduling: {
+        attorneyId: 'sarah-beason',
+        practiceAreaId: 'estate-planning',
+        consultationTypeId: 'follow-up-review',
+        existingClient: false,
+      },
+    });
+    await post(base, '/api/v1/demo/connect', {}, bridgeAuth);
+    await post(base, '/api/v1/demo/outcome', {
+      sessionId: created.sessionId,
+      status: 'booked',
+      appointment: { startsAt: '2026-07-21T10:00:00+12:00', timezone: 'Pacific/Auckland' },
+    }, bridgeAuth);
+    const html = await (await fetch(`${base}/api/v1/demo/summary/latest`, { headers: bridgeAuth })).text();
+
+    assert.ok(html.includes('Sarah Beason'), 'unknown attorney title-cased');
+    assert.ok(html.includes('Estate Planning'), 'unknown practice area title-cased');
+    assert.ok(html.includes('Follow Up Review'), 'unknown consultation type title-cased');
+    assert.ok(html.includes('(Pacific/Auckland)'), 'unknown timezone shows raw IANA id, not a guessed name');
+
+    // Display formatting never mutates the model or the stored session.
+    const session = app.store.get(created.sessionId);
+    const model = buildConsultationSummary(session);
+    assert.equal(model.request.attorneyId, 'sarah-beason');
+    assert.equal(model.request.practiceAreaId, 'estate-planning');
+    assert.equal(model.request.consultationTypeId, 'follow-up-review');
+    assert.equal(model.outcome.timezone, 'Pacific/Auckland');
+    assert.equal(session.scheduling.attorneyId, 'sarah-beason');
+    assert.equal(session.outcome.appointment.timezone, 'Pacific/Auckland');
+  });
+});
+
+test('email renders as escaped plain text: no links, no CDN email-protection artifacts', async () => {
+  await withServer({ clock: fixedClock(AT_1515) }, async (base) => {
+    const created = await connectOne(base);
+    await post(base, '/api/v1/demo/outcome', bookedOutcome(created.sessionId), bridgeAuth);
+    const html = await (await fetch(`${base}/api/v1/demo/summary/latest`, { headers: bridgeAuth })).text();
+
+    assert.ok(
+      html.includes('<!--email_off-->Ryan.Scoggins@example.com<!--/email_off-->'),
+      'address is literal escaped text inside the obfuscation opt-out guards',
+    );
+    assert.equal(/mailto:/i.test(html), false, 'no mailto link');
+    assert.equal(/<a[\s>]/i.test(html), false, 'no anchor elements anywhere');
+    assert.equal(
+      /cdn-cgi|email-protection|__cf_email__|data-cfemail|email-decode/i.test(html),
+      false,
+      'no email-protection path, class, attribute, or decoder script',
+    );
+  });
+});
+
+test('renderer escaping holds for malicious name/email/identifier values', () => {
+  // Direct renderer unit test: API validation rejects these values, but the
+  // renderer must stay safe on its own.
+  const model = {
+    caller: {
+      fullName: '<img src=x onerror=1>',
+      email: '"><script>alert(1)</script>@example.com',
+      phone: null,
+      existingClient: false,
+    },
+    request: {
+      attorneyId: '<b>evil</b>-attorney',
+      practiceAreaId: null,
+      consultationTypeId: 'x"-onmouseover-y',
+    },
+    outcome: { status: 'failed', appointmentStartsAt: null, timezone: null },
+    notes: { schedulingSummary: '', unresolvedQuestions: [], escalationRequired: false },
+    timestamps: { createdAt: null, connectedAt: null, completedAt: null },
+  };
+  const html = renderSummaryHtml(model);
+  assert.equal(html.includes('<script>'), false, 'script tag escaped');
+  assert.equal(html.includes('<img'), false, 'img tag escaped');
+  assert.equal(html.includes('<b>evil</b>'), false, 'markup in identifiers escaped');
+  assert.equal(/"\s*onmouseover/i.test(html), false, 'attribute breakout escaped');
+  assert.ok(html.includes('&lt;script&gt;'), 'escaped email survives as text');
+  assert.ok(html.includes('&lt;img'), 'escaped name survives as text');
+});
+
+test('summary/latest: the Graph mailer is untouched by the view path', async () => {
+  const mailer = fakeMailer();
+  await withServer({ clock: fixedClock(AT_1515), mailer }, async (base) => {
+    const created = await connectOne(base);
+    await post(base, '/api/v1/demo/outcome', bookedOutcome(created.sessionId), bridgeAuth);
+    assert.equal(mailer.sends.length, 1);
+    // Viewing repeatedly triggers zero additional sends.
+    await fetch(`${base}/api/v1/demo/summary/latest`, { headers: bridgeAuth });
+    await fetch(`${base}/api/v1/demo/summary/latest`, { headers: bridgeAuth });
+    assert.equal(mailer.sends.length, 1, 'viewing never sends mail');
+  });
+});

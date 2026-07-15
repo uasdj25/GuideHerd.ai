@@ -56,8 +56,18 @@ Add a second **server tool**:
   or failure."
 - **Method/URL:** `POST https://api.guideherd.ai/api/v1/demo/outcome`
 - **Headers:** `Authorization: Bearer <DEMO_BRIDGE_SECRET>`
-- **Body:** the GuideHerd outcome contract from `docs/api/demo-bridge.md`,
-  using the `sessionId` returned by `get_prepared_caller`.
+- **Body:** use the **flat format** (the webhook editor cannot build nested
+  objects; the API accepts flat and lifts it internally — see
+  `docs/api/demo-bridge.md`). Configure these body properties as
+  **LLM-provided parameters** with descriptions:
+  - `sessionId` (string, required) — "the sessionId returned by
+    get_prepared_caller; copy it exactly"
+  - `status` (string, required) — "booked, failed, or escalated"
+  - `appointment` (object; required when booked) — `startsAt` (full ISO-8601
+    with UTC offset or Z), `timezone` (IANA identifier such as
+    America/Chicago), optional `attorneyId`, `consultationTypeId`
+  - `reason` (string, optional) — "one neutral sentence describing the
+    scheduling result; no legal detail"
 
 Update the assistant's playbook/prompt so that it:
 
@@ -134,7 +144,46 @@ Operational notes for demo day: prepare the session fresh at demo time
 (sessions live in memory — an API restart/deploy clears them, and each session
 expires after 10 minutes); keep exactly **one** prepared session at a time.
 
-## 8. After the demo
+## 8. Viewing the Consultation Summary without email (temporary)
+
+Until the Microsoft Graph mailbox (steps 4–6) is configured, outcome calls
+return `summaryDelivery: "not-configured"` and no email is sent. To still show
+the **GuideHerd Consultation Summary** during the demo, the operator can fetch
+the latest completed summary directly from the API:
+
+```bash
+# 1. Paste the secret into the terminal environment (never into a URL,
+#    browser, bookmark, or file):
+read -rs DEMO_BRIDGE_SECRET   # paste the secret, press Enter
+
+# 2. Fetch the latest summary and open it locally:
+curl -sf https://api.guideherd.ai/api/v1/demo/summary/latest \
+  -H "Authorization: Bearer $DEMO_BRIDGE_SECRET" \
+  -o /tmp/guideherd-summary.html \
+  && open /tmp/guideherd-summary.html   # Linux: xdg-open
+```
+
+Rules for this workflow:
+
+- The secret travels only in the `Authorization` header from your own
+  terminal. **Never** put it in a URL, a browser page, a shared script, or a
+  committed file, and never build a public "view summary" button around it.
+- The endpoint returns the summary for the **most recently completed** session
+  only, and `404 no_completed_summary` before any outcome has been recorded.
+- The summary shows friendly display names (e.g. `Clay Martinson`,
+  `Personal Injury`, `Central Time`) — internal identifiers are unchanged;
+  this is presentation only. The caller email is rendered as plain text (not
+  a link) with the CDN email-obfuscation opt-out, so a saved local copy shows
+  the real address instead of `[email protected]`.
+- Fetch it **promptly after the outcome**: summaries live in API memory, so a
+  Railway restart or deploy erases them.
+- This is temporary demo infrastructure. Once Graph mail delivery works,
+  stop using it; it is removed with the rest of the bridge in the teardown
+  step below.
+- Delete `/tmp/guideherd-summary.html` after the demo — it contains the
+  caller's contact details.
+
+## 9. After the demo
 
 1. **Rotate `DEMO_BRIDGE_SECRET`** (or unset it — unsetting disables the
    bridge endpoints with a controlled `503`).

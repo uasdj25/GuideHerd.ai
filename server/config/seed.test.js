@@ -6,11 +6,25 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { parseArgs, run } = require('./seed');
+const { parseArgs, run, loadSeedDocument } = require('./seed');
 const { openDatabase } = require('./db');
 const { createConfigService } = require('./service');
 
 const EXAMPLE_FILE = path.join(__dirname, 'data', 'martinson-beason.example.json');
+
+test('loadSeedDocument parses a valid file and rejects invalid JSON', () => {
+  const doc = loadSeedDocument(EXAMPLE_FILE);
+  assert.equal(doc.organization.key, 'martinson-beason');
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gh-config-seed-'));
+  try {
+    const badFile = path.join(dir, 'bad.json');
+    fs.writeFileSync(badFile, '{ not json');
+    assert.throws(() => loadSeedDocument(badFile), /not valid JSON/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test('parseArgs requires both --db and --file', () => {
   assert.deepEqual(

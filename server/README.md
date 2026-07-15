@@ -45,6 +45,11 @@ Configuration (environment variables):
   calls report `summaryDelivery: "not-configured"`; the API starts and tests
   run without any of them. Delivery is a separate outcome from booking — a
   mail failure never reverses a confirmed appointment.
+- `GUIDEHERD_CONFIG_DB` — path to the Configuration Store SQLite file
+  (default `./guideherd-config.db`). Pending migrations apply automatically
+  at boot regardless of this setting.
+- `GUIDEHERD_SEED_FILE` — **optional**, off by default. See "Configuration
+  Store deployment modes" below.
 
 ### Test
 
@@ -81,10 +86,36 @@ consistent snapshot of a live database). Local databases are gitignored.
 
 Module layout mirrors `handoff/`: `models` (typedefs + limits),
 `validation`, `store` (the only module containing SQL), `service` (business
-logic), plus `db`, `migrate`, `clock`, `errors`, and `seed` (CLI). Entities
-are addressed by stable kebab-case keys (e.g. `clay-martinson`,
+logic), plus `db`, `migrate`, `clock`, `errors`, and `seed` (CLI + the
+`loadSeedDocument` helper `server.js` also uses — see below). Entities are
+addressed by stable kebab-case keys (e.g. `clay-martinson`,
 `initial-consultation`) scoped to an organization key; integer row ids never
 leave the store layer.
+
+### Configuration Store deployment modes
+
+The Configuration Store is a **file**, not a service — nothing separate runs.
+How that file gets populated depends on where it's deployed:
+
+- **Persistent disk** (e.g. this host's own filesystem, or a Railway volume):
+  seed once with the CLI above; the file survives restarts and deploys.
+  `GUIDEHERD_SEED_FILE` stays unset.
+- **Ephemeral filesystem, no volume** (e.g. Railway without one attached):
+  the file is wiped on every deploy, so it must be rebuilt at every boot.
+  Set `GUIDEHERD_SEED_FILE=config/data/martinson-beason.example.json` (or a
+  real firm's document) and `server.js` imports it automatically before
+  accepting traffic — **git is the source of truth** in this mode. The
+  import is an idempotent upsert (safe on every boot), and a malformed or
+  invalid seed document makes the process **exit immediately with a
+  non-zero code** rather than start serving an incomplete configuration —
+  this is deliberate, so a bad deploy fails loudly (visible as a
+  crash/restart in platform logs) instead of quietly breaking the console.
+
+  **Do not enable this mode once a firm's configuration can be edited
+  through a live channel a git deploy doesn't know about** (e.g. a future
+  Administration Portal) — the next deploy's re-import would silently
+  overwrite those edits with whatever's in git. Until such a channel
+  exists, git-as-source-of-truth is the intended and only mode.
 
 ## Design notes
 

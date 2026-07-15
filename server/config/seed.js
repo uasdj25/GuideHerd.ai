@@ -50,18 +50,27 @@ function parseArgs(argv) {
 }
 
 /**
+ * Read and parse a seed document. Shared by the CLI and by server.js's
+ * optional seed-on-boot bootstrap (GUIDEHERD_SEED_FILE).
+ * @param {string} filePath
+ * @returns {unknown} parsed JSON document (not yet validated as a config tree)
+ */
+function loadSeedDocument(filePath) {
+  const raw = fs.readFileSync(path.resolve(filePath), 'utf8');
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`Configuration file is not valid JSON: ${filePath}`);
+  }
+}
+
+/**
  * Migrate the database and import the document. Exported for tests.
  * @param {{ dbPath: string, filePath: string }} args
  * @returns {{ migrationsApplied: string[], organization: string, counts: Object<string, number> }}
  */
 function run({ dbPath, filePath }) {
-  const raw = fs.readFileSync(path.resolve(filePath), 'utf8');
-  let tree;
-  try {
-    tree = JSON.parse(raw);
-  } catch (err) {
-    throw new Error(`Configuration file is not valid JSON: ${filePath}`);
-  }
+  const tree = loadSeedDocument(filePath);
 
   const db = openDatabase({ path: dbPath });
   try {
@@ -98,4 +107,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { parseArgs, run };
+module.exports = { parseArgs, run, loadSeedDocument };

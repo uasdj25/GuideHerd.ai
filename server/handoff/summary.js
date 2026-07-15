@@ -25,6 +25,45 @@ const OUTCOME_HEADLINES = {
   escalated: 'Human assistance required',
 };
 
+// ── Presentation-layer display labels ──────────────────────────────────────
+// The summary model and every API response keep the stable kebab-case
+// identifiers; only the rendered summary shows these human-readable names.
+// Explicit mappings for the values the current demo uses; anything unknown
+// falls back to a mechanical kebab-case → Title Case conversion.
+const DISPLAY_LABELS = {
+  'clay-martinson': 'Clay Martinson',
+  'personal-injury': 'Personal Injury',
+  'family-law': 'Family Law',
+  'initial-consultation': 'Initial Consultation',
+};
+
+// Friendly names for stored IANA timezones. The IANA value stays the source
+// of truth for all date math; unknown zones display their raw identifier
+// rather than a guessed name.
+const TIMEZONE_DISPLAY = {
+  'America/Chicago': 'Central Time',
+};
+
+/** kebab-case → Title Case ("estate-planning" → "Estate Planning"). */
+function titleCaseFromKebab(value) {
+  return String(value)
+    .split('-')
+    .map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+    .join(' ');
+}
+
+/** Human-readable label for an internal identifier (display only). */
+function displayLabel(id) {
+  if (id === null || id === undefined || id === '') return id;
+  return DISPLAY_LABELS[id] || titleCaseFromKebab(id);
+}
+
+/** Human-readable label for an IANA timezone (display only). */
+function displayTimezone(timezone) {
+  if (!timezone) return timezone;
+  return TIMEZONE_DISPLAY[timezone] || timezone;
+}
+
 /** Format epoch milliseconds as an ISO-8601 UTC string, or null. */
 function toIso(ms) {
   return typeof ms === 'number' ? new Date(ms).toISOString() : null;
@@ -88,7 +127,7 @@ function formatWhen(iso, timezone) {
     const opts = { dateStyle: 'full', timeStyle: 'short' };
     if (timezone) opts.timeZone = timezone;
     return new Intl.DateTimeFormat('en-US', opts).format(date)
-      + (timezone ? ` (${timezone})` : '');
+      + (timezone ? ` (${displayTimezone(timezone)})` : '');
   } catch {
     return iso; // unknown timezone string — show the raw ISO rather than guess
   }
@@ -130,6 +169,23 @@ function row(label, value) {
 }
 
 /**
+ * The email row: escaped plain text — never a mailto: or any other link.
+ * The email_off comment guards are the CDN's documented per-snippet opt-out
+ * from email-address obfuscation; without them, HTML served through the
+ * temporary operator endpoint gets the address rewritten to
+ * "[email protected]" plus a decoder script, which breaks locally saved
+ * copies. The guards render as invisible comments everywhere else (email
+ * clients included) and never alter the address itself.
+ */
+function emailRow(label, value) {
+  if (value === null || value === undefined || value === '') return '';
+  return `<tr>
+    <td style="padding:6px 16px 6px 0; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:#6b7a86; vertical-align:top; white-space:nowrap;">${escapeHtml(label)}</td>
+    <td style="padding:6px 0; font-size:14px; color:#0E2A3F; font-weight:500;"><!--email_off-->${escapeHtml(value)}<!--/email_off--></td>
+  </tr>`;
+}
+
+/**
  * Render the GuideHerd-branded, accessible HTML document for a summary model.
  * All user-controlled content is escaped. Inline styles only (email-safe).
  * @param {ReturnType<typeof buildConsultationSummary>} model
@@ -157,12 +213,12 @@ function renderSummaryHtml(model) {
 
       <table role="presentation" style="border-collapse:collapse; width:100%; border-top:1px solid rgba(14,42,63,0.10); margin-top:8px; padding-top:8px;">
         ${row('Caller', model.caller.fullName)}
-        ${row('Email', model.caller.email)}
+        ${emailRow('Email', model.caller.email)}
         ${row('Phone', model.caller.phone)}
         ${row('Client status', model.caller.existingClient ? 'Existing client' : 'Prospective client')}
-        ${row('Attorney', model.request.attorneyId)}
-        ${row('Practice area', model.request.practiceAreaId)}
-        ${row('Consultation type', model.request.consultationTypeId)}
+        ${row('Attorney', displayLabel(model.request.attorneyId))}
+        ${row('Practice area', displayLabel(model.request.practiceAreaId))}
+        ${row('Consultation type', displayLabel(model.request.consultationTypeId))}
       </table>
 
       ${model.notes.schedulingSummary ? `

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GuideHerd — Martinson &amp; Beason Demonstration Overview</title>
+<style>
+  /* GuideHerd brand tokens, mirrored from the public site (index.html). */
+  :root {
+    --ink:        #0E2A3F;
+    --ink-soft:   #1C3A52;
+    --ink-60:     rgba(14, 42, 63, 0.60);
+    --ink-40:     rgba(14, 42, 63, 0.40);
+    --ink-10:     rgba(14, 42, 63, 0.10);
+    --ink-05:     rgba(14, 42, 63, 0.05);
+    --paper:      #F5F2EA;
+    --paper-2:    #EDE8DB;
+    --cream:      #FBF8F1;
+    --accent:     #2FA4A0;
+    --accent-ink: #0E6D6A;
+    --serif: "Fraunces", "Instrument Serif", "Iowan Old Style", Georgia, "Times New Roman", serif;
+    --sans:  "Inter Tight", "Inter", -apple-system, "Segoe UI", "Helvetica Neue", sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: var(--paper-2);
+    font-family: var(--sans);
+    color: var(--ink);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .sheet {
+    width: 8.5in;
+    min-height: 11in;
+    margin: 24px auto;
+    padding: 0.52in 0.6in 0.44in;
+    background: var(--paper);
+    box-shadow: 0 8px 40px rgba(14, 42, 63, 0.18);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------- Header ---------- */
+  .masthead {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 12pt;
+    border-bottom: 1px solid var(--ink-10);
+  }
+  .wordmark {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 19pt;
+    letter-spacing: -0.02em;
+    display: inline-flex;
+    align-items: flex-start;
+    color: var(--ink);
+  }
+  .wordmark sup {
+    font-family: var(--sans);
+    font-weight: 500;
+    font-size: 7.5pt;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin-left: 2px;
+    margin-top: 3px;
+    line-height: 1;
+  }
+  .tagline {
+    font-size: 8.5pt;
+    color: var(--ink-60);
+    margin-top: 3pt;
+    letter-spacing: 0.01em;
+  }
+  .prepared {
+    text-align: right;
+    font-size: 7.5pt;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    line-height: 1.7;
+    padding-top: 4pt;
+  }
+
+  /* ---------- Headline ---------- */
+  .lede { padding: 14pt 0 12pt; }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 24pt;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    max-width: 6.4in;
+  }
+  .intro {
+    font-size: 10.5pt;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    max-width: 6.6in;
+    margin-top: 7pt;
+  }
+
+  /* ---------- Shared bits ---------- */
+  .eyebrow {
+    font-size: 7.5pt;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+  }
+  section { break-inside: avoid; page-break-inside: avoid; }
+
+  /* ---------- Workflow ---------- */
+  .flow { padding: 6pt 0 12pt; }
+  .flow ol {
+    list-style: none;
+    display: flex;
+    align-items: stretch;
+    gap: 7pt;
+    margin-top: 8pt;
+  }
+  .flow li.step {
+    flex: 1 1 0;
+    background: var(--cream);
+    border: 1px solid var(--ink-10);
+    border-radius: 10px;
+    padding: 11pt 8pt;
+    text-align: center;
+  }
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 17pt; height: 17pt;
+    border: 1px solid var(--accent);
+    border-radius: 50%;
+    color: var(--accent-ink);
+    font-size: 9pt;
+    font-weight: 600;
+    margin-bottom: 5pt;
+  }
+  .step-label {
+    font-size: 10pt;
+    font-weight: 600;
+    line-height: 1.25;
+    display: block;
+  }
+  .flow li.arrow {
+    align-self: center;
+    color: var(--accent-ink);
+    font-family: var(--serif);
+    font-size: 13pt;
+    flex: 0 0 auto;
+  }
+  .flow-note {
+    font-size: 9.5pt;
+    color: var(--ink-60);
+    margin-top: 7pt;
+    line-height: 1.45;
+  }
+
+  /* ---------- Two columns ---------- */
+  .pair {
+    display: flex;
+    gap: 10pt;
+    padding-bottom: 12pt;
+  }
+  .pair .card {
+    flex: 1 1 0;
+    background: var(--cream);
+    border: 1px solid var(--ink-10);
+    border-radius: 12px;
+    padding: 10pt 12pt;
+  }
+  .card h2 { margin-bottom: 5pt; }
+  ul.marks { list-style: none; }
+  ul.marks li {
+    font-size: 9.5pt;
+    line-height: 1.4;
+    color: var(--ink-soft);
+    padding: 1.6pt 0 1.6pt 13pt;
+    position: relative;
+  }
+  ul.marks li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: var(--accent-ink);
+    font-size: 8.5pt;
+  }
+
+  /* ---------- Consultation Summary callout ---------- */
+  .summary-callout {
+    background: var(--cream);
+    border: 1px solid var(--ink-10);
+    border-left: 3px solid var(--accent);
+    border-radius: 12px;
+    padding: 10pt 14pt;
+    margin-bottom: 12pt;
+  }
+  .summary-intro {
+    font-size: 10pt;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.4;
+    margin-bottom: 6pt;
+  }
+  .summary-grid {
+    list-style: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 2.5pt 12pt;
+  }
+  .summary-grid li {
+    font-size: 9pt;
+    color: var(--ink-soft);
+    line-height: 1.35;
+    padding-left: 10pt;
+    position: relative;
+  }
+  .summary-grid li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 4.5pt;
+    width: 4pt; height: 4pt;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  /* ---------- Demo takeaway ---------- */
+  .takeaway {
+    border: 1.5px solid var(--ink);
+    border-radius: 12px;
+    padding: 10pt 14pt;
+    background: var(--paper-2);
+    margin-bottom: 12pt;
+  }
+  .takeaway .eyebrow { color: var(--ink); letter-spacing: 0.2em; }
+  .takeaway p {
+    font-family: var(--serif);
+    font-size: 12pt;
+    line-height: 1.4;
+    margin-top: 5pt;
+  }
+  .takeaway p strong { font-weight: 650; font-size: 13pt; }
+
+  /* ---------- Future ---------- */
+  .future { padding-bottom: 12pt; }
+  .future .eyebrow { color: var(--ink-60); }
+  .future p {
+    font-size: 9pt;
+    color: var(--ink-60);
+    line-height: 1.45;
+    margin-top: 4pt;
+  }
+  .roles {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5pt;
+    margin-top: 5pt;
+  }
+  .roles li {
+    font-size: 7.5pt;
+    font-weight: 500;
+    color: var(--ink-60);
+    border: 1px solid var(--ink-10);
+    border-radius: 999px;
+    padding: 2.5pt 8pt;
+    background: var(--cream);
+  }
+
+  /* ---------- Footer ---------- */
+  .foot {
+    margin-top: auto;
+    border-top: 1px solid var(--ink-10);
+    padding-top: 9pt;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .foot .wordmark { font-size: 13pt; }
+  .foot .foot-tag {
+    font-size: 8.5pt;
+    color: var(--ink-60);
+    font-style: italic;
+    font-family: var(--serif);
+  }
+  .foot .site {
+    font-size: 9pt;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--accent-ink);
+  }
+
+  /* ---------- Print ---------- */
+  @page { size: Letter; margin: 0; }
+  @media print {
+    html, body { background: #fff; }
+    .sheet {
+      width: 8.5in;
+      margin: 0;
+      box-shadow: none;
+      min-height: 0;
+      height: 11in;
+      overflow: hidden;
+    }
+    a { text-decoration: none; color: inherit; }
+    a[href]::after { content: ""; }
+  }
+</style>
+</head>
+<body>
+<main class="sheet">
+
+  <header class="masthead">
+    <div>
+      <span class="wordmark">GuideHerd<sup>AI</sup></span>
+      <p class="tagline">AI Employees for the work between conversations</p>
+    </div>
+    <p class="prepared">Private demonstration<br>Martinson &amp; Beason, P.C.</p>
+  </header>
+
+  <section class="lede" aria-labelledby="headline">
+    <h1 id="headline">The receptionist starts the conversation. GuideHerd finishes it.</h1>
+    <p class="intro">GuideHerd helps Martinson &amp; Beason carry verified caller information from
+    the firm&rsquo;s receptionist into the scheduling conversation &mdash; without making the caller
+    start over.</p>
+  </section>
+
+  <section class="flow" aria-labelledby="flow-title">
+    <h2 id="flow-title" class="eyebrow">How the work moves</h2>
+    <ol>
+      <li class="step"><span class="step-num" aria-hidden="true">1</span><span class="step-label">Human<br>Receptionist</span></li>
+      <li class="arrow" aria-hidden="true">&rarr;</li>
+      <li class="step"><span class="step-num" aria-hidden="true">2</span><span class="step-label">GuideHerd<br>Console</span></li>
+      <li class="arrow" aria-hidden="true">&rarr;</li>
+      <li class="step"><span class="step-num" aria-hidden="true">3</span><span class="step-label">GuideHerd<br>Scheduling Assistant</span></li>
+      <li class="arrow" aria-hidden="true">&rarr;</li>
+      <li class="step"><span class="step-num" aria-hidden="true">4</span><span class="step-label">Appointment<br>Booked</span></li>
+      <li class="arrow" aria-hidden="true">&rarr;</li>
+      <li class="step"><span class="step-num" aria-hidden="true">5</span><span class="step-label">Consultation<br>Summary</span></li>
+    </ol>
+    <p class="flow-note">Information is collected once, then carried through the entire
+    scheduling process.</p>
+  </section>
+
+  <section class="pair" aria-label="Caller experience and firm benefits">
+    <div class="card">
+      <h2 class="eyebrow">What the caller experiences</h2>
+      <ul class="marks">
+        <li>No repeated name, email, or case-routing questions</li>
+        <li>A smooth transition from the receptionist</li>
+        <li>Immediate appointment scheduling</li>
+        <li>Clear confirmation of the final appointment</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2 class="eyebrow">Benefits for Martinson &amp; Beason</h2>
+      <ul class="marks">
+        <li>Less receptionist time spent completing scheduling</li>
+        <li>Consistent caller information, with fewer spelling mistakes</li>
+        <li>Confirmed scheduling outcomes</li>
+        <li>A structured Consultation Summary after the interaction</li>
+        <li>Ready for future intake and follow-up automation</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="summary-callout" aria-labelledby="summary-title">
+    <h2 id="summary-title" class="summary-intro">GuideHerd automatically prepares a Consultation Summary containing:</h2>
+    <ul class="summary-grid">
+      <li>Caller and contact information</li>
+      <li>Requested attorney</li>
+      <li>Practice area</li>
+      <li>Consultation type</li>
+      <li>Appointment date and time</li>
+      <li>Scheduling outcome</li>
+      <li>Follow-up or escalation needs</li>
+    </ul>
+  </section>
+
+  <section class="takeaway" aria-labelledby="takeaway-title">
+    <h2 id="takeaway-title" class="eyebrow">Notice what didn&rsquo;t happen</h2>
+    <p>The Scheduling Assistant did not ask the caller to repeat information the receptionist had
+    already collected. <strong>The human completed the first part of the work. GuideHerd picked up
+    exactly where the human left off.</strong></p>
+  </section>
+
+  <section class="future" aria-labelledby="future-title">
+    <h2 id="future-title" class="eyebrow">Where this goes next</h2>
+    <p>The same GuideHerd platform can support additional AI Employees over time:</p>
+    <ul class="roles">
+      <li>GuideHerd Receptionist</li>
+      <li>GuideHerd Intake Specialist</li>
+      <li>GuideHerd Case Status Assistant</li>
+      <li>GuideHerd Billing Assistant</li>
+    </ul>
+  </section>
+
+  <footer class="foot">
+    <span class="wordmark">GuideHerd<sup>AI</sup></span>
+    <span class="foot-tag">Business context that follows the work.</span>
+    <span class="site">guideherd.ai</span>
+  </footer>
+
+</main>
+</body>
+</html>

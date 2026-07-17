@@ -140,6 +140,14 @@
       "namespace": "scheduling",
       "key": "default-consultation-type",
       "value": "initial-consultation"
+    },
+    {
+      "namespace": "connect",
+      "key": "conversation-provider",
+      "value": {
+        "provider": "elevenlabs",
+        "agentId": "agent_1501kx9f51t0fg8atbgdrvrjvf2b"
+      }
     }
   ]
 }

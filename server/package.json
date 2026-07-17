@@ -12,5 +12,8 @@
     "test": "node --experimental-sqlite --test",
     "config:seed": "node --experimental-sqlite config/seed.js",
     "test:frontend": "npm --prefix ../tests/frontend install --no-audit --no-fund && npm --prefix ../tests/frontend test"
+  },
+  "dependencies": {
+    "pg": "8.16.3"
   }
 }

@@ -66,8 +66,8 @@ test('create returns distinct handoff and console tokens', async () => {
 
 test('store keeps only hashes — raw tokens are not in the store', async () => {
   const app = createApp({ clock: fixedClock(AT_1515) });
-  const { response } = app.service.create(validRequest());
-  const session = app.store.get(response.sessionId);
+  const { response } = await app.service.create(validRequest());
+  const session = await app.store.get(response.sessionId);
 
   assert.ok(session.tokenHash, 'handoff token hash stored');
   assert.ok(session.consoleTokenHash, 'console token hash stored');
@@ -409,9 +409,9 @@ test('existing create/redeem flow is unchanged apart from the added consoleToken
 // Ensure the session status transition on redeem still matches the enum.
 test('redeemed session status matches SessionStatus.CONNECTED', async () => {
   const app = createApp({ clock: fixedClock(AT_1515) });
-  const { handoffToken, response } = app.service.create(validRequest());
-  app.service.redeem(handoffToken);
-  assert.equal(app.store.get(response.sessionId).status, SessionStatus.CONNECTED);
+  const { handoffToken, response } = await app.service.create(validRequest());
+  await app.service.redeem(handoffToken);
+  assert.equal((await app.store.get(response.sessionId)).status, SessionStatus.CONNECTED);
 });
 
 // ---------------------------------------------------------------------------
@@ -469,12 +469,12 @@ test('console token can never cause a transition out of a terminal state', async
 // Session ID entropy
 // ---------------------------------------------------------------------------
 
-test('session IDs are v4 UUIDs from a CSPRNG: well-formed, unique, non-sequential', () => {
+test('session IDs are v4 UUIDs from a CSPRNG: well-formed, unique, non-sequential', async () => {
   const app = createApp({ clock: fixedClock(AT_1515) });
   const V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
   const ids = [];
   for (let i = 0; i < 1000; i++) {
-    const { response } = app.service.create(validRequest());
+    const { response } = await app.service.create(validRequest());
     assert.match(response.sessionId, V4, 'session id is a v4 UUID (122 random bits)');
     ids.push(response.sessionId);
   }

@@ -54,8 +54,8 @@ function createConversationService({ service, store, mailer, events = createConv
      * @param {string} firmId
      * @param {string} provider adapter provider key, for event provenance
      */
-    connect(firmId, provider) {
-      const context = service.connectDemo(firmId); // throws 404/409/410 exactly as before
+    async connect(firmId, provider) {
+      const context = await service.connectDemo(firmId); // throws 404/409/410 exactly as before
       events.emit('conversation.connected', {
         sessionId: context.sessionId,
         firmId,
@@ -77,13 +77,13 @@ function createConversationService({ service, store, mailer, events = createConv
     async complete(sessionId, outcome, provider) {
       // An idempotent duplicate report (allowed by the outcome contract)
       // must not emit a second completion event.
-      const before = store.get(sessionId);
+      const before = await store.get(sessionId);
       const alreadyTerminal = Boolean(before && TERMINAL.includes(before.status));
 
       const result = await recordOutcomeAndDeliver({ service, store, mailer }, sessionId, outcome);
 
       if (!alreadyTerminal) {
-        const session = store.get(result.sessionId);
+        const session = await store.get(result.sessionId);
         events.emit('conversation.completed', {
           sessionId: result.sessionId,
           firmId: session ? session.firmId : null,

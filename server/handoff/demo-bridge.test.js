@@ -380,7 +380,7 @@ test('summary model maps trusted fields exactly and invents nothing', async () =
   await withServer({ clock: fixedClock(AT_1515) }, async (base, app) => {
     const created = await connectOne(base);
     await post(base, '/api/v1/demo/outcome', bookedOutcome(created.sessionId), bridgeAuth);
-    const session = app.store.get(created.sessionId);
+    const session = await app.store.get(created.sessionId);
     const model = buildConsultationSummary(session);
     assert.deepEqual(model, {
       caller: { fullName: 'Ryan Scoggins', email: 'Ryan.Scoggins@example.com', phone: '+12565551212' },
@@ -407,7 +407,7 @@ test('summary HTML escapes user content and contains no internals or vendors', a
       sessionId: created.sessionId,
       outcome: { status: 'escalated', schedulingSummary: '<img src=x onerror=1>', unresolvedQuestions: ['<b>q</b>'] },
     }, bridgeAuth);
-    const html = renderSummaryHtml(buildConsultationSummary(app.store.get(created.sessionId)));
+    const html = renderSummaryHtml(buildConsultationSummary(await app.store.get(created.sessionId)));
     assert.equal(html.includes('<script>alert'), false, 'script escaped');
     assert.equal(html.includes('<img src=x'), false, 'img escaped');
     assert.equal(html.includes('<b>q</b>'), false, 'question escaped');
@@ -426,7 +426,7 @@ test('summary handles missing optional fields', async () => {
     });
     await post(base, '/api/v1/demo/connect', {}, bridgeAuth);
     await post(base, '/api/v1/demo/outcome', { sessionId: created.sessionId, outcome: { status: 'failed' } }, bridgeAuth);
-    const model = buildConsultationSummary(app.store.get(created.sessionId));
+    const model = buildConsultationSummary(await app.store.get(created.sessionId));
     assert.equal(model.caller.phone, null);
     assert.equal(model.request.practiceAreaId, null);
     assert.equal(model.outcome.appointmentStartsAt, null);
@@ -687,7 +687,7 @@ test('flat booked payload works and reason maps to schedulingSummary', async () 
     const res = await post(base, '/api/v1/demo/outcome', flatBooked(created.sessionId), bridgeAuth);
     assert.equal(res.status, 200);
     assert.equal((await res.json()).status, 'booked');
-    const session = app.store.get(created.sessionId);
+    const session = await app.store.get(created.sessionId);
     assert.equal(session.status, 'booked');
     assert.equal(session.outcome.schedulingSummary, 'Initial consultation booked.', 'reason lifted into schedulingSummary');
     assert.equal(session.outcome.appointment.startsAt, '2026-07-20T15:00:00-05:00');
@@ -848,7 +848,7 @@ test('summary renders friendly names for known demo identifiers, never raw ids',
 
     // family-law is in the label map too (rendered directly — the demo firm
     // fixture uses personal-injury).
-    const model = buildConsultationSummary(app.store.get(created.sessionId));
+    const model = buildConsultationSummary(await app.store.get(created.sessionId));
     model.request.practiceAreaId = 'family-law';
     assert.ok(renderSummaryHtml(model).includes('Family Law'));
   });
@@ -878,7 +878,7 @@ test('unknown identifiers get a title-case fallback; stored values stay kebab-ca
     assert.ok(html.includes('(Pacific/Auckland)'), 'unknown timezone shows raw IANA id, not a guessed name');
 
     // Display formatting never mutates the model or the stored session.
-    const session = app.store.get(created.sessionId);
+    const session = await app.store.get(created.sessionId);
     const model = buildConsultationSummary(session);
     assert.equal(model.request.attorneyId, 'sarah-beason');
     assert.equal(model.request.practiceAreaId, 'estate-planning');

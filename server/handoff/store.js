@@ -27,24 +27,34 @@ function hashesEqual(a, b) {
 }
 
 /**
- * In-memory handoff store.
+ * A summary-delivery claim stuck in 'pending' longer than this is considered
+ * abandoned (claimant crashed mid-send) and may be re-claimed. Trades a rare
+ * duplicate email after a crash for never-permanently-stuck retries.
+ */
+const STALE_CLAIM_MS = 5 * 60 * 1000;
+
+/**
+ * In-memory handoff repository — the reference implementation of the async
+ * Handoff repository contract (ADR-0006). The PostgreSQL implementation in
+ * server/operational/session-repository.js implements the same contract;
+ * the shared contract suite in server/operational/contract-suite.js runs
+ * against both.
  *
  * Two credentials exist per session, stored only as SHA-256 hashes:
  *  - handoff token  — redeems caller context exactly once (voice side)
  *  - console token  — status checks and cancellation only (receptionist side)
  * Neither can substitute for the other.
  *
- * Concurrency: Node runs JavaScript on a single thread and never preempts a
- * synchronous function. `redeem()` and `cancel()` each perform their
- * check-and-mark in one synchronous pass with no `await` in the middle, so a
- * concurrent redeem/redeem, cancel/cancel, or cancel/redeem race always
- * settles into exactly one terminal outcome.
+ * Concurrency (in-memory): methods are async to honor the repository
+ * contract, but each transition's check-and-mark still runs synchronously
+ * with no `await` in the middle — Node never preempts synchronous code, so a
+ * concurrent redeem/redeem, cancel/cancel, or cancel/redeem race settles
+ * into exactly one terminal outcome, exactly as before the contract became
+ * async. (The PostgreSQL implementation derives the same guarantees from
+ * transactions and conditional updates instead.)
  *
  * Expiration is lazy: sessions are marked expired when accessed; there is no
- * background scheduler in v1.
- *
- * The interface is intentionally small so a persistent store can replace it
- * later without touching services or controllers.
+ * background scheduler.
  *
  * @param {{ clock: import('./clock').Clock }} deps
  */
@@ -76,18 +86,18 @@ function createInMemoryHandoffStore({ clock }) {
 
   return {
     /** @param {import('./models').InternalSession} session */
-    create(session) {
+    async create(session) {
       sessionsById.set(session.sessionId, session);
       tokenHashToSessionId.set(session.tokenHash, session.sessionId);
       return session;
     },
 
     /**
-     * Atomically redeem a handoff token exactly once. Synchronous by design.
+     * Atomically redeem a handoff token exactly once.
      * @param {string} tokenHash
-     * @returns {import('./models').InternalSession}
+     * @returns {Promise<import('./models').InternalSession>}
      */
-    redeem(tokenHash) {
+    async redeem(tokenHash) {
       const now = clock.now();
       const sessionId = tokenHashToSessionId.get(tokenHash);
       if (!sessionId) throw new UnknownTokenError();
@@ -119,15 +129,15 @@ function createInMemoryHandoffStore({ clock }) {
      * @param {string} sessionId
      * @param {string} consoleTokenHash
      */
-    statusByConsole(sessionId, consoleTokenHash) {
+    async statusByConsole(sessionId, consoleTokenHash) {
       const session = requireConsoleAccess(sessionId, consoleTokenHash);
       markExpiredIfNeeded(session, clock.now());
       return session;
     },
 
     /**
-     * Atomically cancel an awaiting-transfer session. Synchronous by design so
-     * a concurrent redeem cannot interleave.
+     * Atomically cancel an awaiting-transfer session (one synchronous pass,
+     * so a concurrent redeem cannot interleave).
      *
      * Credential semantics (see docs/api/context-handoff.md):
      *  - Cancellation IMMEDIATELY and permanently invalidates the handoff
@@ -147,7 +157,7 @@ function createInMemoryHandoffStore({ clock }) {
      * @param {string} sessionId
      * @param {string} consoleTokenHash
      */
-    cancel(sessionId, consoleTokenHash) {
+    async cancel(sessionId, consoleTokenHash) {
       const session = requireConsoleAccess(sessionId, consoleTokenHash);
       const now = clock.now();
       markExpiredIfNeeded(session, now);
@@ -177,12 +187,12 @@ function createInMemoryHandoffStore({ clock }) {
      *  - more than one   -> 409 ambiguous_prepared_sessions (redeems none;
      *    deliberately favors safety over convenience)
      *  - exactly one     -> atomically redeemed (same single-use semantics)
-     * Synchronous by design: concurrent connect attempts settle into exactly
+     * One synchronous pass: concurrent connect attempts settle into exactly
      * one successful redemption.
      * @param {string} firmId
-     * @returns {import('./models').InternalSession}
+     * @returns {Promise<import('./models').InternalSession>}
      */
-    connectDemo(firmId) {
+    async connectDemo(firmId) {
       const now = clock.now();
       const eligible = [];
       for (const session of sessionsById.values()) {
@@ -207,20 +217,21 @@ function createInMemoryHandoffStore({ clock }) {
      *  - an exactly identical duplicate is idempotent;
      *  - a conflicting later outcome -> 409 outcome_conflict;
      *  - invalid transitions never mutate the session.
-     * Synchronous by design (atomic under concurrency).
+     * One synchronous pass (atomic under concurrency).
      * @param {string} sessionId
      * @param {{status: string, appointment?: object, schedulingSummary?: string,
      *          unresolvedQuestions?: string[], escalationRequired?: boolean}} outcome
-     * @returns {{ session: import('./models').InternalSession, duplicate: boolean }}
+     * @returns {Promise<{ session: import('./models').InternalSession, duplicate: boolean }>}
      */
-    applyOutcome(sessionId, outcome) {
+    async applyOutcome(sessionId, outcome) {
       const session = sessionsById.get(sessionId);
       if (!session) throw new UnknownSessionError();
       const now = clock.now();
 
       const TERMINAL = [SessionStatus.BOOKED, SessionStatus.FAILED, SessionStatus.ESCALATED];
       if (TERMINAL.includes(session.status)) {
-        // Idempotent only for an exactly identical outcome.
+        // Idempotent only for an exactly identical outcome. Both objects are
+        // service-normalized, so serialization is deterministic.
         if (JSON.stringify(session.outcome) === JSON.stringify(outcome)) {
           return { session, duplicate: true };
         }
@@ -238,13 +249,52 @@ function createInMemoryHandoffStore({ clock }) {
     },
 
     /**
+     * Atomically claim the right to deliver the Consultation Summary.
+     * Grantable when delivery has never been attempted (null), previously
+     * failed, or a prior 'pending' claim is stale (claimant crashed
+     * mid-send). One synchronous pass: concurrent duplicate outcome requests
+     * can never both hold the claim. Never re-grants after 'sent'.
+     * @param {string} sessionId
+     * @returns {Promise<{claimed: boolean, summaryDelivery: string|null,
+     *                    session: import('./models').InternalSession}>}
+     */
+    async claimSummaryDelivery(sessionId) {
+      const session = sessionsById.get(sessionId);
+      if (!session) throw new UnknownSessionError();
+      const now = clock.now();
+
+      const stale = session.summaryDelivery === 'pending'
+        && typeof session.summaryClaimedAtMs === 'number'
+        && now - session.summaryClaimedAtMs >= STALE_CLAIM_MS;
+
+      if (session.summaryDelivery === null || session.summaryDelivery === 'failed' || stale) {
+        session.summaryDelivery = 'pending';
+        session.summaryClaimedAtMs = now;
+        return { claimed: true, summaryDelivery: 'pending', session };
+      }
+      return { claimed: false, summaryDelivery: session.summaryDelivery, session };
+    },
+
+    /**
+     * Record the result of a claimed delivery attempt.
+     * @param {string} sessionId
+     * @param {'sent'|'failed'|'not-configured'} deliveryStatus
+     */
+    async recordSummaryDelivery(sessionId, deliveryStatus) {
+      const session = sessionsById.get(sessionId);
+      if (!session) throw new UnknownSessionError();
+      session.summaryDelivery = deliveryStatus;
+      return session;
+    },
+
+    /**
      * TEMPORARY DEMO INFRASTRUCTURE (Slice 3).
      * The most recently completed (booked/failed/escalated) session for a
      * firm, by completedAtMs — used only to display the latest Consultation
      * Summary during the demonstration. Returns undefined when none exist.
      * @param {string} firmId
      */
-    latestCompleted(firmId) {
+    async latestCompleted(firmId) {
       const TERMINAL = [SessionStatus.BOOKED, SessionStatus.FAILED, SessionStatus.ESCALATED];
       let latest;
       for (const session of sessionsById.values()) {
@@ -257,17 +307,20 @@ function createInMemoryHandoffStore({ clock }) {
     },
 
     /** Read a session (marks it expired if its time has passed). For tests/introspection. */
-    get(sessionId) {
+    async get(sessionId) {
       const session = sessionsById.get(sessionId);
       if (!session) return undefined;
       markExpiredIfNeeded(session, clock.now());
       return session;
     },
 
-    size() {
+    async size() {
       return sessionsById.size;
     },
+
+    /** Release resources. No-op for the in-memory implementation. */
+    async close() {},
   };
 }
 
-module.exports = { createInMemoryHandoffStore };
+module.exports = { createInMemoryHandoffStore, STALE_CLAIM_MS };

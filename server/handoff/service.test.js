@@ -27,9 +27,9 @@ function validRequest(overrides = {}) {
 // Creation
 // --------------------------------------------------------------------------
 
-test('valid handoff creates an awaiting-transfer session', () => {
+test('valid handoff creates an awaiting-transfer session', async () => {
   const { service } = createApp({ clock: fixedClock(AT_1515) });
-  const { response, handoffToken } = service.create(validRequest());
+  const { response, handoffToken } = await service.create(validRequest());
 
   assert.equal(response.status, SessionStatus.AWAITING_TRANSFER);
   assert.ok(response.sessionId, 'sessionId is present');
@@ -37,24 +37,24 @@ test('valid handoff creates an awaiting-transfer session', () => {
   assert.match(handoffToken, /^gh_handoff_/);
 });
 
-test('expiration is exactly ten minutes after creation, in UTC ISO-8601', () => {
+test('expiration is exactly ten minutes after creation, in UTC ISO-8601', async () => {
   const { service } = createApp({ clock: fixedClock(AT_1515) });
-  const { response } = service.create(validRequest());
+  const { response } = await service.create(validRequest());
 
   assert.equal(response.createdAt, '2026-07-12T15:15:00.000Z');
   assert.equal(response.expiresAt, '2026-07-12T15:25:00.000Z');
   assert.equal(response.expiresInSeconds, 600);
 });
 
-test('optional fields may be omitted', () => {
+test('optional fields may be omitted', async () => {
   const { service } = createApp({ clock: fixedClock(AT_1515) });
-  const { handoffToken } = service.create({
+  const { handoffToken } = await service.create({
     firmId: 'martinson-beason',
     caller: { fullName: 'Casey Vega', email: 'casey@example.com' },
     scheduling: { attorneyId: 'clay-martinson', consultationTypeId: 'initial-consultation' },
     handoff: { source: 'receptionist-portal', mode: 'live-transfer' },
   });
-  const ctx = service.redeem(handoffToken);
+  const ctx = await service.redeem(handoffToken);
   assert.equal(ctx.callerPhone, null);
   assert.equal(ctx.practiceAreaId, null);
 });
@@ -63,11 +63,11 @@ test('optional fields may be omitted', () => {
 // Redemption
 // --------------------------------------------------------------------------
 
-test('valid token redeems once and moves the session to connected', () => {
+test('valid token redeems once and moves the session to connected', async () => {
   const { service } = createApp({ clock: fixedClock(AT_1515) });
-  const { handoffToken } = service.create(validRequest());
+  const { handoffToken } = await service.create(validRequest());
 
-  const ctx = service.redeem(handoffToken);
+  const ctx = await service.redeem(handoffToken);
   assert.equal(ctx.status, SessionStatus.CONNECTED);
   assert.equal(ctx.callerName, 'David Jones');
   assert.equal(ctx.callerLastName, 'Jones');
@@ -77,10 +77,10 @@ test('valid token redeems once and moves the session to connected', () => {
   assert.equal(ctx.consultationTypeId, 'initial-consultation');
 });
 
-test('redeem response contains only scheduling context (no receptionist or vendor fields)', () => {
+test('redeem response contains only scheduling context (no receptionist or vendor fields)', async () => {
   const { service } = createApp({ clock: fixedClock(AT_1515) });
-  const { handoffToken } = service.create(validRequest());
-  const ctx = service.redeem(handoffToken);
+  const { handoffToken } = await service.create(validRequest());
+  const ctx = await service.redeem(handoffToken);
 
   assert.deepEqual(
     Object.keys(ctx).sort(),
@@ -92,21 +92,21 @@ test('redeem response contains only scheduling context (no receptionist or vendo
   assert.equal('mode' in ctx, false);
 });
 
-test('unknown token is rejected with 404', () => {
+test('unknown token is rejected with 404', async () => {
   const { service } = createApp({ clock: fixedClock(AT_1515) });
-  assert.throws(() => service.redeem('gh_handoff_nonexistent'), (e) => e.status === 404 && e.code === 'unknown_token');
+  await assert.rejects(() => service.redeem('gh_handoff_nonexistent'), (e) => e.status === 404 && e.code === 'unknown_token');
 });
 
-test('a token cannot be redeemed twice (409 on second attempt)', () => {
+test('a token cannot be redeemed twice (409 on second attempt)', async () => {
   const { service } = createApp({ clock: fixedClock(AT_1515) });
-  const { handoffToken } = service.create(validRequest());
-  service.redeem(handoffToken);
-  assert.throws(() => service.redeem(handoffToken), (e) => e.status === 409 && e.code === 'token_already_redeemed');
+  const { handoffToken } = await service.create(validRequest());
+  await service.redeem(handoffToken);
+  await assert.rejects(() => service.redeem(handoffToken), (e) => e.status === 409 && e.code === 'token_already_redeemed');
 });
 
 test('concurrent redemption attempts result in exactly one success', async () => {
   const { service } = createApp({ clock: fixedClock(AT_1515) });
-  const { handoffToken } = service.create(validRequest());
+  const { handoffToken } = await service.create(validRequest());
 
   const attempts = await Promise.allSettled(
     Array.from({ length: 25 }, () => Promise.resolve().then(() => service.redeem(handoffToken))),
@@ -122,31 +122,31 @@ test('concurrent redemption attempts result in exactly one success', async () =>
 // Expiration (deterministic via the fake clock — no sleeps)
 // --------------------------------------------------------------------------
 
-test('a token is valid right up until it expires', () => {
+test('a token is valid right up until it expires', async () => {
   const clock = fixedClock(AT_1515);
   const { service } = createApp({ clock });
-  const { handoffToken } = service.create(validRequest());
+  const { handoffToken } = await service.create(validRequest());
 
   clock.set(Date.parse('2026-07-12T15:24:59Z')); // 1s before expiry
-  const ctx = service.redeem(handoffToken);
+  const ctx = await service.redeem(handoffToken);
   assert.equal(ctx.status, SessionStatus.CONNECTED);
 });
 
-test('a token is invalid at or after expiry, and no context is returned', () => {
+test('a token is invalid at or after expiry, and no context is returned', async () => {
   const clock = fixedClock(AT_1515);
   const { service } = createApp({ clock });
-  const { handoffToken } = service.create(validRequest());
+  const { handoffToken } = await service.create(validRequest());
 
   clock.set(Date.parse('2026-07-12T15:25:00Z')); // exactly expiresAt
-  assert.throws(() => service.redeem(handoffToken), (e) => e.status === 410 && e.code === 'token_expired');
+  await assert.rejects(() => service.redeem(handoffToken), (e) => e.status === 410 && e.code === 'token_expired');
 });
 
-test('an expired session is marked expired when accessed', () => {
+test('an expired session is marked expired when accessed', async () => {
   const clock = fixedClock(AT_1515);
   const { service, store } = createApp({ clock });
-  const { response } = service.create(validRequest());
+  const { response } = await service.create(validRequest());
 
   clock.set(Date.parse('2026-07-12T16:00:00Z'));
-  const session = store.get(response.sessionId);
+  const session = await store.get(response.sessionId);
   assert.equal(session.status, SessionStatus.EXPIRED);
 });

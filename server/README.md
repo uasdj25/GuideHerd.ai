@@ -1,10 +1,13 @@
 # GuideHerd Backend
 
-Node.js services for GuideHerd. Zero runtime dependencies — Node built-ins only
-(`node:http`, `node:crypto`, `node:sqlite`, `node:test`), matching the
-repository's existing scripts. Requires Node 22.5+ (`node:sqlite`; the npm
-scripts pass `--experimental-sqlite`, needed below Node 22.13 / 23.4 and
-accepted harmlessly above).
+Node.js services for GuideHerd. Node built-ins (`node:http`, `node:crypto`,
+`node:sqlite`, `node:test`) plus **exactly one runtime dependency**: the
+pinned `pg` PostgreSQL driver for the Operational Store — the deliberate,
+documented exception to the zero-runtime-dependency preference (ADR-0006;
+hand-rolling the PostgreSQL wire protocol would be unsafe database code).
+Requires Node 22.5+ (`node:sqlite`; the npm scripts pass
+`--experimental-sqlite`, needed below Node 22.13 / 23.4 and accepted
+harmlessly above). Run `npm install` once in `server/` to fetch `pg`.
 
 This directory is **not** part of the static website deploy.
 
@@ -50,13 +53,60 @@ Configuration (environment variables):
   at boot regardless of this setting.
 - `GUIDEHERD_SEED_FILE` — **optional**, off by default. See "Configuration
   Store deployment modes" below.
+- `GUIDEHERD_OPERATIONAL_PROVIDER` — Operational Store selection (ADR-0006):
+  `memory` (default — sessions in process memory, exactly the pre-existing
+  behavior) or `postgres` (durable sessions). Selecting `postgres` with an
+  unreachable database, a failed migration, or no connection string makes
+  the process **exit non-zero instead of starting**; an unknown value does
+  the same. There is never a silent fallback. **Rollback = set it back to
+  `memory` and redeploy.**
+- `DATABASE_URL` / `GUIDEHERD_OPERATIONAL_DATABASE_URL` — PostgreSQL
+  connection string for the Operational Store (the second wins when both are
+  set; Railway injects the first when a PostgreSQL service is linked). Used
+  only when the provider is `postgres`.
+- `GUIDEHERD_PG_POOL_MAX` — operational connection-pool size per instance
+  (default `5`; keep the sum across instances under the database plan's
+  connection limit).
 
 ### Test
 
 ```bash
 cd server
-npm test           # node --test
+npm test           # node --test — includes the repository contract suite
+                   # against the in-memory store; the PostgreSQL leg skips
+                   # (loudly) unless a test database is provided:
+GUIDEHERD_TEST_DATABASE_URL=postgresql://user@host:5432/disposable_db npm test
 ```
+
+The PostgreSQL test leg drops and recreates its tables — point it only at a
+**disposable** database, never at real data.
+
+## Operational Store
+
+`operational/` is the durable home of operational conversation state
+([ADR-0006](../docs/architecture-decisions/ADR-0006-operational-store-postgresql.md)),
+Phase 1: handoff sessions in PostgreSQL. The Handoff repository contract is
+async with two implementations — the in-memory reference in
+`handoff/store.js` (default; powers tests and the current live demo) and the
+PostgreSQL repository in `operational/session-repository.js`. A shared
+contract suite (`operational/contract-suite.js`) runs against both, so they
+cannot drift apart. State-machine semantics are identical; atomicity comes
+from conditional updates and `SELECT … FOR UPDATE` transactions instead of
+single-threaded execution, which is what makes multiple API instances safe.
+
+- `db.js` — pooled connections (`pg`, pinned; see the dependency note above).
+- `migrate.js` + `migrations/NNNN-*.sql` — the same numbered-SQL pattern as
+  the Configuration Store, applied transactionally at boot under a
+  `pg_advisory_lock` so concurrently booting instances serialize.
+  Migrations are **additive-only** (deploys overlap old and new instances).
+- Deployment cutover: attach a managed PostgreSQL service (Railway injects
+  `DATABASE_URL`), deploy with `GUIDEHERD_OPERATIONAL_PROVIDER` unset
+  (memory — nothing changes), then set it to `postgres` and redeploy.
+  Rollback is setting it back to `memory`.
+- Retention: proposed defaults live in ADR-0006; the automated purge job is
+  a follow-on ticket. A controlled low-volume pilot may run under an
+  explicitly documented **manual** retention/deletion policy; automated
+  retention is required before broader production scale.
 
 ## Configuration Store
 
@@ -166,12 +216,14 @@ the routes are removed and Connect remains.
     session) and the GuideHerd-owned outcome contract
     (`POST /api/v1/demo/outcome`). Remove when production telephony delivery
     of the handoff token lands.
-- **Storage is in-memory** behind a small `create / redeem / get` interface, so a
-  persistent store can replace it later without touching the service or routes.
-- **Single-use redemption** relies on Node's single-threaded event loop: the
-  store's `redeem()` does its check-and-mark in one synchronous pass with no
-  `await` in the middle, so concurrent requests cannot both succeed. Exactly one
-  wins; the rest get `409 Conflict`.
+- **Storage sits behind the async Handoff repository contract** (ADR-0006):
+  in-memory by default, PostgreSQL when selected — services and routes are
+  implementation-blind.
+- **Single-use redemption** is atomic in both implementations: the in-memory
+  store does its check-and-mark in one synchronous pass (Node never preempts
+  synchronous code); the PostgreSQL store uses a single conditional
+  `UPDATE … RETURNING`. Exactly one concurrent redeemer wins; the rest get
+  `409 Conflict` — across any number of API instances.
 - **Expiration is lazy** — sessions are marked `expired` when accessed. There is
   no background scheduler in v1.
 - **Deterministic time** — a `clock` abstraction is injected so expiration is
@@ -194,8 +246,10 @@ the routes are removed and Connect remains.
 
 ## Not yet in place (pilot prerequisites, stated plainly)
 
-- Sessions are **in-memory only**: lost on restart/deploy; single instance
-  required.
+- Sessions are in-memory **by default** (the live demo's mode): lost on
+  restart/deploy, single instance required. Durable multi-instance sessions
+  exist behind `GUIDEHERD_OPERATIONAL_PROVIDER=postgres` but are not yet
+  enabled in any deployment, and the retention/purge job is not built.
 - **No authentication for creating sessions**, and the receptionist page is
   not authenticated — both required before production (see `server.js`).
 - A browser refresh loses the console's active session state.

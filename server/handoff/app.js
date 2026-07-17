@@ -47,8 +47,11 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService } = {}) {
-  const store = createInMemoryHandoffStore({ clock });
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, handoffStore } = {}) {
+  // Operational Store (ADR-0006): the handoff repository is injectable. The
+  // in-memory implementation remains the default; server.js selects the
+  // durable PostgreSQL implementation via GUIDEHERD_OPERATIONAL_PROVIDER.
+  const store = handoffStore || createInMemoryHandoffStore({ clock });
   const service = createHandoffService({ store, clock, ttlSeconds });
   const allowedOrigins = parseAllowedOrigins(
     corsAllowedOrigins !== undefined ? corsAllowedOrigins : process.env.CORS_ALLOWED_ORIGINS,
@@ -161,7 +164,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret,
       if (method === 'POST' && path === '/api/v1/handoffs') {
         const body = await readJsonBody(req);
         const request = normalizeCreate(body);
-        const { response } = service.create(request);
+        const { response } = await service.create(request);
         sessionId = response.sessionId;
         status = 201;
         return sendJson(res, status, response, cors);
@@ -170,7 +173,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret,
       if (method === 'POST' && path === '/api/v1/handoffs/redeem') {
         const body = await readJsonBody(req);
         const { handoffToken } = normalizeRedeem(body);
-        const context = service.redeem(handoffToken);
+        const context = await service.redeem(handoffToken);
         sessionId = context.sessionId;
         status = 200;
         return sendJson(res, status, context, cors);
@@ -189,7 +192,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret,
         // the adapter's concern; drained here (size-capped) for hygiene.
         await drainBody(req);
         adapter.translateConnect(undefined);
-        const context = conversations.connect(DEMO_FIRM_ID, adapter.providerKey);
+        const context = await conversations.connect(DEMO_FIRM_ID, adapter.providerKey);
         sessionId = context.sessionId;
         status = 200;
         return sendJson(res, status, context, null);
@@ -200,7 +203,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret,
       // configured. Bridge-secret authorized; the Graph mailer is untouched.
       if (method === 'GET' && path === '/api/v1/demo/summary/latest') {
         requireBridgeAuth(demoBridgeSecret, req.headers.authorization);
-        const session = store.latestCompleted(DEMO_FIRM_ID);
+        const session = await store.latestCompleted(DEMO_FIRM_ID);
         if (!session) throw new NoCompletedSummaryError();
         sessionId = session.sessionId;
         status = 200;
@@ -234,11 +237,11 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret,
         sessionId = sessionMatch[1];
 
         if (method === 'GET') {
-          const statusBody = service.status(sessionId, consoleToken);
+          const statusBody = await service.status(sessionId, consoleToken);
           status = 200;
           return sendJson(res, status, statusBody, cors);
         }
-        const cancelBody = service.cancel(sessionId, consoleToken);
+        const cancelBody = await service.cancel(sessionId, consoleToken);
         status = 200;
         return sendJson(res, status, cancelBody, cors);
       }

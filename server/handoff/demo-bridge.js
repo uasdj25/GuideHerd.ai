@@ -243,12 +243,14 @@ function normalizeOutcome(body) {
 /**
  * Record an outcome and deliver the Consultation Summary exactly once.
  *
- * Delivery idempotency: the summaryDelivery flag is set to 'pending'
- * SYNCHRONOUSLY before the first await, so concurrent duplicate outcome
- * requests on Node's single thread cannot both enter the send path. A retry
- * is permitted after 'failed'; a 'sent' summary is never resent. Mail
- * failure never reverses the recorded booking outcome — the appointment and
- * the notification are separate concerns.
+ * Delivery idempotency: the repository's claimSummaryDelivery() grants the
+ * delivery claim atomically (a synchronous check-and-mark in memory; a
+ * conditional UPDATE in PostgreSQL), so concurrent duplicate outcome
+ * requests — including requests on DIFFERENT API instances sharing one
+ * database — can never both enter the send path. A retry is permitted after
+ * 'failed' (and after a stale abandoned claim); a 'sent' summary is never
+ * resent. Mail failure never reverses the recorded booking outcome — the
+ * appointment and the notification are separate concerns.
  *
  * @param {{ service: any, store: any, mailer: any }} deps
  * @param {string} sessionId
@@ -256,22 +258,24 @@ function normalizeOutcome(body) {
  * @returns {Promise<{ sessionId: string, status: string, summaryDelivery: string }>}
  */
 async function recordOutcomeAndDeliver({ service, store, mailer }, sessionId, outcome) {
-  const { session } = service.applyOutcome(sessionId, outcome); // throws on invalid transitions
+  const { session } = await service.applyOutcome(sessionId, outcome); // throws on invalid transitions
 
-  if (session.summaryDelivery !== 'sent' && session.summaryDelivery !== 'pending') {
-    session.summaryDelivery = 'pending'; // synchronous claim — blocks concurrent duplicates
-    const model = buildConsultationSummary(session);
+  const claim = await store.claimSummaryDelivery(session.sessionId);
+  let summaryDelivery = claim.summaryDelivery;
+  if (claim.claimed) {
+    const model = buildConsultationSummary(claim.session);
     const result = await mailer.sendSummary({
       subject: summarySubject(model),
       html: renderSummaryHtml(model),
     });
-    session.summaryDelivery = result.status; // 'sent' | 'failed' | 'not-configured'
+    const updated = await store.recordSummaryDelivery(session.sessionId, result.status);
+    summaryDelivery = updated.summaryDelivery; // 'sent' | 'failed' | 'not-configured'
   }
 
   return {
     sessionId: session.sessionId,
     status: session.status,
-    summaryDelivery: session.summaryDelivery,
+    summaryDelivery,
   };
 }
 

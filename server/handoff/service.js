@@ -31,7 +31,7 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
      * @param {import('./models').CreateHandoffRequest} request validated input
      * @returns {{ handoffToken: string, consoleToken: string, response: import('./models').CreateHandoffResponse }}
      */
-    create(request) {
+    async create(request) {
       const now = clock.now();
       const sessionId = idgen.generateSessionId();
       const token = idgen.generateHandoffToken();
@@ -53,10 +53,11 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
         completedAtMs: null,
         outcome: null,
         summaryDelivery: null, // null | 'pending' | 'sent' | 'failed' | 'not-configured'
+        summaryClaimedAtMs: null,
         createdAtMs: now,
         expiresAtMs,
       };
-      store.create(session);
+      await store.create(session);
 
       // Raw tokens are returned exactly once here and never stored or logged.
       // The handoff token is intended for the scheduling/voice side; a future
@@ -85,8 +86,8 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
      * @param {string} consoleToken
      * @returns {import('./models').SessionStatusResponse}
      */
-    status(sessionId, consoleToken) {
-      const session = store.statusByConsole(sessionId, idgen.hashToken(consoleToken));
+    async status(sessionId, consoleToken) {
+      const session = await store.statusByConsole(sessionId, idgen.hashToken(consoleToken));
       const body = {
         sessionId: session.sessionId,
         status: session.status,
@@ -111,8 +112,8 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
      * and scheduling context. Raw tokens and hashes never appear here.
      * @param {string} firmId
      */
-    connectDemo(firmId) {
-      const session = store.connectDemo(firmId);
+    async connectDemo(firmId) {
+      const session = await store.connectDemo(firmId);
       return {
         sessionId: session.sessionId,
         status: session.status,
@@ -137,7 +138,7 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
      * @param {string} sessionId
      * @param {object} outcome validated GuideHerd outcome
      */
-    applyOutcome(sessionId, outcome) {
+    async applyOutcome(sessionId, outcome) {
       return store.applyOutcome(sessionId, outcome);
     },
 
@@ -148,8 +149,8 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
      * @param {string} consoleToken
      * @returns {{ sessionId: string, status: string }}
      */
-    cancel(sessionId, consoleToken) {
-      const session = store.cancel(sessionId, idgen.hashToken(consoleToken));
+    async cancel(sessionId, consoleToken) {
+      const session = await store.cancel(sessionId, idgen.hashToken(consoleToken));
       return { sessionId: session.sessionId, status: session.status };
     },
 
@@ -158,9 +159,9 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
      * @param {string} token
      * @returns {import('./models').RedeemResponse}
      */
-    redeem(token) {
+    async redeem(token) {
       const tokenHash = idgen.hashToken(token);
-      const session = store.redeem(tokenHash); // throws domain errors on failure
+      const session = await store.redeem(tokenHash); // throws domain errors on failure
 
       return {
         sessionId: session.sessionId,

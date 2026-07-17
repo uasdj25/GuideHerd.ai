@@ -4,13 +4,19 @@ const { systemClock } = require('./clock');
 const { createInMemoryHandoffStore } = require('./store');
 const { createHandoffService } = require('./service');
 const { normalizeCreate, normalizeRedeem } = require('./validation');
-const { requireBridgeAuth, normalizeOutcome, recordOutcomeAndDeliver, DEMO_FIRM_ID } = require('./demo-bridge');
+const { requireBridgeAuth, DEMO_FIRM_ID } = require('./demo-bridge');
 const { buildConsultationSummary, renderSummaryHtml } = require('./summary');
 const { NoCompletedSummaryError } = require('./errors');
 const { createMailer } = require('./mailer');
 const { HandoffError, MalformedRequestError, UnauthorizedError } = require('./errors');
 const { ConfigError } = require('../config/errors');
 const { getSchedulingOptions } = require('../config/options');
+const { ConnectError } = require('../connect/errors');
+const { createAdapterRegistry } = require('../connect/adapter');
+const { createElevenLabsAdapter } = require('../connect/elevenlabs-adapter');
+const { createConversationService } = require('../connect/conversations');
+const { createConversationEvents } = require('../connect/events');
+const { resolveProviderKey } = require('../connect/provider-config');
 
 // Scheduling context is tiny; cap the body to reject oversized payloads early.
 const MAX_BODY_BYTES = 16 * 1024;
@@ -47,6 +53,14 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   const allowedOrigins = parseAllowedOrigins(
     corsAllowedOrigins !== undefined ? corsAllowedOrigins : process.env.CORS_ALLOWED_ORIGINS,
   );
+  // GuideHerd Connect: the provider-neutral conversation layer. The
+  // registry holds one Conversation Adapter per provider; the active
+  // provider per firm is resolved from the Configuration Store (defaulting
+  // to elevenlabs, today's working integration).
+  const adapters = createAdapterRegistry();
+  adapters.register(createElevenLabsAdapter());
+  const events = createConversationEvents();
+
   const deps = {
     service,
     store,
@@ -58,9 +72,16 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     // Configuration Store service (read-only use here). Optional: when
     // absent, configuration endpoints answer 503 rather than failing boot.
     configService: configService || null,
+    adapters,
   };
+  deps.conversations = createConversationService({
+    service, store, mailer: deps.mailer, events, clock,
+  });
   const handler = makeHandler(deps);
-  return { handler, store, service, clock, allowedOrigins, mailer: deps.mailer };
+  return {
+    handler, store, service, clock, allowedOrigins,
+    mailer: deps.mailer, events, adapters, conversations: deps.conversations,
+  };
 }
 
 /**
@@ -81,7 +102,15 @@ function corsHeadersFor(req, allowedOrigins) {
 }
 
 /** Build the raw Node http request handler. */
-function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret, configService }) {
+function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret, configService, adapters, conversations }) {
+  /**
+   * Resolve the active Conversation Adapter for a firm. Provider selection
+   * comes from the Configuration Store (connect/conversation-provider),
+   * defaulting to today's integration when unset; an explicitly configured
+   * but unregistered provider fails loudly (503).
+   */
+  const adapterFor = (firmId) => adapters.resolve(resolveProviderKey(configService, firmId));
+
   return async function handle(req, res) {
     const startedAt = Date.now();
     let status = 500;
@@ -150,14 +179,17 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret,
       // ── TEMPORARY DEMO INFRASTRUCTURE (Slice 3) ─────────────────────
       // Server-held bridge for the controlled demonstration. Authorized by
       // DEMO_BRIDGE_SECRET via Authorization: Bearer only. No browser CORS.
+      // The demo ROUTES are temporary; the GuideHerd Connect conversation
+      // layer they delegate to is not.
       if (method === 'POST' && path === '/api/v1/demo/connect') {
         requireBridgeAuth(demoBridgeSecret, req.headers.authorization);
-        // The request body is OPTIONAL and IGNORED entirely. It exists only
-        // because the external assistant runtime's webhook UI requires at
-        // least one JSON property on POST tools (e.g. {"request":"connect"}).
-        // Drained explicitly (size-capped) for connection hygiene.
+        const adapter = adapterFor(DEMO_FIRM_ID);
+        // The request body is OPTIONAL. Provider dialects (e.g. a webhook
+        // UI that requires at least one JSON property on POST tools) are
+        // the adapter's concern; drained here (size-capped) for hygiene.
         await drainBody(req);
-        const context = service.connectDemo(DEMO_FIRM_ID);
+        adapter.translateConnect(undefined);
+        const context = conversations.connect(DEMO_FIRM_ID, adapter.providerKey);
         sessionId = context.sessionId;
         status = 200;
         return sendJson(res, status, context, null);
@@ -182,9 +214,12 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret,
 
       if (method === 'POST' && path === '/api/v1/demo/outcome') {
         requireBridgeAuth(demoBridgeSecret, req.headers.authorization);
+        const adapter = adapterFor(DEMO_FIRM_ID);
         const body = await readJsonBody(req);
-        const { sessionId: outcomeSessionId, outcome } = normalizeOutcome(body);
-        const result = await recordOutcomeAndDeliver({ service, store, mailer }, outcomeSessionId, outcome);
+        // The adapter translates the provider's dialect into the canonical
+        // outcome contract; validation is shared and provider-independent.
+        const { sessionId: outcomeSessionId, outcome } = adapter.translateOutcome(body);
+        const result = await conversations.complete(outcomeSessionId, outcome, adapter.providerKey);
         sessionId = result.sessionId;
         status = 200;
         return sendJson(res, status, result, null);
@@ -211,7 +246,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret,
       status = 404;
       return sendJson(res, status, { error: { code: 'not_found', message: 'Resource not found.' } }, cors);
     } catch (err) {
-      if (err instanceof HandoffError || err instanceof ConfigError) {
+      if (err instanceof HandoffError || err instanceof ConfigError || err instanceof ConnectError) {
         status = err.status;
         return sendJson(res, status, err.toBody(), cors);
       }

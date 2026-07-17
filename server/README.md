@@ -117,6 +117,39 @@ How that file gets populated depends on where it's deployed:
   overwrite those edits with whatever's in git. Until such a channel
   exists, git-as-source-of-truth is the intended and only mode.
 
+## GuideHerd Connect
+
+`connect/` is the provider-neutral conversation layer (see
+[ADR-0005](../docs/architecture-decisions/ADR-0005-guideherd-connect-conversation-layer.md)).
+GuideHerd owns conversation state — prepared-session correlation, lifecycle,
+outcomes, Consultation Summary delivery, provider configuration, and
+conversation events. External providers own the phone call itself (audio,
+telephony, media transport); Connect never proxies audio and never speaks
+SIP/RTP.
+
+- `adapter.js` — the Conversation Adapter contract and registry. One adapter
+  per provider translates that provider's request dialect into GuideHerd's
+  canonical contracts; validation is shared and can never be loosened per
+  provider.
+- `elevenlabs-adapter.js` — the first adapter; wraps the live integration's
+  dialect (ignored connect body; flat outcome format) without changing it.
+- `conversations.js` — the conversation service (connect/complete lifecycle,
+  event emission). v1 keeps conversation state on the handoff session — one
+  source of truth until the Operational Store exists.
+- `events.js` — conversation events (`conversation.connected`,
+  `conversation.completed`): identifiers and transition facts only, never
+  tokens, provider payloads, or caller contact details. No production
+  subscribers in v1; this is the seam future capabilities attach to.
+- `provider-config.js` — per-firm provider selection from the Configuration
+  Store setting `connect/conversation-provider` (default: `elevenlabs`).
+  An explicitly configured but unregistered provider fails loudly with
+  `503 conversation_provider_unavailable`. Secrets never live in settings.
+
+Import direction: `connect/` may import from `handoff/` and read from
+`config/`; neither imports back. The temporary demo-bridge routes now
+delegate to Connect — when trusted telephony delivery replaces the bridge,
+the routes are removed and Connect remains.
+
 ## Design notes
 
 - **`handoff/`** — the Session/Handoff service, split into small modules:

@@ -220,11 +220,10 @@ function createOperationsCenter({
       for (const record of records) {
         if (results.length >= Math.max(1, limit)) break;
         if (failedOnly && record.status !== 'failed') continue;
-        // Keys are '<type>:<sessionId>' (ADR-0011); the org join goes
-        // through the session — never trusted from the key alone.
-        const separator = record.notificationKey.lastIndexOf(':');
-        const sessionId = separator === -1 ? null : record.notificationKey.slice(separator + 1);
-        const type = separator === -1 ? null : record.notificationKey.slice(0, separator);
+        // Keys are '<type>:<sessionId>[:<qualifier>]' (ADR-0011 — the
+        // qualifier carries e.g. a reminder schedule slot); the org join
+        // goes through the session — never trusted from the key alone.
+        const [type, sessionId] = record.notificationKey.split(':');
         if (!sessionId) continue;
         const session = await store.get(sessionId).catch(() => undefined);
         if (!session || session.firmId !== organizationKey) continue;

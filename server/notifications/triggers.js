@@ -121,4 +121,4 @@ function registerNotificationTriggers({ outbox, store, notificationService, conf
   });
 }
 
-module.exports = { registerNotificationTriggers, confirmationEnabled, SETTINGS_NAMESPACE, CONFIRMATION_KEY };
+module.exports = { registerNotificationTriggers, confirmationEnabled, displayNames, SETTINGS_NAMESPACE, CONFIRMATION_KEY };

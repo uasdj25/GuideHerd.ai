@@ -46,13 +46,14 @@ function fixture() {
 test('framework: the production domain model registers every settings domain, all LIVE', () => {
   const ids = domainDescriptors().map((d) => d.id).sort();
   assert.deepEqual(ids, [
-    'conversation-provider', 'identity-provider', 'notification-branding',
-    'notification-provider', 'notifications', 'scheduling-policy',
+    'appointment-reminders', 'conversation-provider', 'identity-provider',
+    'notification-branding', 'notification-provider', 'notifications', 'scheduling-policy',
   ]);
   assert.ok(domainDescriptors().every((d) => d.live === true), 'settings domains are live by construction');
   const owners = Object.fromEntries(domainDescriptors().map((d) => [d.id, d.owner]));
   assert.equal(owners['scheduling-policy'], 'scheduling', 'validation ownership stays with the subsystem');
   assert.equal(owners['notification-branding'], 'notifications');
+  assert.equal(owners['appointment-reminders'], 'scheduler', 'the Scheduler owns its reminder configuration');
 });
 
 test('framework: unknown domains fail loudly in both directions', () => {
@@ -189,7 +190,7 @@ test('framework: a new domain is ONE registration — readable, strict-validated
       return { value: { text }, issues };
     },
   });
-  assert.equal(framework.descriptors().length, 7, 'six production domains + the new one');
+  assert.equal(framework.descriptors().length, 8, 'seven production domains + the new one');
 
   // Consumer read and producer gate work immediately.
   assert.equal(framework.read(configService, 'voice-greeting', FIRM).value.text, 'Thank you for calling.');

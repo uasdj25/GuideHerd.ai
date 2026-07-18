@@ -37,6 +37,7 @@ const {
   UnknownTokenError,
   NoPreparedSessionError,
   AmbiguousSessionError,
+  TooManyPreparedSessionsError,
   OutcomeConflictError,
   InvalidOutcomeStateError,
   TokenAlreadyRedeemedError,
@@ -49,6 +50,17 @@ const {
 } = require('../handoff/errors');
 
 const TERMINAL = [SessionStatus.BOOKED, SessionStatus.FAILED, SessionStatus.ESCALATED];
+
+/**
+ * Advisory-lock namespace for the per-organization prepared-session cap
+ * (two-key form, so it can never collide with the migration runner's
+ * single-key lock 728301). The second key is hashtext(organization_key):
+ * creates for the SAME organization serialize across all API instances;
+ * unrelated organizations proceed in parallel. A rare hashtext collision
+ * between organizations merely serializes them — never a correctness
+ * issue. The lock is transaction-scoped: commit or rollback releases it.
+ */
+const PREPARED_CAP_LOCK_NAMESPACE = 728302;
 
 /** Constant-time comparison of two hex digests (same as the in-memory store). */
 function hashesEqual(a, b) {
@@ -141,11 +153,10 @@ function createPostgresHandoffStore({ pool, clock }) {
     return rows[0];
   }
 
-  const api = {
-    /** @param {import('../handoff/models').InternalSession} session */
-    async create(session) {
-      await pool.query(
-        `INSERT INTO handoff_sessions (
+  /** Insert a session row on the given runner (pool or transaction client). */
+  async function insertSession(runner, session) {
+    await runner.query(
+      `INSERT INTO handoff_sessions (
            session_id, organization_key, status,
            caller_full_name, caller_email, caller_phone, caller_phone_normalized,
            attorney_id, practice_area_id, consultation_type_id,
@@ -172,7 +183,41 @@ function createPostgresHandoffStore({ pool, clock }) {
           session.cancelledAtMs === null ? null : new Date(session.cancelledAtMs),
         ],
       );
-      return session;
+    }
+
+  const api = {
+    /**
+     * Create a session. With `maxEligiblePrepared`, atomically enforce the
+     * per-organization cap on eligible (awaiting-transfer, unexpired)
+     * prepared sessions (ADR-0010) ACROSS INSTANCES: a transaction-scoped
+     * advisory lock keyed by the organization serializes same-organization
+     * creates, so the count and the insert are one atomic unit and the cap
+     * can never be overshot; unrelated organizations are not serialized.
+     * Expired, cancelled, connected, and terminal rows never consume
+     * capacity. Throws 429 when full (rollback: nothing inserted).
+     * @param {import('../handoff/models').InternalSession} session
+     * @param {{ maxEligiblePrepared?: number }} [options]
+     */
+    async create(session, { maxEligiblePrepared } = {}) {
+      if (maxEligiblePrepared === undefined || session.status !== SessionStatus.AWAITING_TRANSFER) {
+        await insertSession(pool, session);
+        return session;
+      }
+      const now = nowDate();
+      return inTransaction(async (client) => {
+        await client.query(
+          'SELECT pg_advisory_xact_lock($1, hashtext($2))',
+          [PREPARED_CAP_LOCK_NAMESPACE, session.firmId],
+        );
+        const { rows } = await client.query(
+          `SELECT count(*)::int AS n FROM handoff_sessions
+            WHERE organization_key = $1 AND status = 'awaiting-transfer' AND expires_at > $2`,
+          [session.firmId, now],
+        );
+        if (rows[0].n >= maxEligiblePrepared) throw new TooManyPreparedSessionsError();
+        await insertSession(client, session);
+        return session;
+      });
     },
 
     /**
@@ -315,6 +360,24 @@ function createPostgresHandoffStore({ pool, clock }) {
      */
     async connectDemo(firmId) {
       return api.connectEligible(firmId, {});
+    },
+
+    /**
+     * Count the organization's eligible (awaiting-transfer, unexpired)
+     * prepared sessions — served by idx_handoff_sessions_eligibility. The
+     * per-organization cap reads this before create (ADR-0010); the check
+     * is deliberately advisory (no lock), so a cross-instance race can
+     * overshoot by a request or two — acceptable for abuse containment.
+     * @param {string} firmId
+     */
+    async countEligible(firmId) {
+      const now = nowDate();
+      const { rows } = await pool.query(
+        `SELECT count(*)::int AS n FROM handoff_sessions
+          WHERE organization_key = $1 AND status = 'awaiting-transfer' AND expires_at > $2`,
+        [firmId, now],
+      );
+      return rows[0].n;
     },
 
     /**

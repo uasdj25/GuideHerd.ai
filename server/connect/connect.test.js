@@ -84,6 +84,10 @@ async function withServer(opts, fn) {
   try {
     return await fn(`http://127.0.0.1:${port}`, app);
   } finally {
+    // Deterministic teardown: destroy any keep-alive sockets so no test's
+    // connections (or the shared fetch pool's idle sockets) can outlive its
+    // server and interact with a later test's port assignment.
+    server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
   }
 }

@@ -227,6 +227,10 @@ async function withServer(opts, fn) {
   try {
     return await fn(`http://127.0.0.1:${port}`, app);
   } finally {
+    // Deterministic teardown: destroy any keep-alive sockets so no test's
+    // connections (or the shared fetch pool's idle sockets) can outlive its
+    // server and interact with a later test's port assignment.
+    server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
   }
 }
@@ -241,8 +245,10 @@ function post(base, path, body, headers = {}) {
 
 test('HTTP: a static identity from GUIDEHERD_STATIC_IDENTITIES authenticates, but roles gate the surface', async () => {
   const staticIdentitiesJson = JSON.stringify([
-    { token: 'tok-assistant-2', subject: 'assistant-2', type: 'service', roles: [SCHEDULING_ASSISTANT_ROLE] },
-    { token: 'tok-reporting', subject: 'reporting-job', type: 'service', roles: ['reporting'] },
+    // Organization-scoped, per ADR-0010: an org-scoped role without an
+    // organizationKey is denied — scope must be explicit.
+    { token: 'tok-assistant-2', subject: 'assistant-2', type: 'service', roles: [SCHEDULING_ASSISTANT_ROLE], organizationKey: FIRM },
+    { token: 'tok-reporting', subject: 'reporting-job', type: 'service', roles: ['reporting'], organizationKey: FIRM },
   ]);
   await withServer({ staticIdentitiesJson }, async (base) => {
     // Wrong role: authenticated, but not authorized for the bridge surface.
@@ -280,7 +286,7 @@ test('HTTP: authentication succeeds only through the configured provider', async
           const { InvalidCredentialsError } = require('./errors');
           throw new InvalidCredentialsError();
         }
-        return { subject: 'assistant-via-idp', type: 'service', roles: [SCHEDULING_ASSISTANT_ROLE] };
+        return { subject: 'assistant-via-idp', type: 'service', roles: [SCHEDULING_ASSISTANT_ROLE], organizationKey: FIRM };
       },
     });
 

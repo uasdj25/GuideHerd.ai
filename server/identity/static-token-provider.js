@@ -83,6 +83,12 @@ function createStaticTokenProvider({ staticIdentitiesJson, demoBridgeSecret } = 
   // TEMPORARY DEMO INFRASTRUCTURE continuity: the bridge secret becomes the
   // scheduling-assistant service identity. Explicit definitions win on a
   // hash collision (an operator re-describing the same credential).
+  //
+  // The identity is ORGANIZATION-SCOPED to the demo firm (ADR-0010): the
+  // assistant serves exactly one organization, so its credential must not
+  // reach any other tenant. The literal matches demo-bridge.DEMO_FIRM_ID
+  // (not imported — identity must not depend on demo infrastructure); both
+  // die together when the bridge is retired.
   if (typeof demoBridgeSecret === 'string' && demoBridgeSecret.trim() !== '') {
     const hash = sha256(demoBridgeSecret);
     if (!identitiesByTokenHash.has(hash)) {
@@ -90,7 +96,7 @@ function createStaticTokenProvider({ staticIdentitiesJson, demoBridgeSecret } = 
         subject: 'scheduling-assistant',
         type: 'service',
         displayName: 'GuideHerd Scheduling Assistant',
-        organizationKey: null,
+        organizationKey: 'martinson-beason',
         roles: [SCHEDULING_ASSISTANT_ROLE],
       });
     }

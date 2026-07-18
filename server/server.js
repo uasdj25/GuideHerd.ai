@@ -10,14 +10,17 @@ const { ConfigError } = require('./config/errors');
 const { systemClock } = require('./handoff/clock');
 
 // ---------------------------------------------------------------------------
-// SECURITY — PRODUCTION REQUIREMENT
-// The GuideHerd Identity Contract (ADR-0009) now authenticates service
-// surfaces: the demo bridge authenticates through the identity middleware
-// and the StaticTokenProvider (see server/identity/). The BROWSER-FACING
-// endpoints (create handoff, scheduling options, console status/cancel)
-// remain UNAUTHENTICATED in v1: before broader production exposure they
-// MUST sit behind a user-facing identity provider and login flow arriving
-// through the same contract, plus network-level restrictions.
+// SECURITY — STATUS AND REMAINING REQUIREMENT
+// Authentication: the GuideHerd Identity Contract (ADR-0009) — service
+// surfaces authenticate through the identity middleware and the configured
+// provider. Authorization: every route passes the GuideHerd authorization
+// boundary (ADR-0010) — GuideHerd-owned permissions, organization scoping,
+// capability-token pinning, fail-closed, audited denials. Two routes are
+// PUBLIC BY DESIGN via explicit anonymous policy grants (scheduling
+// options; handoff creation, contained by the per-organization prepared-
+// session cap): the Reception Console has no user login yet. A user-facing
+// identity provider and login flow through the Identity Contract remain a
+// REQUIRED production milestone before broader exposure (ADR-0010 §6).
 // ---------------------------------------------------------------------------
 
 const PORT = Number(process.env.PORT || 3000);

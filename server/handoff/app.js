@@ -12,8 +12,9 @@ const { HandoffError, MalformedRequestError, UnauthorizedError, BridgeNotConfigu
 const { ConfigError } = require('../config/errors');
 const { IdentityError, IdentityNotConfiguredError } = require('../identity/errors');
 const { createIdentityProviderRegistry } = require('../identity/contract');
-const { createStaticTokenProvider, SCHEDULING_ASSISTANT_ROLE } = require('../identity/static-token-provider');
-const { createIdentityService, requireRole } = require('../identity/middleware');
+const { createStaticTokenProvider } = require('../identity/static-token-provider');
+const { createIdentityService } = require('../identity/middleware');
+const { createAuthorization } = require('../identity/authorization');
 const { getSchedulingOptions } = require('../config/options');
 const { ConnectError } = require('../connect/errors');
 const { createAdapterRegistry } = require('../connect/adapter');
@@ -51,12 +52,21 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, handoffStore, staticIdentitiesJson } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization } = {}) {
   // Operational Store (ADR-0006): the handoff repository is injectable. The
   // in-memory implementation remains the default; server.js selects the
   // durable PostgreSQL implementation via GUIDEHERD_OPERATIONAL_PROVIDER.
   const store = handoffStore || createInMemoryHandoffStore({ clock });
-  const service = createHandoffService({ store, clock, ttlSeconds });
+  // Abuse containment for the deliberately-anonymous create route
+  // (ADR-0010): cap concurrently prepared (awaiting-transfer, unexpired)
+  // sessions per organization. Enforced ATOMICALLY inside the repository —
+  // one synchronous pass in memory; a per-organization advisory
+  // transaction lock in PostgreSQL — so concurrent creates across any
+  // number of API instances can never overshoot the cap.
+  const preparedSessionCap = maxPreparedSessions !== undefined
+    ? maxPreparedSessions
+    : Number(process.env.GUIDEHERD_MAX_PREPARED_SESSIONS || 20);
+  const service = createHandoffService({ store, clock, ttlSeconds, maxPreparedSessions: preparedSessionCap });
   const allowedOrigins = parseAllowedOrigins(
     corsAllowedOrigins !== undefined ? corsAllowedOrigins : process.env.CORS_ALLOWED_ORIGINS,
   );
@@ -85,6 +95,12 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     configService: configService || null,
   });
 
+  // GuideHerd Authorization (ADR-0010): the single decision point for "may
+  // this principal perform this operation, in this organization, on this
+  // resource?" Routes express GuideHerd permissions; the policy inside the
+  // authorization service decides. Injectable only for tests.
+  const authz = authorization || createAuthorization();
+
   const deps = {
     service,
     store,
@@ -96,6 +112,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     configService: configService || null,
     adapters,
     identityService,
+    authz,
   };
   deps.conversations = createConversationService({
     service, store, mailer: deps.mailer, events, clock,
@@ -105,6 +122,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     handler, store, service, clock, allowedOrigins,
     mailer: deps.mailer, events, adapters, conversations: deps.conversations,
     identity: { registry: identityProviders, service: identityService },
+    authorization: authz,
   };
 }
 
@@ -126,7 +144,7 @@ function corsHeadersFor(req, allowedOrigins) {
 }
 
 /** Build the raw Node http request handler. */
-function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService }) {
+function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz }) {
   /**
    * Resolve the active Conversation Adapter for a firm. Provider selection
    * comes from the Configuration Store (connect/conversation-provider),
@@ -137,14 +155,15 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
 
   /**
    * Authenticate a demo-bridge request through the Identity Contract and
-   * authorize the scheduling-assistant role. Routes never see the bearer
-   * token — only the resulting GuideHerdIdentity.
+   * authorize the named GuideHerd permission for the demo organization
+   * (ADR-0010): the route states its intent; the policy decides. Routes
+   * never see the bearer token — only the resulting GuideHerdIdentity.
    *
    * TEMPORARY DEMO INFRASTRUCTURE dialect: the bridge's documented
    * "not configured" error code predates the Identity Contract and is
    * preserved verbatim while the bridge exists; the mapping dies with it.
    */
-  const authenticateAssistant = async (req) => {
+  const authorizeAssistant = async (req, permission) => {
     let identity;
     try {
       identity = await identityService.authenticate(req, { organizationKey: DEMO_FIRM_ID });
@@ -152,7 +171,11 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
       if (err instanceof IdentityNotConfiguredError) throw new BridgeNotConfiguredError();
       throw err;
     }
-    return requireRole(identity, SCHEDULING_ASSISTANT_ROLE);
+    authz.authorize({ identity }, permission, {
+      organizationKey: DEMO_FIRM_ID,
+      auditSuccess: true, // privileged, low-frequency service operations
+    });
+    return identity;
   };
 
   return async function handle(req, res) {
@@ -197,6 +220,10 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
           }, cors);
         }
         const firmId = decodeURIComponent(optionsMatch[1]);
+        // PUBLIC BY DESIGN (ADR-0010): the console renders this without a
+        // login. The anonymous grant is declared centrally in the policy —
+        // this route is intentionally, not accidentally, anonymous.
+        authz.authorize({ anonymous: true }, 'configuration:read', { organizationKey: firmId });
         const options = getSchedulingOptions(configService, firmId);
         status = 200;
         return sendJson(res, status, options, cors);
@@ -205,6 +232,12 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
       if (method === 'POST' && path === '/api/v1/handoffs') {
         const body = await readJsonBody(req);
         const request = normalizeCreate(body);
+        // PUBLIC BY DESIGN until a user-facing identity provider arrives
+        // (ADR-0010 records the deferral): the anonymous grant is declared
+        // centrally in the policy. The per-organization prepared-session
+        // cap that contains anonymous abuse is enforced ATOMICALLY inside
+        // the repository via service.create (429 when full).
+        authz.authorize({ anonymous: true }, 'handoff:create', { organizationKey: request.firmId });
         const { response } = await service.create(request);
         sessionId = response.sessionId;
         status = 201;
@@ -214,7 +247,14 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
       if (method === 'POST' && path === '/api/v1/handoffs/redeem') {
         const body = await readJsonBody(req);
         const { handoffToken } = normalizeRedeem(body);
-        const context = await service.redeem(handoffToken);
+        const context = await service.redeem(handoffToken); // repository verifies the capability credential
+        // Capability authorization (ADR-0010): a handoff token may redeem
+        // exactly its own session, and nothing else.
+        authz.authorize(
+          { capability: { type: 'handoff-token', sessionId: context.sessionId } },
+          'handoff:redeem',
+          { resource: { type: 'handoff-session', id: context.sessionId } },
+        );
         sessionId = context.sessionId;
         status = 200;
         return sendJson(res, status, context, cors);
@@ -226,7 +266,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
       // The demo ROUTES are temporary; the GuideHerd Connect conversation
       // layer they delegate to is not.
       if (method === 'POST' && path === '/api/v1/demo/connect') {
-        await authenticateAssistant(req);
+        await authorizeAssistant(req, 'conversation:connect');
         const adapter = adapterFor(DEMO_FIRM_ID);
         // The request body is OPTIONAL and read leniently (size-capped;
         // unparseable bodies become undefined rather than 400): provider
@@ -246,7 +286,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
       // Consultation Summary, for demos where Microsoft Graph is not yet
       // configured. Bridge-secret authorized; the Graph mailer is untouched.
       if (method === 'GET' && path === '/api/v1/demo/summary/latest') {
-        await authenticateAssistant(req);
+        await authorizeAssistant(req, 'summary:read');
         const session = await store.latestCompleted(DEMO_FIRM_ID);
         if (!session) throw new NoCompletedSummaryError();
         sessionId = session.sessionId;
@@ -260,7 +300,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
       }
 
       if (method === 'POST' && path === '/api/v1/demo/outcome') {
-        await authenticateAssistant(req);
+        await authorizeAssistant(req, 'conversation:complete');
         const adapter = adapterFor(DEMO_FIRM_ID);
         const body = await readJsonBody(req);
         // The adapter translates the provider's dialect into the canonical
@@ -280,11 +320,21 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
         const consoleToken = readBearerToken(req); // throws 401 if missing/malformed
         sessionId = sessionMatch[1];
 
+        // Capability authorization (ADR-0010): a console token permits
+        // status reads and cancellation on exactly its own session. The
+        // repository verifies the credential itself (constant-time hash,
+        // 403 on mismatch); this pins WHICH operations the capability may
+        // perform. No success audit: status is high-frequency polling.
+        const consoleCapability = { capability: { type: 'console-token', sessionId } };
+        const sessionResource = { resource: { type: 'handoff-session', id: sessionId } };
+
         if (method === 'GET') {
+          authz.authorize(consoleCapability, 'handoff:read', sessionResource);
           const statusBody = await service.status(sessionId, consoleToken);
           status = 200;
           return sendJson(res, status, statusBody, cors);
         }
+        authz.authorize(consoleCapability, 'handoff:cancel', sessionResource);
         const cancelBody = await service.cancel(sessionId, consoleToken);
         status = 200;
         return sendJson(res, status, cancelBody, cors);

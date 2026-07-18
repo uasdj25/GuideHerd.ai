@@ -358,6 +358,85 @@ function runHandoffRepositoryContractSuite(label, makeStore) {
     assert.equal((await store.get(session.sessionId)).status, SessionStatus.CONNECTED);
   });
 
+  t('create with a prepared-session cap: 429 at capacity, nothing inserted; transitions free capacity; other organizations unaffected', async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const cap = { maxEligiblePrepared: 2 };
+
+    const a = makeSession({ phone: '+15550101' });
+    const b = makeSession({ phone: '+15550102' });
+    await store.create(a.session, cap);
+    await store.create(b.session, cap);
+
+    const c = makeSession({ phone: '+15550103' });
+    await assert.rejects(() => store.create(c.session, cap), (e) => e.status === 429 && e.code === 'too_many_prepared_sessions');
+    assert.equal(await store.get(c.session.sessionId), undefined, 'a rejected create inserts nothing');
+    assert.equal(await store.countEligible('org-a'), 2);
+
+    // Another organization has independent capacity.
+    const other = makeSession({ firmId: 'org-b' });
+    await store.create(other.session, cap);
+
+    // Cancellation frees capacity.
+    await store.cancel(a.session.sessionId, a.consoleTokenHash);
+    await store.create(makeSession({ phone: '+15550104' }).session, cap);
+
+    // Connection frees capacity (connected sessions are not "prepared").
+    await store.connectEligible('org-a', { callerPhoneNormalized: '+15550102' });
+    await store.create(makeSession({ phone: '+15550105' }).session, cap);
+
+    // Expiry frees capacity.
+    clock.set(T0 + TTL_MS);
+    const late = makeSession({ now: T0 + TTL_MS, phone: '+15550106' });
+    await store.create(late.session, cap);
+    assert.equal(await store.countEligible('org-a'), 1);
+
+    // An uncapped create (no option) is unaffected — e.g. contract fixtures.
+    const uncapped = makeSession({ now: T0 + TTL_MS, phone: '+15550107' });
+    await store.create(uncapped.session);
+    const uncapped2 = makeSession({ now: T0 + TTL_MS, phone: '+15550108' });
+    await store.create(uncapped2.session);
+  });
+
+  t('concurrent capped creates never overshoot the cap: exactly cap successes, the rest 429', async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const CAP = 3;
+
+    const attempts = await Promise.allSettled(
+      Array.from({ length: 10 }, (_, i) => store.create(
+        makeSession({ phone: `+1555020${i}` }).session,
+        { maxEligiblePrepared: CAP },
+      )),
+    );
+    assert.equal(attempts.filter((r) => r.status === 'fulfilled').length, CAP, 'exactly cap creations succeed');
+    assert.equal(
+      attempts.filter((r) => r.status === 'rejected' && r.reason.status === 429 && r.reason.code === 'too_many_prepared_sessions').length,
+      10 - CAP,
+      'every other request is a clean 429',
+    );
+    assert.equal(await store.countEligible('org-a'), CAP, 'the store holds exactly cap eligible sessions');
+  });
+
+  t('countEligible: counts unexpired awaiting-transfer sessions per organization; expiry and transitions drop the count', async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    assert.equal(await store.countEligible('org-a'), 0);
+
+    const a = makeSession({ phone: '+15550101' });
+    const b = makeSession({ phone: '+15550102' });
+    const other = makeSession({ firmId: 'org-b' });
+    for (const s of [a, b, other]) await store.create(s.session);
+    assert.equal(await store.countEligible('org-a'), 2, 'organization-scoped');
+    assert.equal(await store.countEligible('org-b'), 1);
+
+    await store.cancel(a.session.sessionId, a.consoleTokenHash);
+    assert.equal(await store.countEligible('org-a'), 1, 'cancelled sessions do not count');
+
+    clock.set(T0 + TTL_MS);
+    assert.equal(await store.countEligible('org-a'), 0, 'expired sessions do not count');
+  });
+
   t('concurrent redeem: exactly one success', async () => {
     const clock = fixedClock(T0);
     const store = await makeStore({ clock });

@@ -14,8 +14,11 @@ All endpoints are server-to-server only:
   or request body and never logged. Authentication flows through the
   GuideHerd Identity Contract (ADR-0009): the secret authenticates as the
   `scheduling-assistant` service identity via the StaticTokenProvider, and
-  the routes authorize that identity's role — no endpoint inspects the
-  credential directly.
+  each route authorizes a GuideHerd permission through the authorization
+  boundary (ADR-0010) — `conversation:connect`, `conversation:complete`, or
+  `summary:read`, organization-scoped to the demo firm. No endpoint
+  inspects the credential directly, and the identity holds nothing beyond
+  those scheduling permissions.
 - Missing/malformed authorization → `401`; wrong or under-privileged
   credential → `403`; no identities configured on the server →
   `503 demo_bridge_not_configured` (this bridge-era code is preserved while

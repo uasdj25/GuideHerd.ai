@@ -50,11 +50,14 @@ function presentCallerContext(session) {
  *   idgen?: typeof import('./ids'),
  * }} deps
  */
-function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, idgen = defaultIds }) {
+function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, idgen = defaultIds, maxPreparedSessions }) {
   return {
     /**
      * @param {import('./models').CreateHandoffRequest} request validated input
      * @returns {{ handoffToken: string, consoleToken: string, response: import('./models').CreateHandoffResponse }}
+     * @throws TooManyPreparedSessionsError (429) when the organization is at
+     *         its prepared-session cap — enforced ATOMICALLY by the
+     *         repository (ADR-0010), so concurrent creates cannot overshoot.
      */
     async create(request) {
       const now = clock.now();
@@ -85,7 +88,7 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
         createdAtMs: now,
         expiresAtMs,
       };
-      await store.create(session);
+      await store.create(session, { maxEligiblePrepared: maxPreparedSessions });
 
       // Raw tokens are returned exactly once here and never stored or logged.
       // The handoff token is intended for the scheduling/voice side; a future

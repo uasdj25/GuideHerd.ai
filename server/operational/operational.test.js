@@ -191,6 +191,7 @@ if (!PG_URL) {
       assert.equal(flat.includes(SECRET), false, 'no bridge secret at rest');
       assert.equal(/ElevenLabs|Twilio|Cal\.com|transcript|recording/i.test(flat), false, 'no provider material at rest');
     } finally {
+      servers.forEach((s) => s.closeAllConnections());
       await Promise.all(servers.map((s) => new Promise((r) => s.close(r))));
       await Promise.all(stores.map((s) => s.close()));
     }
@@ -236,6 +237,42 @@ if (!PG_URL) {
       ]);
       assert.equal(ra.sessionId, first.session.sessionId);
       assert.equal(rb.sessionId, second.session.sessionId);
+    } finally {
+      await storeA.close();
+      await storeB.close();
+    }
+  });
+
+  test('[postgres] atomic prepared-session cap: a hard limit across two repository instances', async () => {
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE handoff_sessions');
+    const storeA = createPostgresHandoffStore({ pool: createOperationalPool({ connectionString: PG_URL }), clock });
+    const storeB = createPostgresHandoffStore({ pool: createOperationalPool({ connectionString: PG_URL }), clock });
+    const CAP = 3;
+    try {
+      // Twelve concurrent creates for ONE organization, alternating between
+      // two independent repository instances sharing the database: the
+      // per-organization advisory transaction lock serializes them, so
+      // exactly CAP succeed and the table can never overshoot.
+      const attempts = await Promise.allSettled(
+        Array.from({ length: 12 }, (_, i) => (i % 2 === 0 ? storeA : storeB).create(
+          makeSession({ phone: `+155503${String(i).padStart(2, '0')}` }).session,
+          { maxEligiblePrepared: CAP },
+        )),
+      );
+      assert.equal(attempts.filter((r) => r.status === 'fulfilled').length, CAP, 'exactly cap cross-instance successes');
+      assert.equal(
+        attempts.filter((r) => r.status === 'rejected' && r.reason.status === 429 && r.reason.code === 'too_many_prepared_sessions').length,
+        12 - CAP,
+      );
+      const { rows } = await sharedPool.query(
+        `SELECT count(*)::int AS n FROM handoff_sessions WHERE organization_key = 'org-a' AND status = 'awaiting-transfer'`,
+      );
+      assert.equal(rows[0].n, CAP, 'the database holds exactly cap prepared rows — the limit is hard');
+
+      // A different organization is not serialized away from its capacity.
+      await storeB.create(makeSession({ firmId: 'org-b' }).session, { maxEligiblePrepared: CAP });
+      assert.equal(await storeB.countEligible('org-b'), 1);
     } finally {
       await storeA.close();
       await storeB.close();

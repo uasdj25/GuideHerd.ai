@@ -40,9 +40,21 @@ handoff mechanism instead of the browser.
   token is accepted **only in the `Authorization: Bearer` header**. Tokens
   never appear in URLs.
 - Tokens are never logged and never appear in error messages.
-- **Authentication and authorization are NOT implemented in v1** and are a
-  required production prerequisite. These endpoints must be protected (service
-  auth + network restrictions) before any real deployment.
+- **Authorization (ADR-0010):** every route passes through the GuideHerd
+  authorization boundary. Both tokens are session **capability credentials**:
+  a handoff token authorizes only `handoff:redeem` on exactly its own
+  session; a console token authorizes only `handoff:read` and
+  `handoff:cancel` on exactly its own session. Neither grants any broader
+  organization or platform access.
+- **Route classification (ADR-0010):** session creation
+  (`POST /api/v1/handoffs`) and scheduling options are **public by design**
+  — declared as explicit anonymous grants in the authorization policy —
+  until a user-facing identity provider and login flow arrive through the
+  Identity Contract (ADR-0009). Anonymous creation is contained by a
+  per-organization cap on concurrently prepared sessions
+  (`GUIDEHERD_MAX_PREPARED_SESSIONS`, default 20 →
+  `429 too_many_prepared_sessions`). User authentication for the Reception
+  Console remains a required production milestone.
 
 ## Browser access (CORS)
 

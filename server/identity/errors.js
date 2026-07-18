@@ -58,6 +58,19 @@ class InsufficientRoleError extends IdentityError {
 }
 
 /**
+ * Authorization denied (ADR-0010): the principal may not perform this
+ * operation in this context. Deliberately generic and identical for every
+ * denial cause — missing permission, wrong organization, wrong resource —
+ * so a denial never reveals whether another tenant's resource exists.
+ */
+class PermissionDeniedError extends IdentityError {
+  constructor() {
+    super(403, 'forbidden', 'The provided credential is not valid.');
+    this.name = 'PermissionDeniedError';
+  }
+}
+
+/**
  * An identity provider is configured but no provider is registered for it.
  * Explicit misconfiguration: fails loudly, never silently substitutes.
  */
@@ -96,6 +109,7 @@ module.exports = {
   UnauthenticatedError,
   InvalidCredentialsError,
   InsufficientRoleError,
+  PermissionDeniedError,
   IdentityProviderUnavailableError,
   IdentityNotConfiguredError,
   IdentityContractViolationError,

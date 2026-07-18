@@ -16,6 +16,7 @@ const {
   UnknownSessionError,
   CannotCancelError,
   SessionExpiredError,
+  TooManyPreparedSessionsError,
 } = require('./errors');
 
 /** Constant-time comparison of two hex digests. */
@@ -102,8 +103,27 @@ function createInMemoryHandoffStore({ clock }) {
   }
 
   const api = {
-    /** @param {import('./models').InternalSession} session */
-    async create(session) {
+    /**
+     * Create a session. With `maxEligiblePrepared`, atomically enforce the
+     * per-organization cap on eligible (awaiting-transfer, unexpired)
+     * prepared sessions (ADR-0010): the capacity check and the insert run
+     * in one synchronous pass — no `await` between them — so concurrent
+     * creates can never overshoot the cap. Throws 429 when full.
+     * @param {import('./models').InternalSession} session
+     * @param {{ maxEligiblePrepared?: number }} [options]
+     */
+    async create(session, { maxEligiblePrepared } = {}) {
+      if (maxEligiblePrepared !== undefined && session.status === SessionStatus.AWAITING_TRANSFER) {
+        const now = clock.now();
+        let eligible = 0;
+        for (const existing of sessionsById.values()) {
+          markExpiredIfNeeded(existing, now);
+          if (existing.firmId === session.firmId && existing.status === SessionStatus.AWAITING_TRANSFER) {
+            eligible += 1;
+          }
+        }
+        if (eligible >= maxEligiblePrepared) throw new TooManyPreparedSessionsError();
+      }
       sessionsById.set(session.sessionId, session);
       tokenHashToSessionId.set(session.tokenHash, session.sessionId);
       return session;
@@ -249,6 +269,23 @@ function createInMemoryHandoffStore({ clock }) {
      */
     async connectDemo(firmId) {
       return api.connectEligible(firmId, {});
+    },
+
+    /**
+     * Count the organization's eligible (awaiting-transfer, unexpired)
+     * prepared sessions — the per-organization abuse-containment cap on the
+     * anonymous create route reads this (ADR-0010). Lazy expiry applies.
+     * @param {string} firmId
+     * @returns {Promise<number>}
+     */
+    async countEligible(firmId) {
+      const now = clock.now();
+      let count = 0;
+      for (const session of sessionsById.values()) {
+        markExpiredIfNeeded(session, now);
+        if (session.firmId === firmId && session.status === SessionStatus.AWAITING_TRANSFER) count += 1;
+      }
+      return count;
     },
 
     /**

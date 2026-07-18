@@ -31,6 +31,10 @@ async function withServer(opts, fn) {
   try {
     return await fn(`http://127.0.0.1:${port}`, app);
   } finally {
+    // Deterministic teardown: destroy any keep-alive sockets so no test's
+    // connections (or the shared fetch pool's idle sockets) can outlive its
+    // server and interact with a later test's port assignment.
+    server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
   }
 }
@@ -470,7 +474,9 @@ test('console token can never cause a transition out of a terminal state', async
 // ---------------------------------------------------------------------------
 
 test('session IDs are v4 UUIDs from a CSPRNG: well-formed, unique, non-sequential', async () => {
-  const app = createApp({ clock: fixedClock(AT_1515) });
+  // 1000 sessions on one app: lift the per-organization prepared-session
+  // cap (ADR-0010) — this test measures ID entropy, not capacity.
+  const app = createApp({ clock: fixedClock(AT_1515), maxPreparedSessions: Infinity });
   const V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
   const ids = [];
   for (let i = 0; i < 1000; i++) {

@@ -134,6 +134,18 @@ class InvalidOutcomeStateError extends HandoffError {
   }
 }
 
+/**
+ * Abuse containment for the deliberately-anonymous create route
+ * (ADR-0010): an organization already has its maximum number of prepared
+ * (awaiting-transfer, unexpired) sessions.
+ */
+class TooManyPreparedSessionsError extends HandoffError {
+  constructor() {
+    super(429, 'too_many_prepared_sessions', 'Too many prepared sessions are awaiting transfer. Complete or cancel existing sessions and retry.');
+    this.name = 'TooManyPreparedSessionsError';
+  }
+}
+
 class NoCompletedSummaryError extends HandoffError {
   constructor() {
     super(404, 'no_completed_summary', 'No completed Consultation Summary exists yet.');
@@ -167,4 +179,5 @@ module.exports = {
   InvalidOutcomeStateError,
   BridgeNotConfiguredError,
   NoCompletedSummaryError,
+  TooManyPreparedSessionsError,
 };

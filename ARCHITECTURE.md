@@ -147,6 +147,7 @@ live in one codebase; the boundaries let them separate later without a rewrite.
 - [ADR-0006: Operational Store — Durable Handoff State in PostgreSQL](docs/architecture-decisions/ADR-0006-operational-store-postgresql.md)
 - [ADR-0007: The GuideHerd Extension Framework](docs/architecture-decisions/ADR-0007-extension-framework.md)
 - [ADR-0008: Concurrent Call Correlation](docs/architecture-decisions/ADR-0008-concurrent-call-correlation.md)
+- [ADR-0009: The GuideHerd Identity Contract](docs/architecture-decisions/ADR-0009-identity-contract.md)
 
 See also [Vision](docs/Vision.md) and [Roadmap](docs/Roadmap.md).
 

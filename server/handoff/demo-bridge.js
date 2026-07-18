@@ -13,18 +13,21 @@
  * ─────────────────────────────────────────────────────────────────────────
  *
  * Endpoints served through app.js:
- *   POST /api/v1/demo/connect  — connect the single prepared session
+ *   POST /api/v1/demo/connect  — connect the matching prepared session
  *   POST /api/v1/demo/outcome  — record the scheduling outcome; triggers the
  *                                Consultation Summary + Outlook delivery
  *
- * The bridge secret is accepted ONLY via `Authorization: Bearer` — never in
- * URLs or request bodies — is compared in constant time, and is never logged.
+ * Authentication moved onto the GuideHerd Identity Contract (ADR-0009): the
+ * bridge secret (DEMO_BRIDGE_SECRET) is absorbed by the StaticTokenProvider
+ * as the scheduling-assistant service identity, and the routes in app.js
+ * authenticate through the identity middleware — this module no longer
+ * inspects credentials. External behavior is unchanged: the credential is
+ * accepted ONLY via `Authorization: Bearer`, compared as a SHA-256 digest,
+ * and never logged.
  */
 
-const crypto = require('node:crypto');
-
 const { SessionStatus } = require('./status');
-const { ValidationError, UnauthorizedError, ForbiddenError, BridgeNotConfiguredError } = require('./errors');
+const { ValidationError } = require('./errors');
 const { buildConsultationSummary, renderSummaryHtml, summarySubject } = require('./summary');
 
 // The demo serves exactly one firm. Hardcoded on purpose: this module is
@@ -69,31 +72,6 @@ function isCompleteIsoDateTime(value) {
   return typeof value === 'string'
     && ISO_WITH_OFFSET.test(value)
     && !Number.isNaN(Date.parse(value));
-}
-
-/** Constant-time comparison via digest so length differences don't leak. */
-function secretsEqual(a, b) {
-  const da = crypto.createHash('sha256').update(String(a), 'utf8').digest();
-  const db = crypto.createHash('sha256').update(String(b), 'utf8').digest();
-  return crypto.timingSafeEqual(da, db);
-}
-
-/**
- * Authorize a bridge request. Throws:
- *   503 when DEMO_BRIDGE_SECRET is not configured (controlled, documented)
- *   401 when the Authorization header is missing/malformed
- *   403 when the secret does not match
- * @param {string|undefined} configuredSecret
- * @param {string|undefined} authorizationHeader
- */
-function requireBridgeAuth(configuredSecret, authorizationHeader) {
-  if (!configuredSecret || configuredSecret.trim() === '') {
-    throw new BridgeNotConfiguredError();
-  }
-  if (typeof authorizationHeader !== 'string') throw new UnauthorizedError();
-  const match = authorizationHeader.match(/^Bearer\s+(\S+)$/);
-  if (!match) throw new UnauthorizedError();
-  if (!secretsEqual(match[1], configuredSecret)) throw new ForbiddenError();
 }
 
 function isPlainObject(v) {
@@ -279,4 +257,4 @@ async function recordOutcomeAndDeliver({ service, store, mailer }, sessionId, ou
   };
 }
 
-module.exports = { requireBridgeAuth, normalizeOutcome, recordOutcomeAndDeliver, DEMO_FIRM_ID };
+module.exports = { normalizeOutcome, recordOutcomeAndDeliver, DEMO_FIRM_ID };

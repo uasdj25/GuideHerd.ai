@@ -11,11 +11,13 @@ const { systemClock } = require('./handoff/clock');
 
 // ---------------------------------------------------------------------------
 // SECURITY — PRODUCTION REQUIREMENT
-// These endpoints are UNAUTHENTICATED in v1. Before any production deployment,
-// the Context Handoff API MUST sit behind authentication and authorization
-// (e.g. service-to-service credentials for the GuideHerd Console and the
-// Scheduling Assistant, plus network-level restrictions). Do not expose these
-// routes publicly as-is.
+// The GuideHerd Identity Contract (ADR-0009) now authenticates service
+// surfaces: the demo bridge authenticates through the identity middleware
+// and the StaticTokenProvider (see server/identity/). The BROWSER-FACING
+// endpoints (create handoff, scheduling options, console status/cancel)
+// remain UNAUTHENTICATED in v1: before broader production exposure they
+// MUST sit behind a user-facing identity provider and login flow arriving
+// through the same contract, plus network-level restrictions.
 // ---------------------------------------------------------------------------
 
 const PORT = Number(process.env.PORT || 3000);

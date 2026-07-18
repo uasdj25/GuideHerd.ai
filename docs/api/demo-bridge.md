@@ -11,9 +11,15 @@ All endpoints are server-to-server only:
 - Authorized by `Authorization: Bearer <DEMO_BRIDGE_SECRET>` — the secret is
   configured only in the API environment and in the external Scheduling
   Assistant runtime's server-tool configuration. It is never accepted in a URL
-  or request body, never logged, and compared in constant time.
-- Missing/malformed authorization → `401`; wrong secret → `403`; secret not
-  configured on the server → `503 demo_bridge_not_configured`.
+  or request body and never logged. Authentication flows through the
+  GuideHerd Identity Contract (ADR-0009): the secret authenticates as the
+  `scheduling-assistant` service identity via the StaticTokenProvider, and
+  the routes authorize that identity's role — no endpoint inspects the
+  credential directly.
+- Missing/malformed authorization → `401`; wrong or under-privileged
+  credential → `403`; no identities configured on the server →
+  `503 demo_bridge_not_configured` (this bridge-era code is preserved while
+  the bridge exists).
 - Responses carry `Cache-Control: no-store` and are **never granted browser
   CORS headers**, regardless of origin.
 

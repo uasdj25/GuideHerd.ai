@@ -4,12 +4,16 @@ const { systemClock } = require('./clock');
 const { createInMemoryHandoffStore } = require('./store');
 const { createHandoffService } = require('./service');
 const { normalizeCreate, normalizeRedeem } = require('./validation');
-const { requireBridgeAuth, DEMO_FIRM_ID } = require('./demo-bridge');
+const { DEMO_FIRM_ID } = require('./demo-bridge');
 const { buildConsultationSummary, renderSummaryHtml } = require('./summary');
 const { NoCompletedSummaryError } = require('./errors');
 const { createMailer } = require('./mailer');
-const { HandoffError, MalformedRequestError, UnauthorizedError } = require('./errors');
+const { HandoffError, MalformedRequestError, UnauthorizedError, BridgeNotConfiguredError } = require('./errors');
 const { ConfigError } = require('../config/errors');
+const { IdentityError, IdentityNotConfiguredError } = require('../identity/errors');
+const { createIdentityProviderRegistry } = require('../identity/contract');
+const { createStaticTokenProvider, SCHEDULING_ASSISTANT_ROLE } = require('../identity/static-token-provider');
+const { createIdentityService, requireRole } = require('../identity/middleware');
 const { getSchedulingOptions } = require('../config/options');
 const { ConnectError } = require('../connect/errors');
 const { createAdapterRegistry } = require('../connect/adapter');
@@ -47,7 +51,7 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, handoffStore } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, handoffStore, staticIdentitiesJson } = {}) {
   // Operational Store (ADR-0006): the handoff repository is injectable. The
   // in-memory implementation remains the default; server.js selects the
   // durable PostgreSQL implementation via GUIDEHERD_OPERATIONAL_PROVIDER.
@@ -64,18 +68,34 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   adapters.register(createElevenLabsAdapter());
   const events = createConversationEvents();
 
+  // GuideHerd Identity (ADR-0009): authentication happens ONLY through the
+  // identity middleware and the provider selected by configuration. The
+  // demo bridge secret is absorbed by the StaticTokenProvider as the
+  // scheduling-assistant service identity — same credential, same external
+  // behavior, but no route inspects it anymore. Malformed identity
+  // configuration throws here: the app refuses to compose, never half-works.
+  const resolvedBridgeSecret = demoBridgeSecret !== undefined ? demoBridgeSecret : process.env.DEMO_BRIDGE_SECRET;
+  const identityProviders = createIdentityProviderRegistry();
+  identityProviders.register(createStaticTokenProvider({
+    staticIdentitiesJson: staticIdentitiesJson !== undefined ? staticIdentitiesJson : process.env.GUIDEHERD_STATIC_IDENTITIES,
+    demoBridgeSecret: resolvedBridgeSecret,
+  }));
+  const identityService = createIdentityService({
+    registry: identityProviders,
+    configService: configService || null,
+  });
+
   const deps = {
     service,
     store,
     allowedOrigins,
     // Mailer is injectable so automated tests never touch Microsoft endpoints.
     mailer: mailer || createMailer(),
-    // TEMPORARY DEMO INFRASTRUCTURE — see demo-bridge.js.
-    demoBridgeSecret: demoBridgeSecret !== undefined ? demoBridgeSecret : process.env.DEMO_BRIDGE_SECRET,
     // Configuration Store service (read-only use here). Optional: when
     // absent, configuration endpoints answer 503 rather than failing boot.
     configService: configService || null,
     adapters,
+    identityService,
   };
   deps.conversations = createConversationService({
     service, store, mailer: deps.mailer, events, clock,
@@ -84,6 +104,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   return {
     handler, store, service, clock, allowedOrigins,
     mailer: deps.mailer, events, adapters, conversations: deps.conversations,
+    identity: { registry: identityProviders, service: identityService },
   };
 }
 
@@ -105,7 +126,7 @@ function corsHeadersFor(req, allowedOrigins) {
 }
 
 /** Build the raw Node http request handler. */
-function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret, configService, adapters, conversations }) {
+function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService }) {
   /**
    * Resolve the active Conversation Adapter for a firm. Provider selection
    * comes from the Configuration Store (connect/conversation-provider),
@@ -113,6 +134,26 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret,
    * but unregistered provider fails loudly (503).
    */
   const adapterFor = (firmId) => adapters.resolve(resolveProviderKey(configService, firmId));
+
+  /**
+   * Authenticate a demo-bridge request through the Identity Contract and
+   * authorize the scheduling-assistant role. Routes never see the bearer
+   * token — only the resulting GuideHerdIdentity.
+   *
+   * TEMPORARY DEMO INFRASTRUCTURE dialect: the bridge's documented
+   * "not configured" error code predates the Identity Contract and is
+   * preserved verbatim while the bridge exists; the mapping dies with it.
+   */
+  const authenticateAssistant = async (req) => {
+    let identity;
+    try {
+      identity = await identityService.authenticate(req, { organizationKey: DEMO_FIRM_ID });
+    } catch (err) {
+      if (err instanceof IdentityNotConfiguredError) throw new BridgeNotConfiguredError();
+      throw err;
+    }
+    return requireRole(identity, SCHEDULING_ASSISTANT_ROLE);
+  };
 
   return async function handle(req, res) {
     const startedAt = Date.now();
@@ -185,7 +226,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret,
       // The demo ROUTES are temporary; the GuideHerd Connect conversation
       // layer they delegate to is not.
       if (method === 'POST' && path === '/api/v1/demo/connect') {
-        requireBridgeAuth(demoBridgeSecret, req.headers.authorization);
+        await authenticateAssistant(req);
         const adapter = adapterFor(DEMO_FIRM_ID);
         // The request body is OPTIONAL and read leniently (size-capped;
         // unparseable bodies become undefined rather than 400): provider
@@ -205,7 +246,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret,
       // Consultation Summary, for demos where Microsoft Graph is not yet
       // configured. Bridge-secret authorized; the Graph mailer is untouched.
       if (method === 'GET' && path === '/api/v1/demo/summary/latest') {
-        requireBridgeAuth(demoBridgeSecret, req.headers.authorization);
+        await authenticateAssistant(req);
         const session = await store.latestCompleted(DEMO_FIRM_ID);
         if (!session) throw new NoCompletedSummaryError();
         sessionId = session.sessionId;
@@ -219,7 +260,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret,
       }
 
       if (method === 'POST' && path === '/api/v1/demo/outcome') {
-        requireBridgeAuth(demoBridgeSecret, req.headers.authorization);
+        await authenticateAssistant(req);
         const adapter = adapterFor(DEMO_FIRM_ID);
         const body = await readJsonBody(req);
         // The adapter translates the provider's dialect into the canonical
@@ -252,7 +293,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret,
       status = 404;
       return sendJson(res, status, { error: { code: 'not_found', message: 'Resource not found.' } }, cors);
     } catch (err) {
-      if (err instanceof HandoffError || err instanceof ConfigError || err instanceof ConnectError) {
+      if (err instanceof HandoffError || err instanceof ConfigError || err instanceof ConnectError || err instanceof IdentityError) {
         status = err.status;
         return sendJson(res, status, err.toBody(), cors);
       }

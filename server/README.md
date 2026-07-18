@@ -81,6 +81,21 @@ GUIDEHERD_TEST_DATABASE_URL=postgresql://user@host:5432/disposable_db npm test
 The PostgreSQL test leg drops and recreates its tables — point it only at a
 **disposable** database, never at real data.
 
+```bash
+npm run test:pg    # the same full suite, PostgreSQL leg included, against a
+                   # REAL disposable embedded PostgreSQL — no system install
+```
+
+`test:pg` boots an embedded PostgreSQL (devDependency `embedded-postgres`,
+exact-pinned; real server binaries confined to node_modules) in a temporary
+data directory on a free 127.0.0.1 port with a random process-local
+credential, runs the complete suite through the project's real migration
+path, then always stops the server and removes the temporary state — on
+success, failure, interruption, or timeout. Nothing about it is reachable
+from production composition, and no credential or connection string is ever
+printed. Use it locally where no PostgreSQL exists; CI can keep supplying
+`GUIDEHERD_TEST_DATABASE_URL` instead.
+
 ## Operational Store
 
 `operational/` is the durable home of operational conversation state

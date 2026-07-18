@@ -51,6 +51,7 @@ if (!PG_URL) {
   let sharedPool;
 
   async function resetDatabase(pool) {
+    await pool.query('DROP TABLE IF EXISTS integration_deliveries');
     await pool.query('DROP TABLE IF EXISTS outbox_deliveries');
     await pool.query('DROP TABLE IF EXISTS outbox_events');
     await pool.query('DROP TABLE IF EXISTS scheduled_actions');
@@ -63,18 +64,18 @@ if (!PG_URL) {
     sharedPool = createOperationalPool({ connectionString: PG_URL });
     await resetDatabase(sharedPool);
 
-    assert.equal(await migrate(sharedPool), 4, 'all pending migrations apply');
+    assert.equal(await migrate(sharedPool), 5, 'all pending migrations apply');
     assert.equal(await migrate(sharedPool), 0, 're-run is a no-op');
 
     // Concurrent boots: several runners at once, advisory lock serializes.
     await resetDatabase(sharedPool);
     const pools = [createOperationalPool({ connectionString: PG_URL }), createOperationalPool({ connectionString: PG_URL })];
     const results = await Promise.all([migrate(sharedPool), migrate(pools[0]), migrate(pools[1])]);
-    assert.equal(results.reduce((a, b) => a + b, 0), 4, 'exactly one runner applies the migrations');
+    assert.equal(results.reduce((a, b) => a + b, 0), 5, 'exactly one runner applies the migrations');
     await Promise.all(pools.map((p) => p.end()));
 
     const { rows } = await sharedPool.query('SELECT count(*)::int AS n FROM operational_schema_migrations');
-    assert.equal(rows[0].n, 4);
+    assert.equal(rows[0].n, 5);
   });
 
   // Contract suite against PostgreSQL. Each test gets a truncated table on
@@ -303,6 +304,41 @@ if (!PG_URL) {
       await storeA.close();
       await storeB.close();
     }
+  });
+
+  // Integration delivery store (ADR-0020): the full shared contract suite
+  // runs against PostgreSQL — the same suite the in-memory reference runs
+  // in server/integrations/integrations.test.js, so the two implementations
+  // cannot drift apart silently.
+  {
+    const { runIntegrationDeliveryStoreContractSuite } = require('../integrations/delivery-contract-suite');
+    const { createPostgresIntegrationDeliveryStore } = require('./integration-deliveries');
+    runIntegrationDeliveryStoreContractSuite('postgres', async ({ clock }) => {
+      await sharedPool.query('TRUNCATE integration_deliveries');
+      const store = createPostgresIntegrationDeliveryStore({ pool: sharedPool, clock });
+      return { ...store, close: async () => {} }; // suite stores share the pool
+    });
+  }
+
+  test('[postgres] integration delivery store: cross-instance exactly-once — completed is final across pools', async () => {
+    const { createPostgresIntegrationDeliveryStore } = require('./integration-deliveries');
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE integration_deliveries');
+    const storeA = createPostgresIntegrationDeliveryStore({ pool: sharedPool, clock });
+    const KEY = 'demo-record-sync:sess-xinstance';
+
+    // Concurrent claims across the same key: exactly one winner.
+    const claims = await Promise.all(Array.from({ length: 6 }, () => storeA.claim(KEY)));
+    assert.equal(claims.filter((c) => c.claimed).length, 1, 'exactly one concurrent claimant');
+    await storeA.record(KEY, 'completed');
+
+    // A second instance (its own pool) sees completed-finality.
+    const poolB = createOperationalPool({ connectionString: PG_URL });
+    const storeB = createPostgresIntegrationDeliveryStore({ pool: poolB, clock });
+    const cross = await storeB.claim(KEY);
+    assert.equal(cross.claimed, false, 'completed is never re-claimed — no duplicate external effect, ever');
+    assert.equal(cross.status, 'completed');
+    await poolB.end();
   });
 
   test('[postgres] notification delivery store: claim/record contract and cross-instance exactly-once', async () => {

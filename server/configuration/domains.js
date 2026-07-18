@@ -202,6 +202,50 @@ function registerProductionDomains(framework) {
     defaultProvider: 'graph-email',
     registeredKeysContext: 'notificationProviderKeys',
   }));
+
+  // Integration provider selection (ADR-0020). Unlike the other provider
+  // selections this domain is DARK BY DEFAULT: the default is NO provider
+  // ({ provider: null }), and an organization opts in by naming one. The
+  // Integration Service turns the null default into the controlled
+  // 'not-configured' result — never an error. Writes stay strict: a named
+  // provider must be registered on the deployment when the producer
+  // supplies the registry context (ADR-0007 §6).
+  framework.register({
+    id: 'integration-provider',
+    title: 'Integration provider selection',
+    owner: 'integrations',
+    namespace: 'integrations',
+    key: 'provider',
+    live: true,
+    schemaVersion: 1,
+    normalize(raw) {
+      if (raw === null || raw === undefined) return { value: { provider: null }, issues: [] };
+      if (!isPlainObject(raw)) {
+        return { value: { provider: null }, issues: ['must be an object like { "provider": "…" } or { "provider": null }'] };
+      }
+      const issues = [];
+      for (const k of Object.keys(raw)) {
+        if (k !== 'provider') issues.push(`unknown field: ${k}`);
+      }
+      let provider = null;
+      if (raw.provider !== null && raw.provider !== undefined) {
+        if (typeof raw.provider === 'string' && raw.provider.trim() !== '') {
+          provider = raw.provider.trim();
+        } else {
+          issues.push('provider must be a nonblank string or null');
+        }
+      }
+      return { value: { provider }, issues };
+    },
+    validate(value, context) {
+      if (value.provider === null) return []; // dark is always valid
+      const registered = context && context.integrationProviderKeys;
+      if (Array.isArray(registered) && !registered.includes(value.provider)) {
+        return [`provider must be one of: ${registered.join(', ')}`];
+      }
+      return [];
+    },
+  });
 }
 
 /**

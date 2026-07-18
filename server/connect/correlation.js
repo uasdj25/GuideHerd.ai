@@ -142,12 +142,12 @@ function createCorrelationEngine({ store, signals = defaultSignals() }) {
      *         AmbiguousSessionError (409) when more than one candidate
      *         remains — the engine never picks one arbitrarily.
      */
-    async correlate(organizationKey, intent = {}) {
+    async correlate(organizationKey, intent = {}, context = {}) {
       for (const signal of signals) {
         const value = signal.extract(intent);
         if (value === null || value === undefined) continue;
         try {
-          const session = await store.connectEligible(organizationKey, signal.criteria(value));
+          const session = await store.connectEligible(organizationKey, signal.criteria(value), context);
           return { session, matchedBy: signal.key };
         } catch (err) {
           // Ambiguity always surfaces — never guess. A zero-candidate result
@@ -157,7 +157,7 @@ function createCorrelationEngine({ store, signals = defaultSignals() }) {
           throw err;
         }
       }
-      const session = await store.connectEligible(organizationKey, {});
+      const session = await store.connectEligible(organizationKey, {}, context);
       return { session, matchedBy: BASELINE };
     },
   };

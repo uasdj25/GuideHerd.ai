@@ -64,58 +64,60 @@ function displayNames(configService, organizationKey, scheduling) {
 }
 
 /**
- * Subscribe the booked-confirmation trigger to conversation events.
+ * Register the booked-confirmation trigger as a DURABLE OUTBOX CONSUMER
+ * (ADR-0017). The trigger consumes the `conversation.completed` domain
+ * event the repository published in the same transaction as the outcome —
+ * so a crash between outcome and notification no longer loses the
+ * confirmation (the old in-process at-most-once gap): the event survives,
+ * and delivery retries at least once. Exactly-once customer effect is
+ * preserved by the notification delivery-claim key, which makes this
+ * consumer idempotent under at-least-once delivery.
+ *
+ * Behavior is otherwise identical to the in-process trigger it replaces:
+ * booked outcomes only, per-organization enablement gate (disabled at
+ * processing time settles the event without sending — enabling later
+ * never resends history), caller looked up through the repository.
+ *
  * @param {{
- *   events: { on: Function },
+ *   outbox: { register: Function },
  *   store: { get: Function },
  *   notificationService: { send: Function },
  *   configService?: object|null,
- *   telemetry?: { event: Function },
  * }} deps
  */
-function registerNotificationTriggers({ events, store, notificationService, configService = null, telemetry }) {
-  const emit = telemetry ? telemetry.event.bind(telemetry) : () => {};
+function registerNotificationTriggers({ outbox, store, notificationService, configService = null }) {
+  outbox.register({
+    consumer: 'notifications',
+    eventTypes: ['conversation.completed'],
+    async handle(event) {
+      if (!event.payload || event.payload.status !== 'booked') return;
+      if (!confirmationEnabled(configService, event.organizationKey)) return;
 
-  async function onCompleted(payload) {
-    if (!payload || payload.status !== 'booked') return;
-    if (!confirmationEnabled(configService, payload.firmId)) return;
+      const session = await store.get(event.sessionId);
+      if (!session || !session.caller || !session.caller.email) return;
+      const appointment = session.outcome && session.outcome.appointment;
+      if (!appointment) return;
 
-    const session = await store.get(payload.sessionId);
-    if (!session || !session.caller || !session.caller.email) return;
-    const appointment = session.outcome && session.outcome.appointment;
-    if (!appointment) return;
-
-    const names = displayNames(configService, payload.firmId, session.scheduling || {});
-    await notificationService.send({
-      type: 'appointment-confirmation',
-      organizationKey: payload.firmId,
-      // One confirmation per session, ever — retries, duplicate outcome
-      // reports, and multi-instance replays all collapse onto this key.
-      notificationKey: `appointment-confirmation:${payload.sessionId}`,
-      recipient: { name: session.caller.fullName, email: session.caller.email },
-      appointment: {
-        startsAt: appointment.startsAt,
-        timezone: appointment.timezone,
-        attorneyName: names.attorneyName,
-        consultationType: names.consultationType,
-      },
-    }, { correlationId: payload.correlationId ?? undefined, sessionId: payload.sessionId });
-  }
-
-  events.on('conversation.completed', (payload) => {
-    // Fire-and-forget: a notification problem must never break the
-    // conversation flow. Failures surface through telemetry only.
-    onCompleted(payload).catch((err) => {
-      emit('notification.delivery_failed', {
-        severity: 'error',
-        component: 'internal',
-        operation: 'notification-trigger',
-        category: 'unexpected_error',
-        correlationId: payload && payload.correlationId ? payload.correlationId : undefined,
-        sessionId: payload && payload.sessionId ? payload.sessionId : undefined,
-        errorName: err && err.name ? String(err.name) : 'Error',
-      });
-    });
+      const names = displayNames(configService, event.organizationKey, session.scheduling || {});
+      // notificationService.send never throws for delivery problems: its
+      // own claim state machine owns notification retries. A throw here
+      // (unexpected error) triggers OUTBOX retry — safe, because the
+      // notificationKey makes the send idempotent.
+      await notificationService.send({
+        type: 'appointment-confirmation',
+        organizationKey: event.organizationKey,
+        // One confirmation per session, ever — outbox redelivery, duplicate
+        // outcome reports, and multi-instance replays all collapse here.
+        notificationKey: `appointment-confirmation:${event.sessionId}`,
+        recipient: { name: session.caller.fullName, email: session.caller.email },
+        appointment: {
+          startsAt: appointment.startsAt,
+          timezone: appointment.timezone,
+          attorneyName: names.attorneyName,
+          consultationType: names.consultationType,
+        },
+      }, { correlationId: event.correlationId ?? undefined, sessionId: event.sessionId });
+    },
   });
 }
 

@@ -51,6 +51,9 @@ const EVENTS = Object.freeze([
   'authentication.login',
   'authentication.login_failed',
   'authentication.logout',
+  'outbox.delivered',
+  'outbox.delivery_failed',
+  'outbox.abandoned',
 ]);
 
 /** GuideHerd component names for failure attribution. */

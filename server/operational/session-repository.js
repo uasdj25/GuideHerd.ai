@@ -113,7 +113,7 @@ function toSession(row) {
 /**
  * @param {{ pool: import('pg').Pool, clock: import('../handoff/clock').Clock }} deps
  */
-function createPostgresHandoffStore({ pool, clock }) {
+function createPostgresHandoffStore({ pool, clock, outbox = null }) {
   const nowDate = () => new Date(clock.now());
 
   /** Run `fn(client)` inside a transaction; roll back on any throw. */
@@ -225,16 +225,32 @@ function createPostgresHandoffStore({ pool, clock }) {
      * UPDATE — the database guarantees at most one concurrent caller matches
      * the awaiting-transfer predicate, across any number of API instances.
      */
-    async redeem(tokenHash) {
+    async redeem(tokenHash, context = {}) {
       const now = nowDate();
-      const { rows } = await pool.query(
-        `UPDATE handoff_sessions
-            SET status = 'connected', connected_at = $2, version = version + 1
-          WHERE token_hash = $1 AND status = 'awaiting-transfer' AND expires_at > $2
-          RETURNING *`,
-        [tokenHash, now],
-      );
-      if (rows.length === 1) return toSession(rows[0]);
+      // The conditional UPDATE remains the atomic guard; the transaction
+      // exists so the durable event (ADR-0017) commits with the redemption.
+      const redeemed = await inTransaction(async (client) => {
+        const { rows } = await client.query(
+          `UPDATE handoff_sessions
+              SET status = 'connected', connected_at = $2, version = version + 1
+            WHERE token_hash = $1 AND status = 'awaiting-transfer' AND expires_at > $2
+            RETURNING *`,
+          [tokenHash, now],
+        );
+        if (rows.length !== 1) return null;
+        const session = toSession(rows[0]);
+        if (outbox) {
+          await outbox.append({
+            type: 'conversation.connected',
+            organizationKey: session.firmId,
+            sessionId: session.sessionId,
+            correlationId: context.correlationId ?? null,
+            payload: {},
+          }, client);
+        }
+        return session;
+      });
+      if (redeemed) return redeemed;
 
       // Losing paths are all terminal for this token, so a classification
       // read is safe. Order mirrors the in-memory store exactly.
@@ -314,7 +330,7 @@ function createPostgresHandoffStore({ pool, clock }) {
      * @param {string} firmId
      * @param {{ sessionId?: string, callerPhoneNormalized?: string }} [criteria]
      */
-    async connectEligible(firmId, criteria = {}) {
+    async connectEligible(firmId, criteria = {}, context = {}) {
       assertKnownCriteria(criteria);
       const now = nowDate();
       return inTransaction(async (client) => {
@@ -349,7 +365,18 @@ function createPostgresHandoffStore({ pool, clock }) {
             WHERE session_id = $1 RETURNING *`,
           [rows[0].session_id, now],
         );
-        return toSession(updated[0]);
+        const session = toSession(updated[0]);
+        // Durable domain event (ADR-0017), same transaction as the connect.
+        if (outbox) {
+          await outbox.append({
+            type: 'conversation.connected',
+            organizationKey: session.firmId,
+            sessionId: session.sessionId,
+            correlationId: context.correlationId ?? null,
+            payload: {},
+          }, client);
+        }
+        return session;
       });
     },
 
@@ -385,7 +412,7 @@ function createPostgresHandoffStore({ pool, clock }) {
      * conflicts are rejected without mutation. The row lock makes the
      * read-compare-write atomic across instances.
      */
-    async applyOutcome(sessionId, outcome) {
+    async applyOutcome(sessionId, outcome, context = {}) {
       const now = nowDate();
       return inTransaction(async (client) => {
         const row = await fetchRow(client, sessionId, true);
@@ -410,7 +437,19 @@ function createPostgresHandoffStore({ pool, clock }) {
             WHERE session_id = $1 RETURNING *`,
           [sessionId, outcome.status, JSON.stringify(outcome), now],
         );
-        return { session: toSession(rows[0]), duplicate: false };
+        const session = toSession(rows[0]);
+        // Durable domain event (ADR-0017): outcome and event commit
+        // together; idempotent duplicates publish nothing (returned above).
+        if (outbox) {
+          await outbox.append({
+            type: 'conversation.completed',
+            organizationKey: session.firmId,
+            sessionId: session.sessionId,
+            correlationId: context.correlationId ?? null,
+            payload: { status: outcome.status },
+          }, client);
+        }
+        return { session, duplicate: false };
       });
     },
 

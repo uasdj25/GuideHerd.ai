@@ -38,6 +38,7 @@ const { DEFAULT_POLICY } = require('../identity/authorization');
 const { UnauthenticatedError: SessionRequiredError, InvalidCredentialsError: SessionForbiddenError } = require('../identity/errors');
 const { createOperationsCenter } = require('../operations/operations');
 const { createAdministrationService } = require('../administration/service');
+const { createOutbox, createInMemoryOutboxStore } = require('../outbox/outbox');
 
 // Scheduling context is tiny; cap the body to reject oversized payloads early.
 const MAX_BODY_BYTES = 16 * 1024;
@@ -68,7 +69,7 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore } = {}) {
   // Operational Store (ADR-0006): the handoff repository is injectable. The
   // in-memory implementation remains the default; server.js selects the
   // durable PostgreSQL implementation via GUIDEHERD_OPERATIONAL_PROVIDER.
@@ -85,7 +86,13 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
       opsObserver(name, fields);
     },
   };
-  const store = handoffStore || createInMemoryHandoffStore({ clock });
+  // Durable Event Outbox (ADR-0017): the repositories publish domain
+  // events in the same transaction as the business change; consumers
+  // process them via drain (post-commit nudge + boot recovery). server.js
+  // supplies the PostgreSQL store; the in-memory pair is the default.
+  const outboxEventStore = outboxStore || createInMemoryOutboxStore({ clock });
+  const outbox = createOutbox({ store: outboxEventStore, clock, telemetry: observedTelemetry });
+  const store = handoffStore || createInMemoryHandoffStore({ clock, outbox: outboxEventStore });
   // Abuse containment for the deliberately-anonymous create route
   // (ADR-0010): cap concurrently prepared (awaiting-transfer, unexpired)
   // sessions per organization. Enforced ATOMICALLY inside the repository —
@@ -198,11 +205,10 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     telemetry: observedTelemetry,
   });
   registerNotificationTriggers({
-    events,
+    outbox,
     store,
     notificationService,
     configService: configService || null,
-    telemetry: observedTelemetry,
   });
 
   // GuideHerd Operations Center (ADR-0014): operational visibility over
@@ -213,6 +219,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   const operations = createOperationsCenter({
     store,
     notificationDeliveryStore: notificationsDeliveryStore,
+    outboxStore: outboxEventStore,
     configService: configService || null,
     clock,
     capabilities: [
@@ -261,22 +268,11 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
       })
     : null;
   deps.administration = administration;
-  events.on('conversation.connected', (payload) => operations.observe('conversation.connected', {
-    severity: 'info',
-    organizationKey: payload.firmId,
-    sessionId: payload.sessionId,
-    correlationId: payload.correlationId ?? undefined,
-    provider: payload.provider,
-    code: payload.correlation,
-  }));
-  events.on('conversation.completed', (payload) => operations.observe('conversation.completed', {
-    severity: 'info',
-    organizationKey: payload.firmId,
-    sessionId: payload.sessionId,
-    correlationId: payload.correlationId ?? undefined,
-    provider: payload.provider,
-    code: payload.status,
-  }));
+  // Conversation lifecycle reaches the operations feed DURABLY through
+  // the outbox (ADR-0017) — the previous ephemeral observers are gone;
+  // restart survival follows for free.
+  events.on('conversation.completed', () => outbox.drainSoon());
+  events.on('conversation.connected', () => outbox.drainSoon());
   const handler = makeHandler(deps);
   return {
     handler, store, service, clock, allowedOrigins,
@@ -296,6 +292,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     },
     operations,
     administration,
+    outbox,
   };
 }
 
@@ -674,7 +671,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
       if (method === 'POST' && path === '/api/v1/handoffs/redeem') {
         const body = await readJsonBody(req);
         const { handoffToken } = normalizeRedeem(body);
-        const context = await service.redeem(handoffToken); // repository verifies the capability credential
+        const context = await service.redeem(handoffToken, { correlationId }); // repository verifies the capability credential
         // Capability authorization (ADR-0010): a handoff token may redeem
         // exactly its own session, and nothing else.
         authz.authorize(

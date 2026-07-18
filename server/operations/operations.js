@@ -102,6 +102,7 @@ function sessionLifecycleEntries(session) {
 function createOperationsCenter({
   store,
   notificationDeliveryStore,
+  outboxStore = null,
   configService = null,
   capabilities = [],
   clock = systemClock(),
@@ -129,12 +130,41 @@ function createOperationsCenter({
     return false; // events with no organization linkage stay platform-internal
   }
 
+  /** Map a durable outbox event into the feed entry shape. */
+  function outboxEntry(event) {
+    const fields = {
+      organizationKey: event.organizationKey,
+      code: event.payload && event.payload.status ? event.payload.status : undefined,
+    };
+    if (event.sessionId) fields.sessionId = event.sessionId;
+    if (event.correlationId) fields.correlationId = event.correlationId;
+    return {
+      at: new Date(event.at).toISOString(),
+      name: event.type,
+      severity: 'info',
+      fields,
+      durable: true,
+    };
+  }
+
   async function orgEvents(organizationKey, { correlationId, limit = 100 } = {}) {
     const matches = [];
     for (let i = eventFeed.length - 1; i >= 0 && matches.length < Math.max(1, limit); i--) {
       const entry = eventFeed[i];
       if (correlationId && entry.fields.correlationId !== correlationId) continue;
       if (await eventVisibleTo(entry, organizationKey)) matches.push(entry);
+    }
+    // The Durable Event Outbox (ADR-0017) is the durable backbone of the
+    // feed: domain events survive restarts and multi-instance deployments;
+    // the in-memory ring supplements with ephemeral telemetry diagnostics.
+    if (outboxStore) {
+      const durable = await outboxStore.listRecent({ organizationKey, limit: Math.max(1, limit) });
+      for (const event of durable) {
+        if (correlationId && event.correlationId !== correlationId) continue;
+        matches.push(outboxEntry(event));
+      }
+      matches.sort((a, b) => b.at.localeCompare(a.at) || String(a.name).localeCompare(String(b.name)));
+      return matches.slice(0, Math.max(1, limit));
     }
     return matches;
   }

@@ -31,6 +31,11 @@ const { createGraphEmailProvider } = require('../notifications/graph-email-provi
 const { createInMemoryNotificationDeliveryStore } = require('../notifications/delivery-store');
 const { createNotificationService } = require('../notifications/service');
 const { registerNotificationTriggers } = require('../notifications/triggers');
+const {
+  SUMMARY_TYPE, SUMMARY_PROVIDER_KEY,
+  registerConsultationSummaryTemplate, createSummaryMailerProvider,
+  createSummaryNotifier, registerSummaryRecovery,
+} = require('../notifications/summary-notification');
 const { createUserSessionService, SESSION_TOKEN_PREFIX } = require('../identity/user-sessions');
 const { createUserAuthProviderRegistry, resolveUserAuthProviderKey } = require('../identity/user-auth');
 const { createDevUserProvider } = require('../identity/dev-user-provider');
@@ -185,9 +190,6 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     consoleAuthMode,
   };
   deps.telemetry = observedTelemetry;
-  deps.conversations = createConversationService({
-    service, store, mailer: deps.mailer, events, clock, telemetry: observedTelemetry,
-  });
 
   // GuideHerd Notifications (ADR-0011): Core owns notification intent;
   // providers only deliver. The delivery store makes every notification
@@ -195,20 +197,34 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   // supplies the durable PostgreSQL store). The booked-confirmation
   // trigger is DISABLED BY DEFAULT per organization — see
   // notifications/triggers.js for why (external calendar attendee emails).
+  //
+  // The Consultation Summary is a first-class notification type (ADR-0011
+  // §8): its template registers with the contract, its delivery rides the
+  // existing Graph mailer boundary behind the provider contract, and the
+  // conversation workflow only states an intent via the summary notifier.
+  registerConsultationSummaryTemplate();
   const notificationProviders = createNotificationProviderRegistry();
   notificationProviders.register(createGraphEmailProvider({ telemetry: tel }));
+  notificationProviders.register(createSummaryMailerProvider({ mailer: deps.mailer }));
   const notificationsDeliveryStore = notificationDeliveryStore || createInMemoryNotificationDeliveryStore({ clock });
   const notificationService = createNotificationService({
     registry: notificationProviders,
     deliveryStore: notificationsDeliveryStore,
     configService: configService || null,
     telemetry: observedTelemetry,
+    typeProviders: { [SUMMARY_TYPE]: SUMMARY_PROVIDER_KEY },
   });
   registerNotificationTriggers({
     outbox,
     store,
     notificationService,
     configService: configService || null,
+  });
+  const summaryNotifier = createSummaryNotifier({ notificationService, telemetry: observedTelemetry });
+  registerSummaryRecovery({ outbox, store, summaryNotifier });
+
+  deps.conversations = createConversationService({
+    service, store, summaryNotifier, events, clock, telemetry: observedTelemetry,
   });
 
   // GuideHerd Operations Center (ADR-0014): operational visibility over

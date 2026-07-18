@@ -65,15 +65,36 @@ function capturedTelemetry() {
 
 // ── Contract ────────────────────────────────────────────────────────────────
 
-test('contract: all four notification types validate and canonicalize', () => {
-  assert.deepEqual([...NOTIFICATION_TYPES], [
-    'appointment-confirmation', 'appointment-cancellation', 'appointment-rescheduled', 'appointment-reminder',
-  ]);
-  for (const type of NOTIFICATION_TYPES) {
+// The four appointment types share the appointment-shaped request;
+// consultation-summary is a MODEL type (bespoke payload, firm-facing).
+const APPOINTMENT_TYPES = [
+  'appointment-confirmation', 'appointment-cancellation', 'appointment-rescheduled', 'appointment-reminder',
+];
+
+test('contract: every notification type validates and canonicalizes', () => {
+  assert.deepEqual([...NOTIFICATION_TYPES], [...APPOINTMENT_TYPES, 'consultation-summary']);
+  for (const type of APPOINTMENT_TYPES) {
     const validated = validateNotificationRequest(validRequest({ type }));
     assert.equal(validated.type, type);
     assert.equal(validated.locale, 'en-US', 'locale defaults');
   }
+  // The model type: recipient is optional (the delivery boundary owns the
+  // firm-facing target); the model payload is required; the appointment
+  // shape is rejected — no shape-smuggling between kinds.
+  const summary = validateNotificationRequest({
+    type: 'consultation-summary', organizationKey: 'org-a',
+    notificationKey: 'consultation-summary:sess-1', model: { any: 'model' },
+  });
+  assert.equal(summary.recipient, null);
+  assert.deepEqual(summary.model, { any: 'model' });
+  assert.throws(() => validateNotificationRequest({
+    type: 'consultation-summary', organizationKey: 'org-a',
+    notificationKey: 'k', model: { a: 1 }, appointment: { startsAt: 'x' },
+  }), /appointment is not accepted/);
+  assert.throws(() => validateNotificationRequest({
+    type: 'consultation-summary', organizationKey: 'org-a', notificationKey: 'k',
+  }), /model required/);
+  assert.throws(() => validateNotificationRequest(validRequest({ model: { a: 1 } })), /model is only accepted/);
 });
 
 test('contract: strict allowlist — unknown keys, bad recipients, and bad appointments are rejected', () => {
@@ -100,7 +121,7 @@ test('templates: every type renders subject, HTML, and plain text with firm bran
   const branding = resolveBranding(configService, FIRM);
   assert.equal(branding.senderName, 'Martinson & Beason, P.C.', 'sender defaults to the firm name');
 
-  for (const type of NOTIFICATION_TYPES) {
+  for (const type of APPOINTMENT_TYPES) {
     const request = validateNotificationRequest(validRequest({ type }));
     const rendered = renderNotification(buildTemplateModel(request, branding));
     assert.ok(rendered.subject.includes('Martinson & Beason, P.C.'), `${type}: firm-branded subject`);
@@ -169,7 +190,7 @@ function makeService({ provider, configService = configServiceWithFirm() } = {})
 test('service: delivers each notification type exactly once; duplicates and retries are suppressed', async () => {
   const { service, delivered, lines } = makeService();
 
-  for (const type of NOTIFICATION_TYPES) {
+  for (const type of APPOINTMENT_TYPES) {
     const request = validRequest({ type, notificationKey: `${type}:sess-9` });
     assert.deepEqual(await service.send(request, { correlationId: 'gh-abc123def456abc123def456' }), { status: 'sent' });
   }

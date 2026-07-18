@@ -159,6 +159,60 @@ Consequences, per the no-guessing rule:
      API-side with standard emails disabled — ownership then holds
      structurally rather than by account configuration.
 
+## 8. The Consultation Summary migration (2026-07-18, Issue #47)
+
+The follow-up the original Consequences promised is complete: the
+Consultation Summary is the fifth first-class notification type,
+`consultation-summary`, and NO outbound communication is composed or
+delivered outside this contract anymore.
+
+- **Model-typed requests.** The summary's payload is the existing
+  ConsultationSummary domain model, not the appointment shape, so the
+  contract now distinguishes MODEL TYPES (`MODEL_TYPES`): their request
+  carries `model`, rejects `appointment`, and may omit `recipient` —
+  the summary is FIRM-facing, and its delivery target (the firm's
+  summary mailbox) is owned by the delivery boundary, not the caller
+  record.
+- **Rendering moved; wording did not.** The template layer gained a
+  renderer registry (`registerNotificationRenderer`); the summary's
+  registered renderer delegates to the existing domain artifact
+  (`summarySubject`/`renderSummaryHtml`) — proven byte-identical by
+  test. The summary remains a GuideHerd-branded internal document by
+  design; `resolveBranding` still runs for every send and future
+  summary templates may consume it.
+- **The provider is the existing Graph mailer boundary** behind the
+  provider contract (`summary-mailer`): firm-facing mailbox, the
+  duplication-safe retry policy, taxonomy-classified failures — reused,
+  not rewritten. Selected via a per-type provider default in the
+  service (interim until per-type provider selection becomes a
+  configuration domain, ADR-0016). Unifying both Graph transports into
+  one implementation remains available follow-up, now entirely inside
+  the provider layer.
+- **The conversation workflow shrank to an intent.** It applies the
+  outcome, takes its atomic session claim (the source of the
+  synchronous `summaryDelivery` response field — the public response
+  contract is unchanged), asks the summary notifier to deliver, and
+  mirrors the status. Rendering, HTML, Graph, retry policy, and
+  telemetry left the workflow entirely.
+- **Layered idempotency, one email.** The session-row claim
+  (workflow-level) and the notification delivery claim
+  (`consultation-summary:<sessionId>`, notification-level) are both
+  atomic and converge: duplicates, concurrent instances, and outbox
+  redelivery cannot produce a second send. 'sent' is final at both
+  layers.
+- **The durable outbox closes the crash gap** (ADR-0017): a
+  `consultation-summary` consumer of `conversation.completed` (all
+  terminal statuses — summaries are sent for booked, failed, and
+  escalated alike) acts ONLY when no attempt was ever recorded or a
+  stale mid-send claim is found. A terminal state settles the event
+  silently, so the documented retry semantics ('failed' retries via an
+  identical outcome report) gain no background auto-retry.
+- **Operations needed zero changes:** the generic
+  `<type>:<sessionId>` notification view and the session's
+  `summaryDelivery` field surface summary states as-is, and
+  `notification.delivered/delivery_failed/suppressed` telemetry now
+  carries the summary type through the same feed.
+
 ## Consequences
 
 - GuideHerd owns the notification experience end to end; the customer
@@ -167,10 +221,11 @@ Consequences, per the no-guessing rule:
 - Retries, duplicate outcome reports, crashes, and multi-instance
   replays cannot double-notify a customer — proven under concurrent
   retry in both store implementations.
-- The Consultation Summary mailer remains on its existing boundary
-  (deliberately untouched); migrating it onto the Notification Contract
-  is natural follow-up work, at which point the platform has exactly one
-  Graph implementation.
+- Every outbound communication — appointment lifecycle AND the
+  Consultation Summary (§8) — flows through this contract; a future
+  type is one catalog line, one template registration, and (only if a
+  new channel is needed) one provider registration, with zero core
+  workflow changes.
 - Reminder notifications additionally need a scheduler (no timer
   infrastructure exists in the platform); that arrives with its own
   ticket.

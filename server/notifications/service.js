@@ -24,7 +24,7 @@
 
 const { validateNotificationRequest } = require('./contract');
 const { resolveBranding } = require('./branding');
-const { buildTemplateModel, renderNotification } = require('./templates');
+const { renderNotificationRequest } = require('./templates');
 
 const SETTINGS_NAMESPACE = 'notifications';
 const PROVIDER_KEY_SETTING = 'provider';
@@ -45,7 +45,7 @@ function resolveNotificationProviderKey(configService, organizationKey) {
  *   telemetry?: { event: Function },
  * }} deps
  */
-function createNotificationService({ registry, deliveryStore, configService = null, telemetry }) {
+function createNotificationService({ registry, deliveryStore, configService = null, telemetry, typeProviders = {} }) {
   const emit = telemetry ? telemetry.event.bind(telemetry) : () => {};
 
   return {
@@ -85,7 +85,12 @@ function createNotificationService({ registry, deliveryStore, configService = nu
       let providerKey;
       let provider;
       try {
-        providerKey = resolveNotificationProviderKey(configService, request.organizationKey);
+        // Per-type provider defaults (e.g. the firm-facing summary mailbox
+        // boundary) win over the organization's configured provider —
+        // interim until per-type provider selection becomes a
+        // configuration domain (ADR-0016).
+        providerKey = typeProviders[request.type]
+          || resolveNotificationProviderKey(configService, request.organizationKey);
         provider = registry.resolve(providerKey); // loud on misconfiguration
       } catch (err) {
         await deliveryStore.record(request.notificationKey, 'failed');
@@ -100,7 +105,7 @@ function createNotificationService({ registry, deliveryStore, configService = nu
 
       // GuideHerd owns branding and content; the provider only delivers.
       const branding = resolveBranding(configService, request.organizationKey);
-      const rendered = renderNotification(buildTemplateModel(request, branding));
+      const rendered = renderNotificationRequest(request, branding);
 
       const result = await provider.deliver(
         { rendered, recipient: request.recipient, branding },

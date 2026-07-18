@@ -36,14 +36,14 @@ const TERMINAL = [SessionStatus.BOOKED, SessionStatus.FAILED, SessionStatus.ESCA
  * @param {{
  *   service: ReturnType<typeof import('../handoff/service').createHandoffService>,
  *   store: ReturnType<typeof import('../handoff/store').createInMemoryHandoffStore>,
- *   mailer: object,
+ *   summaryNotifier: { deliver: Function },
  *   events?: ReturnType<typeof createConversationEvents>,
  *   clock?: import('../handoff/clock').Clock,
  *   correlation?: ReturnType<typeof createCorrelationEngine>,
  * }} deps
  */
 function createConversationService({
-  service, store, mailer,
+  service, store, summaryNotifier,
   events = createConversationEvents(),
   clock = systemClock(),
   correlation,
@@ -119,7 +119,7 @@ function createConversationService({
       let result;
       try {
         result = await recordOutcomeAndDeliver(
-          { service, store, mailer, telemetry },
+          { service, store, summaryNotifier },
           sessionId,
           outcome,
           { correlationId: context.correlationId, organizationKey: before ? before.firmId : undefined },

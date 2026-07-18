@@ -121,6 +121,20 @@
 /* ---------- RESET (the site's reset, verbatim in spirit) ---------- */
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+
+/* The native `hidden` attribute must win over component display.
+   The user agent expresses `hidden` as `[hidden] { display: none }` in its
+   own stylesheet, and EVERY author declaration outranks the entire UA
+   stylesheet regardless of specificity. So any primitive here that sets
+   `display` — cards, rows, headers, buttons, fields, badges — silently
+   defeats `hidden` on itself. `!important` is what restores the native
+   behavior: it lifts this rule into the author-important layer, above
+   both normal author rules and element inline styles.
+   Without it, every consuming application has to re-declare
+   `.thing[hidden] { display: none }` for each primitive it toggles —
+   which is a workaround for a defect that belongs here, in the shared
+   layer, once. */
+[hidden] { display: none !important; }
 html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 body {
   font-family: var(--sans);

@@ -9,104 +9,19 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter+Tight:wght@300;400;500;600&display=swap">
+  <link rel="stylesheet" href="../assets/guideherd.css">
   <style>
-    :root {
-      --ink:        #0E2A3F;
-      --ink-soft:   #1C3A52;
-      --ink-60:     rgba(14, 42, 63, 0.60);
-      --ink-40:     rgba(14, 42, 63, 0.40);
-      --ink-20:     rgba(14, 42, 63, 0.20);
-      --ink-10:     rgba(14, 42, 63, 0.10);
-      --ink-05:     rgba(14, 42, 63, 0.05);
+    /* ── Page composition on the GuideHerd Design System (ADR-0019) ──
+       Tokens, reset, focus language, header, wordmark, eyebrow, cards,
+       buttons, and form primitives come from /assets/guideherd.css.
+       Everything below is console-specific COMPOSITION and layout only —
+       no palette, typography, spacing, or component redefinitions.
+       The console is a caller-facing touch surface, so form controls and
+       actions carry larger touch-target sizing (48px+), expressed through
+       the shared tokens. */
 
-      --paper:      #F5F2EA;
-      --paper-2:    #EDE8DB;
-      --cream:      #FBF8F1;
+    body { min-height: 100vh; display: flex; flex-direction: column; }
 
-      --accent:     #2FA4A0;
-      --accent-deep:#1E7C79;
-      --accent-ink: #0E6D6A;
-
-      --red-flag:   #A63B2A;
-
-      --serif:   "Fraunces", Georgia, serif;
-      --sans:    "Inter Tight", "Inter", ui-sans-serif, system-ui, sans-serif;
-
-      --fs-xs:   11px;
-      --fs-sm:   13px;
-      --fs-base: 16px;
-      --fs-md:   18px;
-      --fs-lg:   22px;
-      --fs-xl:   28px;
-
-      --sp-1: 8px;
-      --sp-2: 16px;
-      --sp-3: 24px;
-      --sp-4: 32px;
-      --sp-5: 48px;
-      --sp-6: 64px;
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-      }
-    }
-
-    *, *::before, *::after { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; }
-    html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
-    body {
-      font-family: var(--sans);
-      font-size: var(--fs-base);
-      line-height: 1.55;
-      color: var(--ink);
-      background: var(--paper);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    svg { display: block; max-width: 100%; }
-    a { color: inherit; text-decoration: none; }
-    button { font: inherit; cursor: pointer; border: none; background: none; }
-    h1, h2, h3 { margin: 0; font-weight: 400; letter-spacing: -0.01em; }
-    p { margin: 0; }
-
-    /* Header */
-    .site-header {
-      background: rgba(245, 242, 234, 0.88);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--ink-10);
-      padding: 0 var(--sp-4);
-      height: 64px;
-      display: flex;
-      align-items: center;
-      flex-shrink: 0;
-    }
-    .wordmark {
-      font-family: var(--serif);
-      font-weight: 500;
-      font-size: 20px;
-      color: var(--ink);
-      letter-spacing: -0.02em;
-      display: inline-flex;
-      align-items: flex-start;
-    }
-    .wordmark-sup {
-      font-family: var(--sans);
-      font-weight: 500;
-      font-size: 9px;
-      letter-spacing: 0.08em;
-      color: var(--accent);
-      margin-left: 2px;
-      margin-top: 3px;
-      line-height: 1;
-    }
-
-    /* Main */
     .main {
       flex: 1;
       display: flex;
@@ -114,35 +29,14 @@
       align-items: center;
       padding: var(--sp-5) var(--sp-3) var(--sp-6);
     }
-
-    .console {
-      width: 100%;
-      max-width: 520px;
-    }
-
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-size: var(--fs-xs);
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--ink-60);
-      margin-bottom: var(--sp-2);
-    }
-    .eyebrow-dot {
-      width: 6px;
-      height: 6px;
-      background: var(--accent);
-      border-radius: 50%;
-    }
+    .console { width: 100%; max-width: 520px; }
 
     .title-row {
       display: flex;
       align-items: baseline;
       gap: var(--sp-2);
       flex-wrap: wrap;
-      margin-bottom: var(--sp-1);
+      margin: var(--sp-2) 0 var(--sp-1);
     }
     .console-title {
       font-family: var(--serif);
@@ -155,16 +49,15 @@
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--accent-ink);
-      background: rgba(47, 164, 160, 0.10);
-      border: 1px solid rgba(47, 164, 160, 0.25);
-      border-radius: 999px;
+      background: var(--status-ok-bg);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-pill);
       padding: 4px 12px;
       white-space: nowrap;
     }
-
     .console-sub {
       font-size: var(--fs-sm);
-      color: var(--ink-soft);
+      color: var(--text-soft);
       margin-bottom: var(--sp-3);
       max-width: 46ch;
     }
@@ -175,9 +68,9 @@
       align-items: center;
       gap: var(--sp-2);
       padding: 8px 16px;
-      border: 1px solid var(--ink-10);
-      border-radius: 999px;
-      background: var(--cream);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-pill);
+      background: var(--surface-raised);
       margin-bottom: var(--sp-3);
     }
     .status-label {
@@ -192,7 +85,7 @@
       gap: 8px;
       font-size: var(--fs-sm);
       font-weight: 500;
-      color: var(--ink-soft);
+      color: var(--text-soft);
     }
     /* State is conveyed by text and dot shape, never color alone */
     .status-dot {
@@ -210,73 +103,36 @@
       border-radius: 2px; /* square = inactive */
     }
     .status-value[data-state="error"] .status-dot {
-      border-color: var(--red-flag);
+      border-color: var(--status-bad);
       border-radius: 2px;
     }
 
-    /* Card */
-    .card {
-      background: var(--cream);
-      border: 1px solid var(--ink-10);
-      border-radius: 16px;
-      box-shadow: 0 18px 50px -30px rgba(14, 42, 63, 0.35);
-      padding: var(--sp-4);
-    }
+    /* The console card: the shared card, application-padded */
+    .console .gh-card { padding: var(--sp-4); }
     @media (max-width: 560px) {
       .main { padding: var(--sp-3) var(--sp-2) var(--sp-5); }
-      .card { padding: var(--sp-3); border-radius: 12px; }
+      .console .gh-card { padding: var(--sp-3); }
     }
 
-    /* Form */
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-bottom: var(--sp-3);
-    }
-    .field label, .field .field-label {
-      font-size: var(--fs-xs);
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--ink-60);
-      font-weight: 500;
-    }
-    .req {
-      color: var(--accent-ink);
-      font-weight: 600;
-      margin-left: 2px;
-    }
-    .field input,
-    .field select {
-      font: inherit;
+    /* Touch-surface sizing for the shared form primitives */
+    .console .gh-input,
+    .console .gh-select {
       font-size: var(--fs-base);
-      color: var(--ink);
-      background: var(--paper);
-      border: 1px solid var(--ink-20);
+      background: var(--surface); /* fields sit on the raised card */
       border-radius: 10px;
       padding: 12px 14px;
-      min-height: 48px; /* touch target */
-      width: 100%;
-      transition: border-color 0.15s;
+      min-height: 48px;
     }
-    .field input::placeholder { color: var(--ink-40); }
-    .field input:focus-visible,
-    .field select:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 1px;
-      border-color: var(--accent);
-    }
-    .field input[aria-invalid="true"],
-    .field select[aria-invalid="true"] {
-      border-color: var(--red-flag);
-    }
+    .console .gh-input[aria-invalid="true"],
+    .console .gh-select[aria-invalid="true"] { border-color: var(--status-bad); }
+    .field { margin-bottom: var(--sp-3); }
+    .req { color: var(--accent-ink); font-weight: 600; margin-left: 2px; }
     .field-error {
       display: none;
       font-size: var(--fs-sm);
-      color: var(--red-flag);
+      color: var(--status-bad);
     }
     .field-error.visible { display: block; }
-
     .field-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -286,13 +142,13 @@
       .field-row { grid-template-columns: 1fr; }
     }
 
-    /* Segmented control (radio group) */
+    /* Segmented control (radio group) — console-specific composition */
     .segments {
       display: flex;
-      border: 1px solid var(--ink-20);
+      border: 1px solid var(--line-strong);
       border-radius: 10px;
       overflow: hidden;
-      background: var(--paper);
+      background: var(--surface);
     }
     .segments label {
       flex: 1;
@@ -300,11 +156,9 @@
       padding: 12px 6px;
       font-size: var(--fs-sm);
       font-weight: 500;
-      letter-spacing: 0;
-      text-transform: none;
-      color: var(--ink-60);
+      color: var(--text-dim);
       cursor: pointer;
-      border-left: 1px solid var(--ink-10);
+      border-left: 1px solid var(--line);
       transition: background 0.15s, color 0.15s;
       min-height: 48px;
       display: flex;
@@ -325,46 +179,16 @@
       background: var(--ink);
       color: var(--paper);
     }
-    .segments input[type="radio"]:focus-visible + label {
-      outline: 2px solid var(--accent);
-      outline-offset: -2px;
-    }
+    .segments input[type="radio"]:focus-visible + label { box-shadow: var(--focus-ring); }
     @media (max-width: 560px) {
       .segments { flex-direction: column; }
-      .segments label { border-left: 0; border-top: 1px solid var(--ink-10); }
+      .segments label { border-left: 0; border-top: 1px solid var(--line); }
       .segments label:first-of-type { border-top: 0; }
     }
 
-    /* Primary button */
-    .btn-primary {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      width: 100%;
-      padding: 15px 28px;
-      border-radius: 999px;
-      font-size: var(--fs-base);
-      font-weight: 500;
-      background: var(--ink);
-      color: var(--paper);
-      border: 1px solid var(--ink);
-      transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s;
-      min-height: 52px;
-    }
-    .btn-primary:hover:not(:disabled) {
-      background: var(--accent-ink);
-      border-color: var(--accent-ink);
-    }
-    .btn-primary:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 3px;
-    }
-    .btn-primary:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-
+    /* Console actions: shared buttons at touch-target size */
+    .console .gh-btn { min-height: 48px; }
+    .console .console-cta { min-height: 52px; font-size: var(--fs-base); padding: 15px 28px; }
     .btn-spinner {
       display: none;
       width: 18px;
@@ -376,39 +200,7 @@
       flex-shrink: 0;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .btn-primary[data-busy="true"] .btn-spinner { display: block; }
-
-    .btn-secondary {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 12px 24px;
-      border-radius: 999px;
-      font-size: var(--fs-sm);
-      font-weight: 500;
-      color: var(--ink);
-      background: transparent;
-      border: 1px solid var(--ink-20);
-      transition: border-color 0.15s, color 0.15s;
-      min-height: 48px;
-    }
-    .btn-secondary:hover:not(:disabled) { border-color: var(--ink); }
-    .btn-secondary:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-    }
-    .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-secondary.danger {
-      color: var(--red-flag);
-      border-color: rgba(166, 59, 42, 0.35);
-    }
-    .btn-secondary.danger:hover:not(:disabled) { border-color: var(--red-flag); }
-
-    .btn-row {
-      display: flex;
-      gap: var(--sp-2);
-      flex-wrap: wrap;
-    }
+    .gh-btn[data-busy="true"] .btn-spinner { display: block; }
 
     .helper {
       font-size: var(--fs-sm);
@@ -417,8 +209,7 @@
       margin-top: var(--sp-2);
     }
 
-    /* Panels */
-    .panel[hidden] { display: none; }
+    /* Panels — `hidden` is honored by the Design System reset. */
 
     .preparing {
       display: flex;
@@ -430,7 +221,7 @@
     }
     .preparing .btn-spinner {
       display: block;
-      border-color: var(--ink-20);
+      border-color: var(--line-strong);
       border-top-color: var(--accent);
       width: 24px;
       height: 24px;
@@ -438,7 +229,7 @@
     .preparing-text {
       font-family: var(--serif);
       font-size: var(--fs-lg);
-      color: var(--ink);
+      color: var(--text);
     }
 
     .ready-head {
@@ -456,20 +247,13 @@
       margin-bottom: var(--sp-3);
       outline: none;
     }
-    .ready-title:focus-visible,
-    .state-title:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 4px;
-      border-radius: 4px;
-    }
 
     .summary {
-      border-top: 1px solid var(--ink-10);
-      border-bottom: 1px solid var(--ink-10);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
       padding: var(--sp-2) 0;
-      margin-bottom: var(--sp-3);
+      margin: 0 0 var(--sp-3);
     }
-    .summary-row[hidden] { display: none; }
     .summary-row {
       display: grid;
       grid-template-columns: 130px 1fr;
@@ -487,7 +271,7 @@
     }
     .summary-row dd {
       margin: 0;
-      color: var(--ink);
+      color: var(--text);
       font-weight: 500;
       overflow-wrap: anywhere;
     }
@@ -506,13 +290,13 @@
     }
     .countdown {
       font-family: var(--serif);
-      font-size: 40px;
+      font-size: var(--fs-2xl);
       line-height: 1;
-      color: var(--ink);
+      color: var(--text);
       font-feature-settings: "tnum";
       letter-spacing: 0.02em;
     }
-    .countdown.low { color: var(--red-flag); }
+    .countdown.low { color: var(--status-bad); }
     .countdown-label {
       font-size: var(--fs-xs);
       letter-spacing: 0.14em;
@@ -527,11 +311,10 @@
     }
 
     /* Inline cancel confirmation */
-    .cancel-confirm[hidden] { display: none; }
     .cancel-confirm {
-      border: 1px solid var(--ink-10);
+      border: 1px solid var(--line);
       border-radius: 10px;
-      background: var(--paper);
+      background: var(--surface);
       padding: var(--sp-2) var(--sp-3);
       margin-top: var(--sp-2);
     }
@@ -549,7 +332,7 @@
     }
     .state-sub {
       font-size: var(--fs-sm);
-      color: var(--ink-soft);
+      color: var(--text-soft);
       margin-bottom: var(--sp-3);
       max-width: 44ch;
     }
@@ -563,7 +346,7 @@
     /* Footer */
     .site-footer {
       padding: var(--sp-3) var(--sp-4);
-      border-top: 1px solid var(--ink-10);
+      border-top: 1px solid var(--line);
       text-align: center;
       flex-shrink: 0;
     }
@@ -576,32 +359,25 @@
       letter-spacing: 0.1em;
       text-transform: uppercase;
     }
-
-    .sr-only {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border: 0;
-    }
   </style>
 </head>
 <body>
 
-  <header class="site-header">
-    <a class="wordmark" href="/" aria-label="GuideHerd home">
-      <span>GuideHerd</span><sup class="wordmark-sup">AI</sup>
-    </a>
+  <a class="gh-skip-link" href="#main">Skip to content</a>
+
+  <header class="gh-app-header">
+    <div class="gh-container gh-container--reading gh-app-header-row">
+      <span class="gh-row" style="gap:0">
+        <a class="gh-wordmark" href="/" aria-label="GuideHerd home">GuideHerd<span class="gh-wordmark-sup">AI</span></a>
+        <span class="gh-app-name">Reception Console</span>
+      </span>
+    </div>
   </header>
 
-  <main class="main">
+  <main class="main" id="main">
     <div class="console">
-      <div class="eyebrow">
-        <span class="eyebrow-dot" aria-hidden="true"></span>
+      <div class="gh-eyebrow">
+        <span class="gh-eyebrow-dot" aria-hidden="true"></span>
         <span>Martinson &amp; Beason</span>
       </div>
 
@@ -620,28 +396,28 @@
         </span>
       </div>
 
-      <div class="card">
+      <div class="gh-card">
         <!-- ─── Form panel ─────────────────────────────────────────── -->
         <form class="panel" id="caller-form" novalidate>
-          <div class="field">
-            <label for="caller-name">Caller name <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
-            <input type="text" id="caller-name" name="callerName" placeholder="Full name"
+          <div class="gh-field field">
+            <label class="gh-label" for="caller-name">Caller name <span class="req" aria-hidden="true">*</span><span class="gh-visually-hidden">(required)</span></label>
+            <input class="gh-input" type="text" id="caller-name" name="callerName" placeholder="Full name"
                    maxlength="200" autocomplete="off" required
                    aria-describedby="caller-name-error">
             <p class="field-error" id="caller-name-error">Enter the caller's name.</p>
           </div>
 
-          <div class="field">
-            <label for="caller-email">Email address <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
-            <input type="email" id="caller-email" name="callerEmail" placeholder="name@example.com"
+          <div class="gh-field field">
+            <label class="gh-label" for="caller-email">Email address <span class="req" aria-hidden="true">*</span><span class="gh-visually-hidden">(required)</span></label>
+            <input class="gh-input" type="email" id="caller-email" name="callerEmail" placeholder="name@example.com"
                    maxlength="254" autocomplete="off" required
                    aria-describedby="caller-email-error">
             <p class="field-error" id="caller-email-error">Enter the caller's email address.</p>
           </div>
 
-          <div class="field">
-            <label for="practice-area">Practice area <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
-            <select id="practice-area" name="practiceArea" required disabled aria-describedby="practice-area-error">
+          <div class="gh-field field">
+            <label class="gh-label" for="practice-area">Practice area <span class="req" aria-hidden="true">*</span><span class="gh-visually-hidden">(required)</span></label>
+            <select class="gh-select" id="practice-area" name="practiceArea" required disabled aria-describedby="practice-area-error">
               <option value="" disabled selected>Loading practice areas&hellip;</option>
               <!-- Options are populated from the firm's configuration (scheduling-options API). -->
             </select>
@@ -649,23 +425,23 @@
           </div>
 
           <div class="field-row">
-            <div class="field">
-              <label for="phone">Phone number</label>
-              <input type="tel" id="phone" name="phone" placeholder="Optional"
+            <div class="gh-field field">
+              <label class="gh-label" for="phone">Phone number</label>
+              <input class="gh-input" type="tel" id="phone" name="phone" placeholder="Optional"
                      maxlength="40" autocomplete="off">
             </div>
 
-            <div class="field">
-              <label for="attorney">Attorney</label>
-              <select id="attorney" name="attorney" disabled>
+            <div class="gh-field field">
+              <label class="gh-label" for="attorney">Attorney</label>
+              <select class="gh-select" id="attorney" name="attorney" disabled>
                 <option value="" selected>Select practice area first</option>
                 <!-- Options are the attorneys routed for the selected practice area. -->
               </select>
             </div>
           </div>
 
-          <fieldset class="field" style="border:0; padding:0; margin:0 0 var(--sp-3);">
-            <legend class="field-label" style="padding:0; margin-bottom:6px;">Consultation type <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></legend>
+          <fieldset class="gh-field field" style="border:0; padding:0; margin:0;">
+            <legend class="gh-label" style="padding:0; margin-bottom:6px;">Consultation type <span class="req" aria-hidden="true">*</span><span class="gh-visually-hidden">(required)</span></legend>
             <div class="segments" id="consultation-type-options" role="radiogroup" aria-label="Consultation type" aria-describedby="consultation-type-error">
               <p class="helper" style="margin:0;">Loading consultation types&hellip;</p>
               <!-- Options are populated from the firm's configuration (scheduling-options API). -->
@@ -673,7 +449,7 @@
             <p class="field-error" id="consultation-type-error">Select a consultation type.</p>
           </fieldset>
 
-          <button type="submit" class="btn-primary" id="prepare-btn" disabled>
+          <button type="submit" class="gh-btn gh-btn-primary gh-btn-full console-cta" id="prepare-btn" disabled>
             <span class="btn-spinner" aria-hidden="true"></span>
             <span id="prepare-btn-label">Prepare Scheduling Assistant</span>
           </button>
@@ -730,14 +506,14 @@
 
           <p class="transfer-note">Transfer the caller now.</p>
 
-          <button type="button" class="btn-secondary" id="cancel-btn">Cancel Session</button>
+          <button type="button" class="gh-btn gh-btn-outline" id="cancel-btn">Cancel Session</button>
 
           <!-- Inline, keyboard-accessible cancel confirmation -->
           <div class="cancel-confirm" id="cancel-confirm" role="group" aria-labelledby="cancel-confirm-q" hidden>
             <p id="cancel-confirm-q">Cancel this session?</p>
-            <div class="btn-row">
-              <button type="button" class="btn-secondary danger" id="cancel-yes">Yes, cancel session</button>
-              <button type="button" class="btn-secondary" id="cancel-keep">Keep session</button>
+            <div class="gh-row">
+              <button type="button" class="gh-btn gh-btn-danger" id="cancel-yes">Yes, cancel session</button>
+              <button type="button" class="gh-btn gh-btn-outline" id="cancel-keep">Keep session</button>
             </div>
           </div>
         </div>
@@ -753,7 +529,7 @@
           <h2 class="state-title" id="connected-title" tabindex="-1">Caller connected</h2>
           <p class="connected-name" id="connected-name"></p>
           <p class="state-sub">You can hang up your line. The scheduling assistant is taking it from here.</p>
-          <button type="button" class="btn-primary" id="next-caller-btn" style="width:auto;">Ready for Next Caller</button>
+          <button type="button" class="gh-btn gh-btn-primary" id="next-caller-btn">Ready for Next Caller</button>
         </div>
 
         <!-- ─── Booked panel ───────────────────────────────────────── -->
@@ -783,23 +559,23 @@
               <dd id="booked-attorney"></dd>
             </div>
           </dl>
-          <button type="button" class="btn-primary" id="booked-next-btn" style="width:auto;">Ready for Next Caller</button>
+          <button type="button" class="gh-btn gh-btn-primary" id="booked-next-btn">Ready for Next Caller</button>
         </div>
 
         <!-- ─── Ended panel (cancelled or expired) ─────────────────── -->
         <div class="panel" id="ended-panel" hidden>
           <h2 class="state-title" id="ended-title" tabindex="-1"></h2>
           <p class="state-sub" id="ended-sub"></p>
-          <button type="button" class="btn-primary" id="new-session-btn" style="width:auto;">Start New Session</button>
+          <button type="button" class="gh-btn gh-btn-primary" id="new-session-btn">Start New Session</button>
         </div>
 
         <!-- ─── Error panel ────────────────────────────────────────── -->
         <div class="panel" id="error-panel" hidden>
           <h2 class="state-title" id="error-title" tabindex="-1">Something didn't go through</h2>
           <p class="state-sub" id="error-sub"></p>
-          <div class="btn-row">
-            <button type="button" class="btn-primary" id="error-retry-btn" style="width:auto;">Try Again</button>
-            <button type="button" class="btn-secondary" id="error-form-btn">Return to Form</button>
+          <div class="gh-row">
+            <button type="button" class="gh-btn gh-btn-primary" id="error-retry-btn">Try Again</button>
+            <button type="button" class="gh-btn gh-btn-outline" id="error-form-btn">Return to Form</button>
           </div>
         </div>
       </div>

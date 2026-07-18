@@ -674,6 +674,74 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
     await page.close();
   }
 
+  // ── Design System: the `hidden` attribute is honored ───────────────
+  // The user agent expresses `hidden` as `[hidden] { display: none }` in its
+  // OWN stylesheet, and every author declaration outranks the whole UA
+  // stylesheet regardless of specificity. So any shared primitive that sets
+  // `display` silently defeats `hidden` on itself unless the Design System
+  // restores it. These assertions pin that guarantee at the shared layer, so
+  // no consuming application has to re-declare the workaround per primitive.
+  console.log('— Design System honors [hidden] —');
+  {
+    const calls = newCalls();
+    const page = await freshPage({
+      create: () => ({ status: 201, body: createBody(600000) }),
+      status: [{ status: 200, body: { sessionId: MOCK.sessionId, status: 'awaiting-transfer' } }],
+    }, calls);
+    await page.waitForSelector('#caller-name');
+
+    // Every primitive that declares `display` in guideherd.css, proven to
+    // collapse when `hidden` is set — checked live rather than by reading CSS.
+    const primitives = [
+      'gh-card', 'gh-row', 'gh-field', 'gh-btn', 'gh-app-header',
+      'gh-app-header-row', 'gh-eyebrow', 'gh-container',
+    ];
+    const results = await page.evaluate((classes) => {
+      const out = {};
+      for (const cls of classes) {
+        const el = document.createElement('div');
+        el.className = cls;
+        document.body.appendChild(el);
+        const shownDisplay = getComputedStyle(el).display;
+        el.hidden = true;
+        out[cls] = { hidden: getComputedStyle(el).display, declaredDisplay: shownDisplay };
+        el.remove();
+      }
+      return out;
+    }, primitives);
+    for (const cls of primitives) {
+      ok(`.${cls} honors [hidden]`, results[cls].hidden === 'none',
+        `computed display was "${results[cls].hidden}"`);
+    }
+
+    // The reset must also beat an element inline style, which is why it is
+    // `!important` — a normal author rule would lose to inline `display`.
+    const inlineBeaten = await page.evaluate(() => {
+      const el = document.createElement('div');
+      el.className = 'gh-card';
+      el.style.display = 'flex';   // inline styles outrank normal author rules
+      el.hidden = true;
+      document.body.appendChild(el);
+      const d = getComputedStyle(el).display;
+      el.remove();
+      return d;
+    });
+    ok('[hidden] beats an element inline display', inlineBeaten === 'none', inlineBeaten);
+
+    // And the real console panels still toggle — the page-local workarounds
+    // were removed, so this is now the shared reset doing the work.
+    ok('console panels collapse via the shared reset',
+      await page.evaluate(() => {
+        const f = document.getElementById('caller-form');
+        f.hidden = true;
+        const d = getComputedStyle(f).display;
+        f.hidden = false;
+        return d;
+      }) === 'none');
+    ok('un-hiding restores the panel', await page.isVisible('#caller-form'));
+    await page.close();
+  }
+
   // ── apiBase override security ─────────────────────────────────────
   console.log('— apiBase override security —');
   {

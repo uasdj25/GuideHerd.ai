@@ -70,6 +70,8 @@ const PERMISSIONS = Object.freeze([
   'summary:read',
   'configuration:read',
   'operations:read',
+  'administration:read',
+  'administration:write',
 ]);
 
 /**
@@ -105,6 +107,14 @@ const DEFAULT_POLICY = Object.freeze({
     operator: Object.freeze({
       scope: 'organization',
       permissions: Object.freeze(['operations:read']),
+    }),
+
+    // Administration Framework users (ADR-0015): configuration
+    // administration for their own organization. Receptionists and
+    // operators do NOT hold these — administration is granted explicitly.
+    administrator: Object.freeze({
+      scope: 'organization',
+      permissions: Object.freeze(['administration:read', 'administration:write']),
     }),
   }),
 

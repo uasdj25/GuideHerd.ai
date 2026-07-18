@@ -37,6 +37,7 @@ const { createDevUserProvider } = require('../identity/dev-user-provider');
 const { DEFAULT_POLICY } = require('../identity/authorization');
 const { UnauthenticatedError: SessionRequiredError, InvalidCredentialsError: SessionForbiddenError } = require('../identity/errors');
 const { createOperationsCenter } = require('../operations/operations');
+const { createAdministrationService } = require('../administration/service');
 
 // Scheduling context is tiny; cap the body to reject oversized payloads early.
 const MAX_BODY_BYTES = 16 * 1024;
@@ -67,7 +68,7 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds } = {}) {
   // Operational Store (ADR-0006): the handoff repository is injectable. The
   // in-memory implementation remains the default; server.js selects the
   // durable PostgreSQL implementation via GUIDEHERD_OPERATIONAL_PROVIDER.
@@ -245,6 +246,21 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   });
   opsObserver = (name, fields) => operations.observe(name, fields);
   deps.operations = operations;
+
+  // GuideHerd Administration (ADR-0015): one producer over the same
+  // Configuration Store every subsystem consumes — validated, versioned,
+  // audited. Requires the store AND its database (for the audit ledger);
+  // absent either, administration answers 503 rather than half-working.
+  const administration = (configService && configDb)
+    ? createAdministrationService({
+        configService,
+        configDb,
+        clock,
+        telemetry: observedTelemetry,
+        identityProviderKeys: () => userAuthProviders.keys(),
+      })
+    : null;
+  deps.administration = administration;
   events.on('conversation.connected', (payload) => operations.observe('conversation.connected', {
     severity: 'info',
     organizationKey: payload.firmId,
@@ -279,6 +295,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
       consoleAuthMode,
     },
     operations,
+    administration,
   };
 }
 
@@ -302,7 +319,7 @@ function corsHeadersFor(req, allowedOrigins) {
 }
 
 /** Build the raw Node http request handler. */
-function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode, operations }) {
+function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode, operations, administration }) {
   /**
    * Resolve the active Conversation Adapter for a firm. Provider selection
    * comes from the Configuration Store (connect/conversation-provider),
@@ -413,6 +430,60 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
         headers['X-GuideHerd-Correlation-Id'] = correlationId;
         res.writeHead(status, headers);
         return res.end();
+      }
+
+      // ── GuideHerd Administration (ADR-0015) ─────────────────────────
+      // Always session-authenticated; reads require administration:read,
+      // changes require administration:write. The organization and actor
+      // come exclusively from the server-held session — administration is
+      // organization-scoped by construction, and cross-organization
+      // administration is structurally impossible.
+      if (path.startsWith('/api/v1/admin/')) {
+        const session = await userSessions.validate(presentedSessionToken);
+        if (!session) throw new SessionRequiredError();
+        if (!administration) {
+          status = 503;
+          return sendJson(res, status, {
+            error: { code: 'config_unavailable', message: 'The configuration store is not available.', correlationId },
+          }, cors, correlationId);
+        }
+        const identity = session.identity;
+        const org = identity.organizationKey;
+        const url = new URL(req.url, 'http://localhost');
+
+        if (method === 'GET' && path === '/api/v1/admin/configuration') {
+          authz.authorize({ identity }, 'administration:read', { organizationKey: org });
+          status = 200;
+          return sendJson(res, status, administration.describe(org), cors, correlationId);
+        }
+        if (method === 'GET' && path === '/api/v1/admin/audit') {
+          authz.authorize({ identity }, 'administration:read', { organizationKey: org });
+          status = 200;
+          return sendJson(res, status, {
+            audit: administration.audit(org, {
+              entity: url.searchParams.get('entity') || undefined,
+              limit: Math.min(Number(url.searchParams.get('limit')) || 50, 200),
+            }),
+          }, cors, correlationId);
+        }
+        const areaMatch = path.match(/^\/api\/v1\/admin\/([a-z][a-z-]*)$/);
+        if (method === 'POST' && areaMatch) {
+          authz.authorize({ identity }, 'administration:write', {
+            organizationKey: org,
+            auditSuccess: true, // configuration changes are always audited
+          });
+          const body = await readJsonBody(req);
+          const outcome = administration.apply(
+            decodeURIComponent(areaMatch[1]),
+            { actor: identity.subject, organizationKey: org },
+            body.payload,
+            body.expectedVersion,
+          );
+          status = 200;
+          return sendJson(res, status, outcome, cors, correlationId);
+        }
+        status = 404;
+        return sendJson(res, status, { error: { code: 'not_found', message: 'Resource not found.', correlationId } }, cors, correlationId);
       }
 
       // ── GuideHerd Operations Center (ADR-0014) ──────────────────────

@@ -104,7 +104,7 @@ async function main() {
 
   // Browser origins are allowlisted via CORS_ALLOWED_ORIGINS (comma-separated).
   // Defaults to https://guideherd.ai and http://localhost:8080. Never `*`.
-  const { handler } = createApp({ configService, handoffStore, notificationDeliveryStore });
+  const { handler } = createApp({ configService, configDb, handoffStore, notificationDeliveryStore });
   const server = http.createServer(handler);
 
   server.listen(PORT, HOST, () => {

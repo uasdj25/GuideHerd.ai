@@ -153,6 +153,7 @@ live in one codebase; the boundaries let them separate later without a rewrite.
 - [ADR-0012: The GuideHerd Scheduling Policy Engine](docs/architecture-decisions/ADR-0012-scheduling-policy-engine.md)
 - [ADR-0013: GuideHerd User Sessions](docs/architecture-decisions/ADR-0013-user-sessions.md)
 - [ADR-0014: The GuideHerd Operations Center](docs/architecture-decisions/ADR-0014-operations-center.md)
+- [ADR-0015: The GuideHerd Administration Framework](docs/architecture-decisions/ADR-0015-administration-framework.md)
 
 See also [Vision](docs/Vision.md) and [Roadmap](docs/Roadmap.md).
 

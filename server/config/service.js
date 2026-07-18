@@ -492,6 +492,8 @@ function createConfigService({ db, clock = systemClock() }) {
 
   return {
     organizations,
+    /** Compose multiple configuration operations atomically (re-entrant). */
+    transaction: (fn) => store.transaction(fn),
     locations,
     providers,
     serviceAreas,

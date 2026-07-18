@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>GuideHerd Administration</title>
+<style>
+  :root { --accent: #1f3a5f; --line: #d8d8d8; --dim: #666; --bad: #a33; --ok: #2a6f2a; }
+  * { box-sizing: border-box; }
+  body { font-family: Georgia, 'Times New Roman', serif; margin: 0; color: #222; background: #fafaf8; }
+  header { border-bottom: 3px solid var(--accent); padding: 14px 24px; display: flex; justify-content: space-between; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; }
+  header .who { color: var(--dim); font-size: 13px; }
+  main { max-width: 860px; margin: 0 auto; padding: 16px 24px 48px; }
+  section { margin-top: 28px; border: 1px solid var(--line); background: #fff; padding: 16px 20px; }
+  h2 { font-size: 15px; margin-top: 0; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  label { display: block; font-size: 13px; color: var(--dim); margin-top: 10px; }
+  input, select, button, textarea { font: inherit; padding: 6px 9px; }
+  input, select, textarea { width: 100%; border: 1px solid var(--line); }
+  button { background: var(--accent); color: #fff; border: 0; cursor: pointer; margin-top: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 8px; }
+  th, td { text-align: left; padding: 4px 10px 4px 0; border-bottom: 1px solid #eee; }
+  th { color: var(--dim); font-weight: normal; }
+  .msg { font-size: 13px; margin-top: 8px; min-height: 1.2em; }
+  .msg.ok { color: var(--ok); } .msg.bad { color: var(--bad); }
+  .muted { color: var(--dim); }
+  form.login { max-width: 360px; margin: 80px auto; border: 1px solid var(--line); padding: 24px; background: #fff; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+  #app { display: none; }
+</style>
+</head>
+<body>
+<!--
+  GuideHerd Administration (ADR-0015) — the first administration client.
+  This page holds NO credentials and NO secrets: authentication is a
+  GuideHerd user session in an HttpOnly cookie the page cannot read.
+  Every change is validated, versioned, and audited server-side; the
+  version fields below carry the optimistic-concurrency tokens.
+-->
+<form class="login" id="login" autocomplete="off">
+  <h1>GuideHerd Administration</h1>
+  <p class="muted">Sign in with your administrator credential.</p>
+  <input type="password" id="credential" placeholder="Credential" required>
+  <button type="submit">Sign in</button>
+  <p class="msg bad" id="login-error"></p>
+</form>
+
+<div id="app">
+<header>
+  <h1>GuideHerd Administration</h1>
+  <span class="who"><span id="who"></span> · <a href="#" id="logout">sign out</a></span>
+</header>
+<main>
+  <section>
+    <h2>Organization</h2>
+    <label>Name <input id="org-name"></label>
+    <label>Display name <input id="org-display"></label>
+    <label>Timezone <input id="org-tz"></label>
+    <button data-area="organization" id="save-org">Save organization</button>
+    <p class="msg" id="msg-organization"></p>
+  </section>
+
+  <section>
+    <h2>Attorney ordering</h2>
+    <label>Routing group
+      <select id="order-group"></select>
+    </label>
+    <label>Order <span class="muted">(comma-separated attorney keys, first = highest priority)</span>
+      <input id="order-list">
+    </label>
+    <button id="save-order">Save order</button>
+    <p class="msg" id="msg-attorney-order"></p>
+  </section>
+
+  <section>
+    <h2>Scheduling policy</h2>
+    <label>Preferred attorneys <span class="muted">(comma-separated, ordered)</span> <input id="pol-attorneys"></label>
+    <label>Preferred days <span class="muted">(e.g. monday,tuesday)</span> <input id="pol-days"></label>
+    <label>Preferred time of day
+      <select id="pol-time"><option value="">—</option><option>morning</option><option>afternoon</option></select>
+    </label>
+    <label>Preferred duration (minutes) <input id="pol-duration" type="number" min="5" max="480"></label>
+    <button id="save-policy">Save policy</button>
+    <p class="msg" id="msg-scheduling-policy"></p>
+  </section>
+
+  <section>
+    <h2>Notifications</h2>
+    <label><input type="checkbox" id="notif-enabled" style="width:auto"> Send appointment confirmations
+      <span class="muted">(enable only once calendar-provider attendee emails are confirmed off — ADR-0011 §7)</span></label>
+    <button id="save-notifications">Save notification settings</button>
+    <p class="msg" id="msg-notifications"></p>
+    <h2 style="margin-top:18px">Notification branding</h2>
+    <label>Sender name <input id="brand-sender"></label>
+    <label>Accent color <input id="brand-accent" placeholder="#1f3a5f"></label>
+    <label>Footer <input id="brand-footer"></label>
+    <button id="save-branding">Save branding</button>
+    <p class="msg" id="msg-notification-branding"></p>
+  </section>
+
+  <section>
+    <h2>Identity provider</h2>
+    <label>Provider <select id="idp"></select></label>
+    <button id="save-idp">Save identity provider</button>
+    <p class="msg" id="msg-identity-provider"></p>
+  </section>
+
+  <section>
+    <h2>Practice areas &amp; attorneys</h2>
+    <div id="catalog"></div>
+    <p class="muted">Create and edit via the JSON areas below in this first client; richer forms arrive with the portal polish pass.</p>
+  </section>
+
+  <section>
+    <h2>Recent configuration changes</h2>
+    <div id="audit"></div>
+  </section>
+</main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var API = 'https://api.guideherd.ai';
+  if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+    var override = new URLSearchParams(location.search).get('apiBase');
+    if (override && /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(override)) API = override;
+  }
+
+  var versions = {}; // entity -> optimistic concurrency token
+  function el(id) { return document.getElementById(id); }
+  function esc(v) { var d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; }
+
+  function api(path, options) {
+    options = options || {};
+    options.credentials = 'include';
+    if (options.body) options.headers = { 'content-type': 'application/json' };
+    return fetch(API + path, options).then(function (res) {
+      if (res.status === 401) { showLogin(); throw new Error('unauthenticated'); }
+      return res.json().then(function (body) {
+        if (!res.ok) {
+          var msg = body && body.error ? body.error.message : ('status ' + res.status);
+          var err = new Error(msg); err.code = body && body.error && body.error.code; throw err;
+        }
+        return body;
+      });
+    });
+  }
+
+  function change(area, entity, payload, msgId) {
+    var target = el('msg-' + (msgId || area));
+    target.className = 'msg';
+    target.textContent = 'Saving…';
+    return api('/api/v1/admin/' + area, {
+      method: 'POST',
+      body: JSON.stringify({ payload: payload, expectedVersion: versions[entity] || 0 }),
+    }).then(function (out) {
+      versions[entity] = out.version;
+      target.className = 'msg ok';
+      target.textContent = 'Saved (version ' + out.version + ').';
+      loadAudit();
+    }).catch(function (err) {
+      target.className = 'msg bad';
+      target.textContent = err.code === 'configuration_version_conflict'
+        ? 'Changed by someone else — reload before saving.'
+        : err.message;
+    });
+  }
+
+  function showLogin() { el('login').style.display = 'block'; el('app').style.display = 'none'; }
+  function showApp() { el('login').style.display = 'none'; el('app').style.display = 'block'; }
+
+  el('login').addEventListener('submit', function (e) {
+    e.preventDefault();
+    el('login-error').textContent = '';
+    api('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({ credential: el('credential').value }) })
+      .then(function () { el('credential').value = ''; boot(); })
+      .catch(function (err) { el('login-error').textContent = err.message; });
+  });
+  el('logout').addEventListener('click', function (e) {
+    e.preventDefault();
+    fetch(API + '/api/v1/auth/logout', { method: 'POST', credentials: 'include' }).then(showLogin);
+  });
+
+  function splitList(value) {
+    return value.split(',').map(function (v) { return v.trim(); }).filter(Boolean);
+  }
+
+  el('save-org').addEventListener('click', function () {
+    change('organization', 'organization', {
+      name: el('org-name').value, displayName: el('org-display').value || undefined, timezone: el('org-tz').value,
+    });
+  });
+  el('save-order').addEventListener('click', function () {
+    var groupKey = el('order-group').value;
+    change('attorney-order', 'routing-group:' + groupKey,
+      { groupKey: groupKey, attorneys: splitList(el('order-list').value) }, 'attorney-order');
+  });
+  el('save-policy').addEventListener('click', function () {
+    var policy = {};
+    if (el('pol-attorneys').value.trim()) policy.preferredAttorneys = splitList(el('pol-attorneys').value);
+    if (el('pol-days').value.trim()) policy.preferredDaysOfWeek = splitList(el('pol-days').value);
+    if (el('pol-time').value) policy.preferredTimeOfDay = el('pol-time').value;
+    if (el('pol-duration').value) policy.preferredDurationMinutes = Number(el('pol-duration').value);
+    change('scheduling-policy', 'setting:scheduling/policy', policy);
+  });
+  el('save-notifications').addEventListener('click', function () {
+    change('notifications', 'setting:notifications/appointment-confirmation', { enabled: el('notif-enabled').checked });
+  });
+  el('save-branding').addEventListener('click', function () {
+    var branding = {};
+    if (el('brand-sender').value.trim()) branding.senderName = el('brand-sender').value.trim();
+    if (el('brand-accent').value.trim()) branding.accentColor = el('brand-accent').value.trim();
+    if (el('brand-footer').value.trim()) branding.footerText = el('brand-footer').value.trim();
+    change('notification-branding', 'setting:notifications/branding', branding);
+  });
+  el('save-idp').addEventListener('click', function () {
+    change('identity-provider', 'setting:identity/provider', { provider: el('idp').value });
+  });
+
+  function loadAudit() {
+    api('/api/v1/admin/audit?limit=15').then(function (r) {
+      if (!r.audit.length) { el('audit').innerHTML = '<p class="muted">No changes yet.</p>'; return; }
+      el('audit').innerHTML = '<table><tr><th>At</th><th>Entity</th><th>Action</th><th>By</th><th>v</th></tr>'
+        + r.audit.map(function (a) {
+          return '<tr><td>' + esc(a.at) + '</td><td><code>' + esc(a.entity) + '</code></td><td>' + esc(a.action)
+            + '</td><td>' + esc(a.actor) + '</td><td>' + esc(a.version) + '</td></tr>';
+        }).join('') + '</table>';
+    });
+  }
+
+  function boot() {
+    api('/api/v1/auth/session').then(function (me) {
+      el('who').textContent = (me.displayName || me.subject) + ' — ' + me.organizationKey;
+      return api('/api/v1/admin/configuration');
+    }).then(function (c) {
+      showApp();
+      versions.organization = c.organization.version;
+      el('org-name').value = c.organization.name || '';
+      el('org-display').value = c.organization.displayName || '';
+      el('org-tz').value = c.organization.timezone || '';
+
+      el('order-group').innerHTML = c.routingGroups.map(function (g) {
+        return '<option value="' + esc(g.key) + '">' + esc(g.name) + '</option>';
+      }).join('');
+      if (c.routingGroups[0]) {
+        el('order-list').value = c.routingGroups[0].providers.join(', ');
+        versions['routing-group:' + c.routingGroups[0].key] = 0;
+      }
+      c.routingGroups.forEach(function (g) { versions['routing-group:' + g.key] = versions['routing-group:' + g.key] || 0; });
+
+      var policy = c.settings.schedulingPolicy.value || {};
+      versions['setting:scheduling/policy'] = c.settings.schedulingPolicy.version;
+      el('pol-attorneys').value = (policy.preferredAttorneys || []).join(', ');
+      el('pol-days').value = (policy.preferredDaysOfWeek || []).join(', ');
+      el('pol-time').value = policy.preferredTimeOfDay || '';
+      el('pol-duration').value = policy.preferredDurationMinutes || '';
+
+      versions['setting:notifications/appointment-confirmation'] = c.settings.notifications.version;
+      el('notif-enabled').checked = Boolean(c.settings.notifications.value && c.settings.notifications.value.enabled);
+
+      var branding = c.settings.notificationBranding.value || {};
+      versions['setting:notifications/branding'] = c.settings.notificationBranding.version;
+      el('brand-sender').value = branding.senderName || '';
+      el('brand-accent').value = branding.accentColor || '';
+      el('brand-footer').value = branding.footerText || '';
+
+      versions['setting:identity/provider'] = c.settings.identityProvider.version;
+      el('idp').innerHTML = c.registeredIdentityProviders.map(function (p) {
+        return '<option' + ((c.settings.identityProvider.value || {}).provider === p ? ' selected' : '') + '>' + esc(p) + '</option>';
+      }).join('');
+
+      el('catalog').innerHTML = '<table><tr><th>Practice area</th><th>Active</th></tr>'
+        + c.practiceAreas.map(function (a) { return '<tr><td>' + esc(a.name) + '</td><td>' + esc(a.active) + '</td></tr>'; }).join('')
+        + '</table><table><tr><th>Attorney</th><th>Active</th></tr>'
+        + c.attorneys.map(function (a) { return '<tr><td>' + esc(a.displayName || a.name) + ' <code>' + esc(a.key) + '</code></td><td>' + esc(a.active) + '</td></tr>'; }).join('')
+        + '</table>';
+
+      loadAudit();
+    }).catch(function () {});
+  }
+
+  boot();
+  showLogin();
+})();
+</script>
+</body>
+</html>

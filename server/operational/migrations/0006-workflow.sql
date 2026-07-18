@@ -16,9 +16,10 @@
 -- Additive-only, per ADR-0006 migration policy.
 
 CREATE TABLE workflow_instances (
-  instance_id       text PRIMARY KEY,
-  workflow_type     text NOT NULL,
-  instance_key      text NOT NULL,
+  instance_id        text PRIMARY KEY,
+  workflow_type      text NOT NULL,
+  definition_version integer NOT NULL,
+  instance_key       text NOT NULL,
   organization_key  text NOT NULL,
   related_entity_id text,
   state             text NOT NULL,
@@ -45,3 +46,17 @@ CREATE TABLE workflow_steps (
 CREATE INDEX workflow_steps_claimable
   ON workflow_steps (created_at)
   WHERE status = 'pending';
+
+-- Durable signal identities (ADR-0021 §3a): one row per accepted signal per
+-- instance, inserted IN THE SAME TRANSACTION as the transition it caused.
+-- Re-delivery of the same signal identity conflicts on the primary key and
+-- the whole transition rolls back — the idempotent no-op, even across
+-- restarts and API instances, and even if the instance has since returned
+-- to the same state. Rows carry identity strings only (event ids, timeout
+-- names) — never payloads or free text.
+CREATE TABLE workflow_signals (
+  instance_id  text NOT NULL,
+  signal_id    text NOT NULL,
+  accepted_at  timestamptz NOT NULL,
+  PRIMARY KEY (instance_id, signal_id)
+);

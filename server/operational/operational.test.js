@@ -51,6 +51,7 @@ if (!PG_URL) {
   let sharedPool;
 
   async function resetDatabase(pool) {
+    await pool.query('DROP TABLE IF EXISTS workflow_signals');
     await pool.query('DROP TABLE IF EXISTS workflow_steps');
     await pool.query('DROP TABLE IF EXISTS workflow_instances');
     await pool.query('DROP TABLE IF EXISTS integration_deliveries');
@@ -321,6 +322,71 @@ if (!PG_URL) {
       return { ...store, close: async () => {} }; // suite stores share the pool
     });
   }
+
+  test('[postgres] workflow signals: concurrent cross-instance delivery of one signal identity applies exactly one transition', async () => {
+    const { createPostgresWorkflowStore } = require('./workflow-store');
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE workflow_signals, workflow_steps, workflow_instances');
+    const poolB = createOperationalPool({ connectionString: PG_URL });
+    const storeA = createPostgresWorkflowStore({ pool: sharedPool, clock });
+    const storeB = createPostgresWorkflowStore({ pool: poolB, clock });
+    await storeA.createInstance({
+      instanceId: 'wfpg-1', workflowType: 'demo-follow-up', definitionVersion: 1,
+      instanceKey: 'sess-race', organizationKey: 'org-a', relatedEntityId: null,
+      state: 'a', stateData: {},
+    });
+    const step = (n) => ({ stepKey: `wfpg-1:a->b:${n}`, instanceId: 'wfpg-1', organizationKey: 'org-a', intent: { intent: 'notify' } });
+
+    // Two API instances race the SAME durable signal identity.
+    const results = await Promise.all([
+      storeA.transition('wfpg-1', 'a', { toState: 'b', stateData: {}, steps: [step(0)], signalId: 'event:evt-race' }),
+      storeB.transition('wfpg-1', 'a', { toState: 'b', stateData: {}, steps: [step(0)], signalId: 'event:evt-race' }),
+    ]);
+    assert.equal(results.filter((r) => r.applied).length, 1, 'exactly one winner');
+    assert.equal((await storeA.get('wfpg-1')).state, 'b');
+    assert.equal((await storeA.getStep('wfpg-1:a->b:0')).status, 'pending');
+    // And the loser recorded nothing extra: one signal row, one step row.
+    const { rows: sig } = await sharedPool.query("SELECT count(*)::int AS n FROM workflow_signals WHERE instance_id='wfpg-1'");
+    assert.equal(sig[0].n, 1);
+    await poolB.end();
+  });
+
+  test('[postgres] workflow signals: a pre-commit failure rolls the WHOLE transition back — signal, state, and steps — and retries safely', async () => {
+    const { createPostgresWorkflowStore } = require('./workflow-store');
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE workflow_signals, workflow_steps, workflow_instances');
+    const store = createPostgresWorkflowStore({ pool: sharedPool, clock });
+    await store.createInstance({
+      instanceId: 'wfpg-2', workflowType: 'demo-follow-up', definitionVersion: 1,
+      instanceKey: 'sess-crash', organizationKey: 'org-a', relatedEntityId: null,
+      state: 'a', stateData: {},
+    });
+
+    // A step violating the schema (organization_key NOT NULL) makes the
+    // transaction fail AFTER the signal insert and the state CAS.
+    await assert.rejects(() => store.transition('wfpg-2', 'a', {
+      toState: 'b', stateData: {},
+      steps: [{ stepKey: 'wfpg-2:a->b:0', instanceId: 'wfpg-2', organizationKey: null, intent: { intent: 'notify' } }],
+      signalId: 'event:evt-crash',
+    }));
+    // NOTHING committed: state, signal, and steps all rolled back.
+    assert.equal((await store.get('wfpg-2')).state, 'a');
+    assert.equal(await store.hasSignal('wfpg-2', 'event:evt-crash'), false, 'the failed delivery left no signal record');
+    assert.equal(await store.getStep('wfpg-2:a->b:0'), undefined);
+
+    // The SAME signal identity retries cleanly after the fault is fixed.
+    const retry = await store.transition('wfpg-2', 'a', {
+      toState: 'b', stateData: {},
+      steps: [{ stepKey: 'wfpg-2:a->b:0', instanceId: 'wfpg-2', organizationKey: 'org-a', intent: { intent: 'notify' } }],
+      signalId: 'event:evt-crash',
+    });
+    assert.deepEqual(retry, { applied: true });
+    // And re-delivery AFTER commit is the durable duplicate no-op.
+    const dup = await store.transition('wfpg-2', 'b', {
+      toState: 'c', stateData: {}, steps: [], signalId: 'event:evt-crash',
+    });
+    assert.deepEqual(dup, { applied: false, duplicate: true });
+  });
 
   // Integration delivery store (ADR-0020): the full shared contract suite
   // runs against PostgreSQL — the same suite the in-memory reference runs

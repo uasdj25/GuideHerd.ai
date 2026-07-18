@@ -6,10 +6,14 @@
  * made multi-instance safe:
  *
  *  - instance creation is idempotent by (workflow_type, instance_key)
- *    via ON CONFLICT DO NOTHING;
- *  - a transition is one TRANSACTION: an atomic compare-and-set on the
- *    current state plus the idempotent insert of its steps — it either
- *    advances and records intents, or does neither;
+ *    via ON CONFLICT DO NOTHING, recording the definition version the
+ *    instance began under (ADR-0021 versioning contract);
+ *  - a transition is one TRANSACTION: the durable SIGNAL-IDENTITY insert
+ *    (primary-key arbitrated — re-delivery conflicts and rolls the whole
+ *    transition back, across restarts and API instances), an atomic
+ *    compare-and-set on the current state, and the idempotent insert of
+ *    its steps — it accepts the signal, advances, and records intents, or
+ *    does none of them;
  *  - step claims use FOR UPDATE SKIP LOCKED so concurrent drainers never
  *    double-claim, with attempt counting and stale-claim recovery.
  *
@@ -24,6 +28,7 @@ function rowToInstance(r) {
   return {
     instanceId: r.instance_id,
     workflowType: r.workflow_type,
+    definitionVersion: r.definition_version,
     instanceKey: r.instance_key,
     organizationKey: r.organization_key,
     relatedEntityId: r.related_entity_id,
@@ -59,14 +64,14 @@ function createPostgresWorkflowStore({ pool, clock }) {
       const now = new Date(clock.now());
       const { rows } = await pool.query(
         `INSERT INTO workflow_instances
-           (instance_id, workflow_type, instance_key, organization_key, related_entity_id,
+           (instance_id, workflow_type, definition_version, instance_key, organization_key, related_entity_id,
             state, state_data, correlation_id, created_at, updated_at, completed_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,NULL)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10,NULL)
          ON CONFLICT (workflow_type, instance_key) DO NOTHING
          RETURNING *`,
-        [record.instanceId, record.workflowType, record.instanceKey, record.organizationKey,
-          record.relatedEntityId ?? null, record.state, JSON.stringify(record.stateData || {}),
-          record.correlationId ?? null, now],
+        [record.instanceId, record.workflowType, record.definitionVersion, record.instanceKey,
+          record.organizationKey, record.relatedEntityId ?? null, record.state,
+          JSON.stringify(record.stateData || {}), record.correlationId ?? null, now],
       );
       if (rows.length === 1) return { created: true, instance: rowToInstance(rows[0]) };
       const { rows: existing } = await pool.query(
@@ -89,11 +94,35 @@ function createPostgresWorkflowStore({ pool, clock }) {
       return rows.length ? rowToInstance(rows[0]) : undefined;
     },
 
-    async transition(instanceId, fromState, { toState, stateData, completedAtMs = null, steps = [] }) {
+    /** Has this instance already accepted this signal identity? */
+    async hasSignal(instanceId, signalId) {
+      const { rows } = await pool.query(
+        'SELECT 1 FROM workflow_signals WHERE instance_id = $1 AND signal_id = $2',
+        [instanceId, signalId],
+      );
+      return rows.length === 1;
+    },
+
+    async transition(instanceId, fromState, { toState, stateData, completedAtMs = null, steps = [], signalId }) {
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
         const now = new Date(clock.now());
+        if (signalId) {
+          // Durable signal acceptance, arbitrated by the primary key: a
+          // re-delivered or concurrently-delivered identity conflicts here
+          // and the WHOLE transition rolls back — the idempotent no-op.
+          const { rowCount: signalInserted } = await client.query(
+            `INSERT INTO workflow_signals (instance_id, signal_id, accepted_at)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (instance_id, signal_id) DO NOTHING`,
+            [instanceId, signalId, now],
+          );
+          if (signalInserted !== 1) {
+            await client.query('ROLLBACK');
+            return { applied: false, duplicate: true };
+          }
+        }
         const { rowCount } = await client.query(
           `UPDATE workflow_instances
               SET state = $3, state_data = $4, updated_at = $5, completed_at = $6

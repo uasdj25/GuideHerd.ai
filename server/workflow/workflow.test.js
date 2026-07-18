@@ -27,6 +27,7 @@ const { makeSession, BOOKED_OUTCOME } = require('../operational/contract-suite')
 const { readDomain, validateDomain } = require('../configuration/framework');
 
 const { validateWorkflowDefinition, validateSafeFacts, validateIntent, createWorkflowDefinitionRegistry } = require('./contract');
+
 const { createInMemoryWorkflowStore } = require('./store');
 const { runWorkflowStoreContractSuite } = require('./store-contract-suite');
 const { createDemoWorkflowDefinition, DEMO_WORKFLOW_TYPE } = require('./demo-workflow');
@@ -155,9 +156,10 @@ test('demo: duplicate-signal safety — replayed events and timeouts change noth
   const [instance] = await app.workflow.store.listInstances();
 
   // A duplicate outcome report is idempotent at the store, so no second
-  // event exists; simulate at-least-once CONSUMER redelivery by handling
-  // the same logical event again through the engine's own seam.
-  await app.workflow.applySignal(instance.instanceId, { kind: 'event', name: 'conversation.completed' });
+  // event exists; simulate at-least-once CONSUMER redelivery by applying
+  // an event signal with a durable id through the engine's own seam.
+  await app.workflow.applySignal(instance.instanceId,
+    { kind: 'event', name: 'conversation.completed', event: { id: 'evt-replay' } });
   assert.equal((await app.workflow.store.listInstances()).length, 1, 'one instance, ever');
 
   clock.set(T0 + HOUR_MS + 1);
@@ -165,10 +167,11 @@ test('demo: duplicate-signal safety — replayed events and timeouts change noth
   const first = await app.workflow.store.get(instance.instanceId);
   assert.equal(first.state, 'completed');
 
-  // The SAME timeout signal again (scheduler retry / stale re-claim):
-  // (terminal state, signal) has no transition — the idempotent no-op.
+  // The SAME timeout signal again (scheduler retry / stale re-claim): the
+  // DURABLE signal identity refuses it before any state reasoning — the
+  // idempotent no-op, provable even across restarts and instances.
   const replay = await app.workflow.applySignal(instance.instanceId, { kind: 'timeout', name: 'follow-up' });
-  assert.deepEqual(replay, { applied: false, reason: 'terminal' });
+  assert.deepEqual(replay, { applied: false, reason: 'duplicate-signal' });
 
   // And the notification claim suppressed any duplicate customer effect.
   const delivery = await app.notifications.deliveryStore.get(
@@ -182,6 +185,189 @@ test('demo: enabling later never starts instances for historical events', async 
   configService.settings.set(FIRM, 'workflow', 'enabled-types', { enabledTypes: [DEMO_WORKFLOW_TYPE] });
   await app.outbox.drain(); // nothing pending: the event was settled dark
   assert.deepEqual(await app.workflow.store.listInstances(), [], 'no backfill from settled events');
+});
+
+// ── Definition versioning (ADR-0021) ────────────────────────────────────────
+
+test('versioning: an instance begun under V1 continues under V1 after V2 is registered; new instances start under V2', async () => {
+  const { createWorkflowEngine } = require('./engine');
+  const clock = fixedClock(T0);
+  const store = createInMemoryWorkflowStore({ clock });
+  const scheduled = [];
+  const engine = createWorkflowEngine({
+    store, outbox: { register: () => {} },
+    scheduler: { register: () => {}, schedule: async (a) => { scheduled.push(a); return { scheduled: true, action: a }; } },
+    clock,
+  });
+  const { registerStandardIntentExecutors } = require('./executors');
+  registerStandardIntentExecutors({
+    engine, scheduler: { schedule: async (a) => { scheduled.push(a); return { scheduled: true, action: a }; } },
+    notificationService: { send: async () => ({ status: 'sent' }) },
+    handoffStore: { get: async () => undefined }, integrationService: null, clock,
+  });
+
+  // V1 registered; an instance starts and is bound to version 1.
+  engine.register(createDemoWorkflowDefinition({ version: 1, followUpDelayMs: HOUR_MS }));
+  const { instance: v1 } = await store.createInstance({
+    instanceId: 'wf-v1', workflowType: DEMO_WORKFLOW_TYPE, definitionVersion: 1,
+    instanceKey: 'sess-v1', organizationKey: FIRM, relatedEntityId: 'sess-v1',
+    state: 'awaiting-follow-up', stateData: { sessionId: 'sess-v1' },
+  });
+
+  // V2 deploys concurrently (migration window): registered alongside V1.
+  // V2 deliberately behaves differently so silent adoption would be visible.
+  const v2def = createDemoWorkflowDefinition({ version: 2, followUpDelayMs: 2 * HOUR_MS });
+  v2def.transition = () => null; // V2 does NOT complete on the follow-up timeout
+  engine.register(v2def);
+  assert.deepEqual(engine.registry.versions(DEMO_WORKFLOW_TYPE), [1, 2], 'both versions registered concurrently');
+
+  // The V1 instance's signal resolves V1 EXACTLY: it still completes.
+  const applied = await engine.applySignal(v1.instanceId, { kind: 'timeout', name: 'follow-up' });
+  assert.equal(applied.applied, true, 'V1 semantics governed the V1 instance');
+  assert.equal((await store.get(v1.instanceId)).state, 'completed');
+  assert.equal((await store.get(v1.instanceId)).definitionVersion, 1, 'binding never changes');
+
+  // NEW instances start under the highest version, deterministically.
+  assert.equal(engine.registry.startDefinition(DEMO_WORKFLOW_TYPE).version, 2);
+});
+
+test('versioning: a version removed while instances still reference it fails LOUDLY — never silent latest-adoption', async () => {
+  const { createWorkflowEngine } = require('./engine');
+  const clock = fixedClock(T0);
+  const store = createInMemoryWorkflowStore({ clock });
+  const engine = createWorkflowEngine({
+    store, outbox: { register: () => {} }, scheduler: { register: () => {}, schedule: async () => {} }, clock,
+  });
+  // Only V2 is registered — a deploy dropped V1 while an instance references it.
+  engine.register(createDemoWorkflowDefinition({ version: 2 }));
+  const { instance } = await store.createInstance({
+    instanceId: 'wf-orphan', workflowType: DEMO_WORKFLOW_TYPE, definitionVersion: 1,
+    instanceKey: 'sess-orphan', organizationKey: FIRM, relatedEntityId: null,
+    state: 'awaiting-follow-up', stateData: {},
+  });
+  await assert.rejects(() => engine.applySignal(instance.instanceId, { kind: 'timeout', name: 'follow-up' }),
+    (e) => e.code === 'workflow_definition_unavailable' && /demo-follow-up@1/.test(e.message));
+  assert.equal((await store.get(instance.instanceId)).state, 'awaiting-follow-up', 'the instance is untouched');
+});
+
+test('registry: duplicate (type, version) refused; version identity is strict', () => {
+  const registry = createWorkflowDefinitionRegistry();
+  registry.register(createDemoWorkflowDefinition({ version: 1 }));
+  registry.register(createDemoWorkflowDefinition({ version: 2 }));
+  assert.throws(() => registry.register(createDemoWorkflowDefinition({ version: 2 })), /already registered.*@2/);
+  assert.throws(() => registry.register(createDemoWorkflowDefinition({ version: 1.5 })), /positive integer/);
+  assert.equal(registry.resolve(DEMO_WORKFLOW_TYPE, 1).version, 1, 'exact resolution');
+  assert.throws(() => registry.resolve(DEMO_WORKFLOW_TYPE, 3), (e) => e.code === 'workflow_definition_unavailable');
+});
+
+// ── Durable signal deduplication (ADR-0021) ─────────────────────────────────
+
+test('signals: a re-entered state cannot be re-fired by a replayed signal — the durable identity refuses it', async () => {
+  const { createWorkflowEngine } = require('./engine');
+  const clock = fixedClock(T0);
+  const store = createInMemoryWorkflowStore({ clock });
+  const engine = createWorkflowEngine({
+    store, outbox: { register: () => {} }, scheduler: { register: () => {}, schedule: async () => {} }, clock,
+  });
+  // A LOOPING definition: A -> B on timeout t1; B -> A on an event. A
+  // state-only CAS would wrongly accept the replayed t1 once the instance
+  // is back in A; the durable signal log is what makes replay safe.
+  engine.register({
+    workflowType: 'loop-demo', version: 1,
+    startsOn: { eventType: 'never', instanceKeyOf: () => 'x' },
+    start: () => ({ state: 'a' }),
+    transition(state, signal) {
+      if (state === 'a' && signal.kind === 'timeout' && signal.name === 't1') return { nextState: 'b' };
+      if (state === 'b' && signal.kind === 'event') return { nextState: 'a' };
+      return null;
+    },
+    terminalStates: ['done'],
+  });
+  const { instance } = await store.createInstance({
+    instanceId: 'wf-loop', workflowType: 'loop-demo', definitionVersion: 1,
+    instanceKey: 'x', organizationKey: FIRM, relatedEntityId: null, state: 'a', stateData: {},
+  });
+
+  assert.equal((await engine.applySignal(instance.instanceId, { kind: 'timeout', name: 't1' })).applied, true);
+  assert.equal((await store.get(instance.instanceId)).state, 'b');
+  assert.equal((await engine.applySignal(instance.instanceId,
+    { kind: 'event', name: 'evt', event: { id: 'evt-9' } })).applied, true);
+  assert.equal((await store.get(instance.instanceId)).state, 'a', 'the instance looped back to a');
+
+  // The replayed timeout: same durable identity — refused, though the
+  // state alone would transition again.
+  const replay = await engine.applySignal(instance.instanceId, { kind: 'timeout', name: 't1' });
+  assert.deepEqual(replay, { applied: false, reason: 'duplicate-signal' });
+  assert.equal((await store.get(instance.instanceId)).state, 'a');
+});
+
+test('signals: a duplicate outbox-derived event (same durable event id) starts nothing and duplicates nothing', async () => {
+  const { createWorkflowEngine } = require('./engine');
+  const clock = fixedClock(T0);
+  const store = createInMemoryWorkflowStore({ clock });
+  const scheduled = [];
+  let consumer;
+  const engine = createWorkflowEngine({
+    store,
+    outbox: { register: (r) => { consumer = r; } },
+    scheduler: { register: () => {}, schedule: async (a) => { scheduled.push(a); return { scheduled: true, action: a }; } },
+    configService: (() => { const c = configServiceWithFirm();
+      c.settings.set(FIRM, 'workflow', 'enabled-types', { enabledTypes: [DEMO_WORKFLOW_TYPE] }); return c; })(),
+    clock,
+  });
+  const { registerStandardIntentExecutors } = require('./executors');
+  registerStandardIntentExecutors({
+    engine, scheduler: { schedule: async (a) => { scheduled.push(a); return { scheduled: true, action: a }; } },
+    notificationService: { send: async () => ({ status: 'sent' }) },
+    handoffStore: { get: async () => undefined }, integrationService: null, clock,
+  });
+  engine.register(createDemoWorkflowDefinition({ version: 1 }));
+  engine.attach();
+
+  const event = { id: 'evt-42', type: 'conversation.completed', organizationKey: FIRM,
+    sessionId: 'sess-dup', correlationId: 'gh-dup', payload: { status: 'booked' } };
+  await consumer.handle(event);   // first delivery
+  await consumer.handle(event);   // at-least-once redelivery, same durable id
+  assert.equal((await store.listInstances()).length, 1, 'one instance');
+  assert.equal(scheduled.length, 1, 'one timeout — the start intents did not duplicate');
+});
+
+test('signals: a crash between instance creation and intent recording is healed exactly-once by redelivery', async () => {
+  const { createWorkflowEngine } = require('./engine');
+  const clock = fixedClock(T0);
+  const store = createInMemoryWorkflowStore({ clock });
+  const scheduled = [];
+  let consumer;
+  const engine = createWorkflowEngine({
+    store,
+    outbox: { register: (r) => { consumer = r; } },
+    scheduler: { register: () => {}, schedule: async (a) => { scheduled.push(a); return { scheduled: true, action: a }; } },
+    configService: (() => { const c = configServiceWithFirm();
+      c.settings.set(FIRM, 'workflow', 'enabled-types', { enabledTypes: [DEMO_WORKFLOW_TYPE] }); return c; })(),
+    clock,
+  });
+  const { registerStandardIntentExecutors } = require('./executors');
+  registerStandardIntentExecutors({
+    engine, scheduler: { schedule: async (a) => { scheduled.push(a); return { scheduled: true, action: a }; } },
+    notificationService: { send: async () => ({ status: 'sent' }) },
+    handoffStore: { get: async () => undefined }, integrationService: null, clock,
+  });
+  engine.register(createDemoWorkflowDefinition({ version: 1 }));
+  engine.attach();
+
+  // Simulated crash: the instance was created but the process died before
+  // the initial intents were recorded (no signal accepted yet).
+  await store.createInstance({
+    instanceId: 'wf-crash', workflowType: DEMO_WORKFLOW_TYPE, definitionVersion: 1,
+    instanceKey: 'sess-crash', organizationKey: FIRM, relatedEntityId: 'sess-crash',
+    state: 'awaiting-follow-up', stateData: { sessionId: 'sess-crash' },
+  });
+  const event = { id: 'evt-crash', type: 'conversation.completed', organizationKey: FIRM,
+    sessionId: 'sess-crash', correlationId: 'gh-crash', payload: { status: 'booked' } };
+  await consumer.handle(event); // at-least-once redelivery heals the intents
+  assert.equal(scheduled.length, 1, 'the lost initial intent was recovered');
+  await consumer.handle(event); // and a further redelivery is a no-op
+  assert.equal(scheduled.length, 1, 'exactly once');
 });
 
 // ── Step reliability ────────────────────────────────────────────────────────
@@ -206,7 +392,7 @@ test('engine: a failing step retries with bounded attempts, then abandons loudly
   engine.registerIntentExecutor('schedule-timeout', async () => {});
 
   const { instance } = await store.createInstance({
-    instanceId: 'wf-1', workflowType: DEMO_WORKFLOW_TYPE, instanceKey: 'sess-r', organizationKey: FIRM,
+    instanceId: 'wf-1', workflowType: DEMO_WORKFLOW_TYPE, definitionVersion: 1, instanceKey: 'sess-r', organizationKey: FIRM,
     relatedEntityId: 'sess-r', state: 'awaiting-follow-up', stateData: { sessionId: 'sess-r' },
   });
   await engine.applySignal(instance.instanceId, { kind: 'timeout', name: 'follow-up' });
@@ -233,7 +419,7 @@ test('engine: an unregistered intent executor fails the step loudly, never silen
   });
   engine.register(createDemoWorkflowDefinition());
   const { instance } = await store.createInstance({
-    instanceId: 'wf-2', workflowType: DEMO_WORKFLOW_TYPE, instanceKey: 'sess-u', organizationKey: FIRM,
+    instanceId: 'wf-2', workflowType: DEMO_WORKFLOW_TYPE, definitionVersion: 1, instanceKey: 'sess-u', organizationKey: FIRM,
     relatedEntityId: 'sess-u', state: 'awaiting-follow-up', stateData: { sessionId: 'sess-u' },
   });
   await engine.applySignal(instance.instanceId, { kind: 'timeout', name: 'follow-up' });
@@ -266,7 +452,7 @@ test('independence: the engine and the demonstration workflow are fully function
     'the integrate executor exists only when the Integration Contract is composed');
 
   const { instance } = await store.createInstance({
-    instanceId: 'wf-3', workflowType: DEMO_WORKFLOW_TYPE, instanceKey: 'sess-i', organizationKey: FIRM,
+    instanceId: 'wf-3', workflowType: DEMO_WORKFLOW_TYPE, definitionVersion: 1, instanceKey: 'sess-i', organizationKey: FIRM,
     relatedEntityId: 'sess-i', state: 'awaiting-follow-up', stateData: { sessionId: 'sess-i' },
   });
   const applied = await engine.applySignal(instance.instanceId, { kind: 'timeout', name: 'follow-up' });
@@ -299,7 +485,7 @@ test('executors: schedule-timeout dedupes by actionKey; notify re-reads business
   // Timeout intents derive a structural actionKey from the instance.
   const timeoutExec = async () => {
     const { instance } = await store.createInstance({
-      instanceId: 'wf-4', workflowType: DEMO_WORKFLOW_TYPE, instanceKey: 'k', organizationKey: FIRM,
+      instanceId: 'wf-4', workflowType: DEMO_WORKFLOW_TYPE, definitionVersion: 1, instanceKey: 'k', organizationKey: FIRM,
       relatedEntityId: null, state: 'awaiting-follow-up', stateData: {},
     });
     await store.transition(instance.instanceId, 'awaiting-follow-up', {
@@ -348,6 +534,7 @@ test('domain: workflows enablement is dark by default, fail-safe on reads, stric
 test('composition: createApp exposes the engine, registers the demo definition, and reports the capability', async () => {
   const { app } = composedApp();
   assert.deepEqual(app.workflow.registry.types(), [DEMO_WORKFLOW_TYPE]);
+  assert.deepEqual(app.workflow.registry.versions(DEMO_WORKFLOW_TYPE), [1]);
   assert.deepEqual(app.workflow.executorNames().sort(), ['integrate', 'notify', 'schedule-timeout']);
   const health = await app.operations.health();
   assert.equal(health.find((h) => h.capability === 'workflow-engine').status, 'available');

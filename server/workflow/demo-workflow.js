@@ -28,10 +28,10 @@ const DEMO_WORKFLOW_TYPE = 'demo-follow-up';
 const FOLLOW_UP_TIMEOUT = 'follow-up';
 const DEFAULT_FOLLOW_UP_DELAY_MS = 60 * 60 * 1000; // one hour after booking
 
-function createDemoWorkflowDefinition({ followUpDelayMs = DEFAULT_FOLLOW_UP_DELAY_MS } = {}) {
+function createDemoWorkflowDefinition({ version = 1, followUpDelayMs = DEFAULT_FOLLOW_UP_DELAY_MS } = {}) {
   return {
     workflowType: DEMO_WORKFLOW_TYPE,
-    version: 1,
+    version,
 
     startsOn: {
       eventType: 'conversation.completed',

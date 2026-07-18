@@ -25,6 +25,7 @@ function makeInstance(overrides = {}) {
   return {
     instanceId: id,
     workflowType: 'demo-follow-up',
+    definitionVersion: 1,
     instanceKey: overrides.instanceKey ?? `sess-${id}`,
     organizationKey: 'org-a',
     relatedEntityId: 'sess-1',
@@ -93,6 +94,68 @@ function runWorkflowStoreContractSuite(label, makeStore) {
       toState: 'completed', stateData: {}, steps: [makeStep(instance.instanceId, stepKey)],
     });
     assert.equal(replay.applied, false);
+    await store.close();
+  });
+
+  test(`workflow store [${label}]: the definition version an instance began under is persisted verbatim`, async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const { instance } = await store.createInstance(makeInstance({ definitionVersion: 3 }));
+    assert.equal(instance.definitionVersion, 3);
+    assert.equal((await store.get(instance.instanceId)).definitionVersion, 3);
+    // A duplicate event under a NEWER deployed version cannot rebind the
+    // instance: the original version record wins (ADR-0021 versioning).
+    const dup = await store.createInstance({ ...makeInstance({ definitionVersion: 4 }),
+      instanceKey: instance.instanceKey, instanceId: crypto.randomUUID() });
+    assert.equal(dup.created, false);
+    assert.equal(dup.instance.definitionVersion, 3);
+    await store.close();
+  });
+
+  test(`workflow store [${label}]: signal acceptance is atomic with the transition and durably deduplicated`, async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const { instance } = await store.createInstance(makeInstance({ state: 'a' }));
+    const id = instance.instanceId;
+    const step = (k) => makeStep(id, `${id}:${k}`);
+
+    // First delivery of the signal identity: accepted with the transition.
+    assert.equal((await store.hasSignal(id, 'event:evt-1')), false);
+    const first = await store.transition(id, 'a', { toState: 'b', stateData: {}, steps: [step('a->b:0')], signalId: 'event:evt-1' });
+    assert.deepEqual(first, { applied: true });
+    assert.equal(await store.hasSignal(id, 'event:evt-1'), true);
+
+    // The instance RETURNS to state 'a' via a different signal…
+    await store.transition(id, 'b', { toState: 'a', stateData: {}, steps: [], signalId: 'event:evt-2' });
+    // …and the ORIGINAL signal identity is re-delivered: a state-only CAS
+    // would wrongly re-fire a->b; the durable signal log refuses it.
+    const replay = await store.transition(id, 'a', { toState: 'b', stateData: {}, steps: [step('a->b:1')], signalId: 'event:evt-1' });
+    assert.deepEqual(replay, { applied: false, duplicate: true });
+    assert.equal((await store.get(id)).state, 'a', 'the duplicate changed nothing');
+    assert.equal(await store.getStep(`${id}:a->b:1`), undefined, 'the duplicate recorded no intents');
+
+    // A transition that loses its CAS records NEITHER the signal nor steps
+    // — acceptance and transition are one atomic unit, so a pre-commit
+    // failure is safely retryable.
+    const lost = await store.transition(id, 'not-the-state', { toState: 'z', stateData: {}, steps: [step('x:0')], signalId: 'event:evt-3' });
+    assert.equal(lost.applied, false);
+    assert.equal(await store.hasSignal(id, 'event:evt-3'), false, 'no signal recorded on a failed transition');
+    const retry = await store.transition(id, 'a', { toState: 'c', stateData: {}, steps: [], signalId: 'event:evt-3' });
+    assert.deepEqual(retry, { applied: true }, 'the failed delivery retried safely');
+    await store.close();
+  });
+
+  test(`workflow store [${label}]: signal records carry identity strings only`, async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const { instance } = await store.createInstance(makeInstance());
+    await store.transition(instance.instanceId, 'awaiting-follow-up', {
+      toState: 'completed', stateData: {}, steps: [], signalId: 'timeout:x:follow-up',
+    });
+    // The dedup surface exposes nothing but a boolean — no payload storage
+    // exists to leak. (The PostgreSQL table stores instance_id + signal_id
+    // + timestamp only, by schema.)
+    assert.equal(await store.hasSignal(instance.instanceId, 'timeout:x:follow-up'), true);
     await store.close();
   });
 

@@ -19,12 +19,22 @@
  * 'abandoned'); drain() sits behind the existing liveness poller next to
  * the outbox and the scheduler. No second processing architecture.
  *
- * Idempotency under at-least-once signal delivery is structural, twice
- * over: a duplicate signal finds the instance already past the transition
- * (transition(state, signal) returns null → no-op), and step keys are
- * deterministic per transition, so even a racing duplicate appends
- * nothing new. Downstream, the Notification/Integration claim machines
- * and the scheduler's actionKey dedupe absorb any replayed intent.
+ * Idempotency under at-least-once signal delivery is structural, three
+ * layers deep. Every signal carries a DURABLE IDENTITY (outbox event id;
+ * timeout action identity), and the store records acceptance atomically
+ * WITH the transition — a re-delivered or concurrently-delivered identity
+ * is refused as a duplicate even if the instance has since returned to
+ * the same state. Behind that, transition(state, signal) returning null
+ * is the deterministic no-op, and step keys are deterministic per
+ * transition so a racing duplicate appends nothing new. Downstream, the
+ * Notification/Integration claim machines and the scheduler's actionKey
+ * dedupe absorb any replayed intent.
+ *
+ * VERSIONING (ADR-0021): every instance is permanently bound to the
+ * (workflowType, definitionVersion) it began under. New instances start
+ * under the highest registered version; signals resolve the instance's
+ * EXACT version — never latest — and a version missing from the registry
+ * fails loudly, retried-bounded by the signal source.
  *
  * DARK BY DEFAULT: instances start only for organizations whose
  * `workflows` configuration domain enables the workflow type. Outbox,
@@ -76,6 +86,29 @@ function createWorkflowEngine({ store, outbox, scheduler, configService = null, 
     ...extra,
   });
 
+  /**
+   * The durable signal identity for deduplication. Outbox events carry
+   * their durable event id; timeouts are identified by their scheduler
+   * action identity (one-shot, actionKey-deduped). Identity strings only —
+   * never payloads or free text.
+   */
+  function signalIdOf(instanceId, signal) {
+    if (signal.kind === 'event') {
+      const id = signal.event && signal.event.id;
+      if (typeof id !== 'string' && typeof id !== 'number') {
+        throw new TypeError('An event signal must carry the durable outbox event id (signal.event.id).');
+      }
+      return `event:${id}`;
+    }
+    if (signal.kind === 'timeout') {
+      if (typeof signal.name !== 'string' || signal.name === '') {
+        throw new TypeError('A timeout signal must carry its name.');
+      }
+      return `timeout:${instanceId}:${signal.name}`;
+    }
+    throw new TypeError(`Unknown signal kind: ${signal.kind}`);
+  }
+
   /** Deterministic step keys: identical for any replay of one transition. */
   function stepsFor(instance, fromState, toState, intents) {
     return intents.map((raw, index) => {
@@ -97,7 +130,14 @@ function createWorkflowEngine({ store, outbox, scheduler, configService = null, 
   async function applySignal(instanceId, signal) {
     const instance = await store.get(instanceId);
     if (!instance) return { applied: false, reason: 'unknown-instance' };
-    const definition = registry.resolve(instance.workflowType);
+    const signalId = signalIdOf(instanceId, signal);
+    // Durable dedup fast path; the store re-checks ATOMICALLY inside the
+    // transition, so this is an optimization, not the guarantee.
+    if (await store.hasSignal(instanceId, signalId)) {
+      return { applied: false, reason: 'duplicate-signal' };
+    }
+    // The instance's EXACT version — never latest (ADR-0021 versioning).
+    const definition = registry.resolve(instance.workflowType, instance.definitionVersion);
     if (definition.terminalStates.includes(instance.state)) {
       return { applied: false, reason: 'terminal' };
     }
@@ -116,8 +156,11 @@ function createWorkflowEngine({ store, outbox, scheduler, configService = null, 
       stateData,
       completedAtMs: terminal ? clock.now() : null,
       steps,
+      signalId,
     });
-    if (!outcome.applied) return { applied: false, reason: 'lost-race' };
+    if (!outcome.applied) {
+      return { applied: false, reason: outcome.duplicate ? 'duplicate-signal' : 'lost-race' };
+    }
 
     emit('workflow.transitioned', {
       severity: 'info',
@@ -130,17 +173,22 @@ function createWorkflowEngine({ store, outbox, scheduler, configService = null, 
     return { applied: true, toState };
   }
 
-  /** Start (idempotently) an instance for a starting event. */
+  /**
+   * Start (idempotently) an instance for a starting event, under the
+   * highest registered version of its type. The initial intents ride a
+   * self-transition carrying the event's durable signal identity — so a
+   * crash between instance creation and intent recording is healed by the
+   * redelivered event (the signal log makes the retry exact-once), and a
+   * fully-processed duplicate event is a recorded no-op.
+   */
   async function startFrom(definition, event) {
     const instanceKey = String(definition.startsOn.instanceKeyOf(event));
-    const existing = await store.findByKey(definition.workflowType, instanceKey);
-    if (existing) return { started: false, instance: existing };
-
     const started = definition.start(event);
     const stateData = validateSafeFacts(started.stateData || {}, 'workflow stateData');
     const { created, instance } = await store.createInstance({
       instanceId: crypto.randomUUID(),
       workflowType: definition.workflowType,
+      definitionVersion: definition.version,
       instanceKey,
       organizationKey: event.organizationKey,
       relatedEntityId: event.sessionId ?? null,
@@ -148,18 +196,25 @@ function createWorkflowEngine({ store, outbox, scheduler, configService = null, 
       stateData,
       correlationId: event.correlationId ?? null,
     });
-    if (!created) return { started: false, instance }; // concurrent duplicate event lost the race
-
-    emit('workflow.instance_started', { severity: 'info', ...safeFields(instance) });
-    if (started.intents && started.intents.length) {
-      // Initial intents ride a self-transition through the same atomic path.
-      const steps = stepsFor(instance, 'start', started.state, started.intents);
-      await store.transition(instance.instanceId, started.state, {
-        toState: started.state, stateData, completedAtMs: null, steps,
-      });
-      await api.drain();
+    if (created) {
+      emit('workflow.instance_started', { severity: 'info', ...safeFields(instance) });
     }
-    return { started: true, instance };
+
+    if (started.intents && started.intents.length) {
+      // Runs on creation AND on redelivery: the durable signal identity
+      // makes it exactly-once, closing the crash window between creation
+      // and intent recording. A redelivered event after full processing
+      // is a duplicate-signal no-op.
+      const signalId = `event:${event.id}`;
+      if (!(await store.hasSignal(instance.instanceId, signalId))) {
+        const steps = stepsFor(instance, 'start', instance.state, started.intents);
+        await store.transition(instance.instanceId, instance.state, {
+          toState: instance.state, stateData: instance.stateData, completedAtMs: null, steps, signalId,
+        });
+        await api.drain();
+      }
+    }
+    return { started: created, instance };
   }
 
   const api = {
@@ -200,18 +255,18 @@ function createWorkflowEngine({ store, outbox, scheduler, configService = null, 
       outbox.register({
         consumer: 'workflow-engine',
         // Definitions are registered before attach() at composition time;
-        // subscribing to their union keeps unrelated events settling
-        // instantly with no workflow involvement.
+        // subscribing to the union across ALL registered versions keeps
+        // unrelated events settling instantly with no workflow involvement.
         eventTypes: [...new Set(registry.all().flatMap((d) => [
           d.startsOn.eventType,
           ...Object.keys(d.reactsTo || {}),
         ]))],
         handle: async (event) => {
-          for (const definition of registry.all()) {
-            // Dark by default: enablement is per-organization configuration,
-            // checked at event time.
+          // Starts use one definition per type: the highest registered
+          // version (ADR-0021). Mid-flight signals below resolve each
+          // instance's own recorded version.
+          for (const definition of registry.startDefinitions()) {
             if (!enabledTypes(configService, event.organizationKey).includes(definition.workflowType)) continue;
-
             if (definition.startsOn.eventType === event.type
               && (!definition.startsOn.when || definition.startsOn.when(event))) {
               await startFrom(definition, event);
@@ -219,6 +274,8 @@ function createWorkflowEngine({ store, outbox, scheduler, configService = null, 
             const reactsKeyOf = (definition.reactsTo || {})[event.type];
             if (reactsKeyOf) {
               const instance = await store.findByKey(definition.workflowType, String(reactsKeyOf(event)));
+              // applySignal resolves the INSTANCE's version, which may
+              // differ from the start definition consulted for the key.
               if (instance) await applySignal(instance.instanceId, { kind: 'event', name: event.type, event });
             }
           }

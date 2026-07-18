@@ -376,6 +376,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
           notificationProviderKeys: notificationProviders.keys(),
           integrationProviderKeys: integrationProviders.keys(),
           integrationTypes: Object.keys(INTEGRATION_TYPES),
+          workflowTypes: workflow.registry.types(),
         }),
       })
     : null;

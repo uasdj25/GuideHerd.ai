@@ -48,19 +48,43 @@ nested objects and unbounded strings.
 ### 3. Deterministic, idempotent transitions
 
 `transition(currentState, signal) → null | { nextState, intents }` —
-deterministic by contract, and **null is the idempotent no-op**: a
-duplicate or unexpected signal (at-least-once outbox redelivery, a
-scheduler retry, a stale-claim re-execution) changes nothing. Duplicate
-safety is structural, three layers deep:
+deterministic by contract, and **null is the idempotent no-op** for a
+signal the definition does not transition on. Duplicate safety is
+structural, four layers deep:
 
 1. instance creation is idempotent by `(workflowType, instanceKey)`;
-2. a transition is an **atomic compare-and-set WITH its steps** — one
-   store operation (one PostgreSQL transaction) that either advances the
-   state and durably records the transition's intents, or does neither;
-   step keys are deterministic per transition, so even a racing duplicate
-   appends nothing;
-3. downstream, the Notification/Integration claim machines and the
+2. **every accepted signal has a durable identity** (§3a), recorded
+   atomically with its transition — re-delivery is refused outright;
+3. a transition is an **atomic operation WITH its signal acceptance and
+   its steps** — one store operation (one PostgreSQL transaction) that
+   accepts the signal, advances the state, and durably records the
+   intents, or does none of them; step keys are deterministic per
+   transition, so even a racing duplicate appends nothing;
+4. downstream, the Notification/Integration claim machines and the
    scheduler's actionKey dedupe absorb any replayed intent.
+
+### 3a. Durable signal identity
+
+State-version conflict alone is not sufficient dedup: in a definition
+whose states can recur (A→B→A), a replayed old signal would find state A
+again and wrongly re-fire. Every signal therefore carries a **durable,
+stable identity** — `event:<outbox-event-id>` for durable events (the
+outbox id is stable across redeliveries) and
+`timeout:<instanceId>:<name>` for scheduled timeouts (one-shot by the
+scheduler's own actionKey dedupe) — recorded per instance in the same
+transaction as the transition it caused (`workflow_signals`, primary-key
+arbitrated in PostgreSQL; a synchronous per-instance set in memory).
+
+Consequences, all proven by test on both stores: re-delivery of an
+accepted identity is a recorded no-op even after the instance re-enters
+the same state; concurrent delivery from multiple API instances applies
+exactly one transition; a pre-commit failure rolls back signal, state,
+and steps together, so the delivery retries safely; and the start path's
+initial intents ride the starting event's identity, closing the crash
+window between instance creation and intent recording (a redelivered
+event heals it exactly-once). Signal records hold identity strings only
+— never payloads or free text. Signals a definition ignores are NOT
+recorded: acceptance is coupled to effect.
 
 ### 4. The platform's reliability model, reused
 
@@ -74,7 +98,7 @@ architecture, no external queue, no BPM engine.
 Stores: in-memory reference + PostgreSQL (migration `0006-workflow.sql`),
 verified by one shared contract suite on both.
 
-### 5. Definitions are code; extension is one registration
+### 5. Definitions are code; extension is one registration; versions are binding
 
 A workflow definition declares `workflowType`, `version`, `startsOn`
 (event type, optional guard, logical-key derivation), optional mid-flight
@@ -82,6 +106,21 @@ A workflow definition declares `workflowType`, `version`, `startsOn`
 `terminalStates`. **A future workflow type is one definition + one
 registration — zero engine changes** (ADR-0007). There is no DSL and no
 visual designer; definitions are reviewed code.
+
+**The definition version contract.** Versions are strictly-validated
+positive integers, and registration identity is `(workflowType,
+version)`. Every instance **persists the version it began under**
+(`definition_version`) and every signal resolves that EXACT version —
+never latest, so deploying a newer definition cannot silently change the
+behavior of in-flight instances. Multiple versions register concurrently
+during a migration window; NEW instances start under the highest
+registered version (deterministic). A version removed by a deploy while
+instances still reference it **fails loudly** at signal time
+(`workflow_definition_unavailable`, naming `type@version`), leaving the
+instance untouched and the failure retried-bounded and telemetered by the
+signal source — never a silent latest-substitution. There is no migration
+DSL; moving an old instance forward is a deliberate future operation, not
+an accident of deployment.
 
 Intents are declarative, identifier-only descriptors dispatched to
 **intent executors** registered at composition. The engine knows no

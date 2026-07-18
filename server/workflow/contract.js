@@ -7,8 +7,15 @@
  * A workflow DEFINITION is code (never a DSL), registered once:
  *
  *   {
- *     workflowType,      nonblank, unique — the platform's extension key
- *     version,           positive integer (definition evolution marker)
+ *     workflowType,      nonblank — the platform's extension key
+ *     version,           positive integer. The DEFINITION VERSION CONTRACT:
+ *                        an instance is permanently bound to the (type,
+ *                        version) it began under; deploying a newer version
+ *                        never alters existing instances; multiple versions
+ *                        may be registered concurrently during migration;
+ *                        NEW instances start under the highest registered
+ *                        version (deterministic); resolving a version that
+ *                        is no longer registered fails loudly
  *     startsOn: {
  *       eventType,       the durable outbox event that starts an instance
  *       when?(event),    optional guard over the event's safe facts
@@ -103,36 +110,66 @@ function validateWorkflowDefinition(definition) {
 
 /**
  * Workflow definition registry — one definition + one registration per
- * workflow type, zero engine changes (ADR-0007). Unknown types fail
- * loudly, never a silent substitute.
+ * (workflowType, version), zero engine changes (ADR-0007).
+ *
+ * The version contract: NEW instances start under the highest registered
+ * version of their type (deterministic — versions are strictly-validated
+ * positive integers); EXISTING instances resolve the exact (type, version)
+ * they were created under, forever. Multiple versions register
+ * concurrently during a migration window. Resolving a (type, version) that
+ * is not registered — including a version removed by a deploy while
+ * instances still reference it — fails loudly, never a silent
+ * latest-substitution.
  */
 function createWorkflowDefinitionRegistry() {
-  /** @type {Map<string, object>} */
-  const definitions = new Map();
+  /** @type {Map<string, Map<number, object>>} type -> version -> definition */
+  const byType = new Map();
   return {
     register(definition) {
       const valid = validateWorkflowDefinition(definition);
-      if (definitions.has(valid.workflowType)) {
-        throw new TypeError(`Workflow definition already registered: ${valid.workflowType}`);
+      const versions = byType.get(valid.workflowType) || new Map();
+      if (versions.has(valid.version)) {
+        throw new TypeError(`Workflow definition already registered: ${valid.workflowType}@${valid.version}`);
       }
-      definitions.set(valid.workflowType, valid);
+      versions.set(valid.version, valid);
+      byType.set(valid.workflowType, versions);
       return valid;
     },
-    resolve(workflowType) {
-      const definition = definitions.get(workflowType);
+    /** The exact definition an instance is bound to. Loud when absent. */
+    resolve(workflowType, version) {
+      const definition = byType.get(workflowType)?.get(version);
       if (!definition) {
-        const err = new Error('The requested workflow definition is not registered.');
+        const err = new Error(`The workflow definition ${workflowType}@${version} is not registered.`);
         err.code = 'workflow_definition_unavailable';
         err.category = 'permanent_internal_failure';
         throw err;
       }
       return definition;
     },
-    types() {
-      return [...definitions.keys()];
+    /** The definition NEW instances of a type start under: highest version. */
+    startDefinition(workflowType) {
+      const versions = byType.get(workflowType);
+      if (!versions || versions.size === 0) {
+        const err = new Error(`No workflow definition registered for ${workflowType}.`);
+        err.code = 'workflow_definition_unavailable';
+        err.category = 'permanent_internal_failure';
+        throw err;
+      }
+      return versions.get(Math.max(...versions.keys()));
     },
+    /** One start definition per type (the consumer's start loop). */
+    startDefinitions() {
+      return [...byType.keys()].map((type) => this.startDefinition(type));
+    },
+    types() {
+      return [...byType.keys()];
+    },
+    versions(workflowType) {
+      return [...(byType.get(workflowType)?.keys() || [])].sort((a, b) => a - b);
+    },
+    /** Every registered definition, all versions (signal-source unions). */
     all() {
-      return [...definitions.values()];
+      return [...byType.values()].flatMap((versions) => [...versions.values()]);
     },
   };
 }

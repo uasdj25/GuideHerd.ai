@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>GuideHerd Operations Center</title>
+<style>
+  :root { --accent: #1f3a5f; --line: #d8d8d8; --dim: #666; --bad: #a33; --warn: #965f00; }
+  * { box-sizing: border-box; }
+  body { font-family: Georgia, 'Times New Roman', serif; margin: 0; color: #222; background: #fafaf8; }
+  header { border-bottom: 3px solid var(--accent); padding: 14px 24px; display: flex; justify-content: space-between; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; }
+  header .who { color: var(--dim); font-size: 13px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px 24px 48px; }
+  section { margin-top: 28px; }
+  h2 { font-size: 15px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 5px 10px 5px 0; border-bottom: 1px solid #eee; vertical-align: top; }
+  th { color: var(--dim); font-weight: normal; }
+  .counters { display: flex; gap: 28px; flex-wrap: wrap; }
+  .counter { min-width: 110px; }
+  .counter .n { font-size: 26px; }
+  .counter .l { color: var(--dim); font-size: 12px; }
+  .status-available { color: #2a6f2a; }
+  .status-unavailable, .sev-error { color: var(--bad); }
+  .status-not-configured, .status-not-integrated, .sev-warn { color: var(--warn); }
+  form.login { max-width: 360px; margin: 80px auto; border: 1px solid var(--line); padding: 24px; background: #fff; }
+  input, button { font: inherit; padding: 7px 10px; }
+  input[type=password], input[type=text] { width: 100%; border: 1px solid var(--line); }
+  button { background: var(--accent); color: #fff; border: 0; cursor: pointer; margin-top: 10px; }
+  .error { color: var(--bad); font-size: 13px; }
+  .muted { color: var(--dim); }
+  .searchbar { display: flex; gap: 8px; }
+  .searchbar input { flex: 1; }
+  .searchbar button { margin-top: 0; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+  #app { display: none; }
+</style>
+</head>
+<body>
+<!--
+  GuideHerd Operations Center (ADR-0014) — operator tool, read-only.
+  This page holds NO credentials and NO secrets: authentication is a
+  GuideHerd user session in an HttpOnly cookie the page cannot read, and
+  every view is GuideHerd operational metadata served by the API.
+-->
+<form class="login" id="login" autocomplete="off">
+  <h1>GuideHerd Operations Center</h1>
+  <p class="muted">Sign in with your operator credential.</p>
+  <input type="password" id="credential" placeholder="Credential" required>
+  <button type="submit">Sign in</button>
+  <p class="error" id="login-error"></p>
+</form>
+
+<div id="app">
+<header>
+  <h1>GuideHerd Operations Center</h1>
+  <span class="who"><span id="who"></span> · <a href="#" id="logout">sign out</a></span>
+</header>
+<main>
+  <section>
+    <h2>Handoffs</h2>
+    <div class="counters" id="counters"></div>
+  </section>
+
+  <section>
+    <h2>Search <span class="muted">(correlation ID · session ID · attorney)</span></h2>
+    <div class="searchbar">
+      <input type="text" id="q" placeholder="gh-… / session id / attorney key">
+      <button id="go">Search</button>
+    </div>
+    <div id="search-result"></div>
+  </section>
+
+  <section><h2>Recent handoffs</h2><div id="sessions"></div></section>
+  <section><h2>Notification deliveries</h2><div id="notifications"></div></section>
+  <section><h2>Recent errors &amp; warnings</h2><div id="errors"></div></section>
+  <section><h2>Operational events</h2><div id="events"></div></section>
+  <section><h2>System health</h2><div id="health"></div></section>
+</main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  // Same API-base rule as the Reception Console: production talks only to
+  // the production API; a localhost override exists only on local pages.
+  var API = 'https://api.guideherd.ai';
+  if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+    var override = new URLSearchParams(location.search).get('apiBase');
+    if (override && /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(override)) API = override;
+  }
+
+  function api(path) {
+    return fetch(API + path, { credentials: 'include' }).then(function (res) {
+      if (res.status === 401) { showLogin(); throw new Error('unauthenticated'); }
+      if (!res.ok) throw new Error('status ' + res.status);
+      return res.json();
+    });
+  }
+  function el(id) { return document.getElementById(id); }
+  function esc(v) { var d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; }
+  function table(rows, columns) {
+    if (!rows.length) return '<p class="muted">Nothing to show.</p>';
+    var head = '<tr>' + columns.map(function (c) { return '<th>' + esc(c[0]) + '</th>'; }).join('') + '</tr>';
+    var body = rows.map(function (r) {
+      return '<tr>' + columns.map(function (c) { return '<td>' + (c[2] ? c[2](r) : esc(r[c[1]])) + '</td>'; }).join('') + '</tr>';
+    }).join('');
+    return '<table>' + head + body + '</table>';
+  }
+
+  function showLogin() { el('login').style.display = 'block'; el('app').style.display = 'none'; }
+  function showApp() { el('login').style.display = 'none'; el('app').style.display = 'block'; }
+
+  el('login').addEventListener('submit', function (e) {
+    e.preventDefault();
+    el('login-error').textContent = '';
+    fetch(API + '/api/v1/auth/login', {
+      method: 'POST', credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ credential: el('credential').value }),
+    }).then(function (res) {
+      if (!res.ok) throw new Error(res.status === 503 ? 'Sign-in is not configured.' : 'Sign-in failed.');
+      el('credential').value = '';
+      boot();
+    }).catch(function (err) { el('login-error').textContent = err.message; });
+  });
+  el('logout').addEventListener('click', function (e) {
+    e.preventDefault();
+    fetch(API + '/api/v1/auth/logout', { method: 'POST', credentials: 'include' }).then(showLogin);
+  });
+
+  var sessionColumns = [
+    ['Session', 'sessionId', function (r) { return '<code>' + esc(r.sessionId) + '</code>'; }],
+    ['Status', 'status'], ['Attorney', 'attorneyId'], ['Practice area', 'practiceAreaId'],
+    ['Created', 'createdAt'], ['Connected', 'connectedAt'], ['Completed', 'completedAt'],
+  ];
+  var eventColumns = [
+    ['At', 'at'],
+    ['Event', 'name', function (r) { return '<span class="sev-' + esc(r.severity) + '">' + esc(r.name) + '</span>'; }],
+    ['Correlation', 'c', function (r) { return '<code>' + esc(r.fields.correlationId || '') + '</code>'; }],
+    ['Session', 's', function (r) { return '<code>' + esc(r.fields.sessionId || '') + '</code>'; }],
+    ['Facts', 'f', function (r) {
+      return esc(Object.keys(r.fields).filter(function (k) { return ['category', 'code', 'httpStatus', 'provider', 'operation'].indexOf(k) !== -1; })
+        .map(function (k) { return k + '=' + r.fields[k]; }).join(' '));
+    }],
+  ];
+
+  function boot() {
+    api('/api/v1/auth/session').then(function (me) {
+      el('who').textContent = (me.displayName || me.subject) + ' — ' + me.organizationKey;
+      showApp();
+      refresh();
+    }).catch(function () {});
+  }
+
+  function refresh() {
+    api('/api/v1/operations/overview').then(function (o) {
+      var groups = o.sessions.groups;
+      el('counters').innerHTML = ['pending', 'active', 'completed', 'failed'].map(function (g) {
+        return '<div class="counter"><div class="n">' + esc(groups[g] || 0) + '</div><div class="l">' + esc(g) + '</div></div>';
+      }).join('');
+      el('health').innerHTML = table(o.health, [
+        ['Capability', 'capability'],
+        ['Status', 'status', function (r) { return '<span class="status-' + esc(r.status) + '">' + esc(r.status) + '</span>'; }],
+      ]);
+    });
+    api('/api/v1/operations/sessions?limit=25').then(function (r) { el('sessions').innerHTML = table(r.sessions, sessionColumns); });
+    api('/api/v1/operations/notifications?limit=25').then(function (r) {
+      el('notifications').innerHTML = table(r.notifications, [
+        ['Type', 'type'], ['Session', 'sessionId', function (x) { return '<code>' + esc(x.sessionId) + '</code>'; }],
+        ['Status', 'status'], ['Claimed', 'claimedAt'],
+      ]);
+    });
+    api('/api/v1/operations/errors?limit=25').then(function (r) { el('errors').innerHTML = table(r.events, eventColumns); });
+    api('/api/v1/operations/events?limit=50').then(function (r) { el('events').innerHTML = table(r.events, eventColumns); });
+  }
+
+  el('go').addEventListener('click', function () {
+    var q = el('q').value.trim();
+    if (!q) return;
+    api('/api/v1/operations/search?q=' + encodeURIComponent(q)).then(function (r) {
+      if (r.kind === 'correlation') {
+        el('search-result').innerHTML = '<p class="muted">Timeline for <code>' + esc(q) + '</code></p>' + table(r.results, [
+          ['At', 'at'], ['Kind', 'kind'], ['Entry', 'label'],
+          ['Session', 's', function (x) { return '<code>' + esc(x.sessionId || '') + '</code>'; }],
+        ]);
+      } else if (r.results.length) {
+        el('search-result').innerHTML = '<p class="muted">' + esc(r.kind) + ' match</p>' + table(r.results, sessionColumns);
+      } else {
+        el('search-result').innerHTML = '<p class="muted">No matches.</p>';
+      }
+    });
+  });
+
+  boot();
+  showLogin();
+})();
+</script>
+</body>
+</html>

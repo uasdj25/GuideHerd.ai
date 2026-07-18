@@ -36,6 +36,7 @@ const { createUserAuthProviderRegistry, resolveUserAuthProviderKey } = require('
 const { createDevUserProvider } = require('../identity/dev-user-provider');
 const { DEFAULT_POLICY } = require('../identity/authorization');
 const { UnauthenticatedError: SessionRequiredError, InvalidCredentialsError: SessionForbiddenError } = require('../identity/errors');
+const { createOperationsCenter } = require('../operations/operations');
 
 // Scheduling context is tiny; cap the body to reject oversized payloads early.
 const MAX_BODY_BYTES = 16 * 1024;
@@ -73,6 +74,16 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   // Operational telemetry (Issue #8): one centralized, allowlisted event
   // surface. Injectable so tests capture events instead of logging.
   const tel = telemetry || createTelemetry();
+  // Operations feed observer (ADR-0014): wired once the Operations Center
+  // exists below; the facade lets every earlier consumer share one
+  // telemetry surface without ordering acrobatics.
+  let opsObserver = () => {};
+  const observedTelemetry = {
+    event(name, fields) {
+      tel.event(name, fields);
+      opsObserver(name, fields);
+    },
+  };
   const store = handoffStore || createInMemoryHandoffStore({ clock });
   // Abuse containment for the deliberately-anonymous create route
   // (ADR-0010): cap concurrently prepared (awaiting-transfer, unexpired)
@@ -153,7 +164,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     store,
     allowedOrigins,
     // Mailer is injectable so automated tests never touch Microsoft endpoints.
-    mailer: mailer || createMailer({ telemetry: tel }),
+    mailer: mailer || createMailer({ telemetry: observedTelemetry }),
     // Configuration Store service (read-only use here). Optional: when
     // absent, configuration endpoints answer 503 rather than failing boot.
     configService: configService || null,
@@ -165,9 +176,9 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     activeUserAuthProviderKey,
     consoleAuthMode,
   };
-  deps.telemetry = tel;
+  deps.telemetry = observedTelemetry;
   deps.conversations = createConversationService({
-    service, store, mailer: deps.mailer, events, clock, telemetry: tel,
+    service, store, mailer: deps.mailer, events, clock, telemetry: observedTelemetry,
   });
 
   // GuideHerd Notifications (ADR-0011): Core owns notification intent;
@@ -183,15 +194,73 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     registry: notificationProviders,
     deliveryStore: notificationsDeliveryStore,
     configService: configService || null,
-    telemetry: tel,
+    telemetry: observedTelemetry,
   });
   registerNotificationTriggers({
     events,
     store,
     notificationService,
     configService: configService || null,
-    telemetry: tel,
+    telemetry: observedTelemetry,
   });
+
+  // GuideHerd Operations Center (ADR-0014): operational visibility over
+  // existing stores and events — nothing duplicated. The telemetry
+  // emitter is wrapped so every operational event is also observed by the
+  // ops feed, and Connect conversation events join the same feed; both
+  // pass the telemetry field allowlist before they can be displayed.
+  const operations = createOperationsCenter({
+    store,
+    notificationDeliveryStore: notificationsDeliveryStore,
+    configService: configService || null,
+    clock,
+    capabilities: [
+      {
+        capability: 'notification-provider',
+        check: () => {
+          const provider = notificationProviders.resolve('graph-email');
+          return provider.enabled ? 'available' : 'not-configured';
+        },
+      },
+      // Booking runs provider-side today (ADR-0011 §7); honest status
+      // until the first Scheduling extension lands (ADR-0012 §5).
+      { capability: 'scheduling-provider', check: () => 'not-integrated' },
+      {
+        capability: 'user-authentication',
+        check: () => {
+          const provider = userAuthProviders.resolve(activeUserAuthProviderKey);
+          return typeof provider.size === 'function'
+            ? (provider.size() > 0 ? 'available' : 'not-configured')
+            : 'available';
+        },
+      },
+      {
+        capability: 'service-identity',
+        check: () => {
+          const provider = identityProviders.resolve('static-token');
+          return provider.size() > 0 ? 'available' : 'not-configured';
+        },
+      },
+    ],
+  });
+  opsObserver = (name, fields) => operations.observe(name, fields);
+  deps.operations = operations;
+  events.on('conversation.connected', (payload) => operations.observe('conversation.connected', {
+    severity: 'info',
+    organizationKey: payload.firmId,
+    sessionId: payload.sessionId,
+    correlationId: payload.correlationId ?? undefined,
+    provider: payload.provider,
+    code: payload.correlation,
+  }));
+  events.on('conversation.completed', (payload) => operations.observe('conversation.completed', {
+    severity: 'info',
+    organizationKey: payload.firmId,
+    sessionId: payload.sessionId,
+    correlationId: payload.correlationId ?? undefined,
+    provider: payload.provider,
+    code: payload.status,
+  }));
   const handler = makeHandler(deps);
   return {
     handler, store, service, clock, allowedOrigins,
@@ -209,6 +278,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
       sessions: userSessions,
       consoleAuthMode,
     },
+    operations,
   };
 }
 
@@ -232,7 +302,7 @@ function corsHeadersFor(req, allowedOrigins) {
 }
 
 /** Build the raw Node http request handler. */
-function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode }) {
+function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode, operations }) {
   /**
    * Resolve the active Conversation Adapter for a firm. Provider selection
    * comes from the Configuration Store (connect/conversation-provider),
@@ -343,6 +413,60 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
         headers['X-GuideHerd-Correlation-Id'] = correlationId;
         res.writeHead(status, headers);
         return res.end();
+      }
+
+      // ── GuideHerd Operations Center (ADR-0014) ──────────────────────
+      // Read-only operational visibility. ALWAYS session-authenticated
+      // (never anonymous, regardless of the console floor) and authorized
+      // for operations:read; every query is scoped to the operator's own
+      // organization from the server-held session — never from input.
+      if (method === 'GET' && path.startsWith('/api/v1/operations/')) {
+        const session = await userSessions.validate(presentedSessionToken);
+        if (!session) throw new SessionRequiredError();
+        const identity = session.identity;
+        authz.authorize({ identity }, 'operations:read', { organizationKey: identity.organizationKey });
+        const org = identity.organizationKey;
+        const url = new URL(req.url, 'http://localhost');
+        const limit = Math.min(Number(url.searchParams.get('limit')) || 50, 200);
+
+        if (path === '/api/v1/operations/overview') {
+          status = 200;
+          return sendJson(res, status, await operations.overview(org), cors, correlationId);
+        }
+        if (path === '/api/v1/operations/sessions') {
+          const group = url.searchParams.get('group') || undefined;
+          status = 200;
+          return sendJson(res, status, { sessions: await operations.sessions(org, { group, limit }) }, cors, correlationId);
+        }
+        if (path === '/api/v1/operations/notifications') {
+          const failedOnly = url.searchParams.get('failed') === 'true';
+          status = 200;
+          return sendJson(res, status, { notifications: await operations.notifications(org, { limit, failedOnly }) }, cors, correlationId);
+        }
+        if (path === '/api/v1/operations/events') {
+          const eventsCorrelation = url.searchParams.get('correlationId') || undefined;
+          status = 200;
+          return sendJson(res, status, { events: await operations.events(org, { correlationId: eventsCorrelation, limit }) }, cors, correlationId);
+        }
+        if (path === '/api/v1/operations/errors') {
+          status = 200;
+          return sendJson(res, status, { events: await operations.recentErrors(org, { limit }) }, cors, correlationId);
+        }
+        if (path === '/api/v1/operations/health') {
+          status = 200;
+          return sendJson(res, status, { health: await operations.health() }, cors, correlationId);
+        }
+        const timelineMatch = path.match(/^\/api\/v1\/operations\/timeline\/([^/]+)$/);
+        if (timelineMatch) {
+          status = 200;
+          return sendJson(res, status, await operations.timeline(org, decodeURIComponent(timelineMatch[1])), cors, correlationId);
+        }
+        if (path === '/api/v1/operations/search') {
+          status = 200;
+          return sendJson(res, status, await operations.search(org, url.searchParams.get('q') || ''), cors, correlationId);
+        }
+        status = 404;
+        return sendJson(res, status, { error: { code: 'not_found', message: 'Resource not found.' } }, cors, correlationId);
       }
 
       // ── GuideHerd user authentication (ADR-0013) ────────────────────

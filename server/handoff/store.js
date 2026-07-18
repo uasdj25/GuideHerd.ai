@@ -384,6 +384,44 @@ function createInMemoryHandoffStore({ clock }) {
       return latest;
     },
 
+    /**
+     * Operational visibility (ADR-0014): status counts for one
+     * organization, after lazy expiry. Never returns caller context.
+     * @param {string} firmId
+     * @returns {Promise<Record<string, number>>}
+     */
+    async countByStatus(firmId) {
+      const now = clock.now();
+      const counts = {};
+      for (const session of sessionsById.values()) {
+        markExpiredIfNeeded(session, now);
+        if (session.firmId !== firmId) continue;
+        counts[session.status] = (counts[session.status] || 0) + 1;
+      }
+      return counts;
+    },
+
+    /**
+     * Operational visibility (ADR-0014): recent sessions for one
+     * organization, newest first, optionally filtered by status. Returns
+     * full internal sessions — the operations layer strips caller PII
+     * before anything leaves the platform boundary.
+     * @param {string} firmId
+     * @param {{ limit?: number, statuses?: string[] }} [options]
+     */
+    async listRecent(firmId, { limit = 50, statuses } = {}) {
+      const now = clock.now();
+      const matches = [];
+      for (const session of sessionsById.values()) {
+        markExpiredIfNeeded(session, now);
+        if (session.firmId !== firmId) continue;
+        if (statuses && !statuses.includes(session.status)) continue;
+        matches.push(session);
+      }
+      matches.sort((a, b) => (b.createdAtMs - a.createdAtMs) || String(a.sessionId).localeCompare(String(b.sessionId)));
+      return matches.slice(0, Math.max(1, limit));
+    },
+
     /** Read a session (marks it expired if its time has passed). For tests/introspection. */
     async get(sessionId) {
       const session = sessionsById.get(sessionId);

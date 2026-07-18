@@ -2,8 +2,10 @@
 
 > Implements Issue #8 (MVP Error Handling and Operational Logging). This
 > document describes telemetry **generation** and safe failure behavior.
-> Persistence and display belong to Issue #22 (Operations Dashboard),
-> which will consume the event contract defined here. No new ADR: this
+> The Operations Center (Issue #22, ADR-0014) consumes this event
+> contract: every emission is also observed into its bounded activity
+> feed and displayed org-scoped through the Operations Contract; durable
+> event persistence remains the deferred outbox work. No new ADR: this
 > work implements conventions inside boundaries already fixed by
 > ADR-0005–ADR-0010.
 

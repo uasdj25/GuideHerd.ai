@@ -468,6 +468,53 @@ function createPostgresHandoffStore({ pool, clock }) {
       return rows.length === 0 ? undefined : toSession(rows[0]);
     },
 
+    /**
+     * Operational visibility (ADR-0014): status counts for one
+     * organization. Lazy expiry applied first (same discipline as the
+     * scans); served by idx_handoff_sessions_eligibility.
+     */
+    async countByStatus(firmId) {
+      const now = nowDate();
+      await pool.query(
+        `UPDATE handoff_sessions SET status = 'expired', version = version + 1
+          WHERE organization_key = $1 AND status = 'awaiting-transfer' AND expires_at <= $2`,
+        [firmId, now],
+      );
+      const { rows } = await pool.query(
+        `SELECT status, count(*)::int AS n FROM handoff_sessions
+          WHERE organization_key = $1 GROUP BY status`,
+        [firmId],
+      );
+      const counts = {};
+      for (const row of rows) counts[row.status] = row.n;
+      return counts;
+    },
+
+    /** Operational visibility (ADR-0014): recent sessions, newest first. */
+    async listRecent(firmId, { limit = 50, statuses } = {}) {
+      const now = nowDate();
+      await pool.query(
+        `UPDATE handoff_sessions SET status = 'expired', version = version + 1
+          WHERE organization_key = $1 AND status = 'awaiting-transfer' AND expires_at <= $2`,
+        [firmId, now],
+      );
+      const params = [firmId];
+      let statusClause = '';
+      if (statuses && statuses.length > 0) {
+        params.push(statuses);
+        statusClause = `AND status = ANY($${params.length})`;
+      }
+      params.push(Math.max(1, limit));
+      const { rows } = await pool.query(
+        `SELECT * FROM handoff_sessions
+          WHERE organization_key = $1 ${statusClause}
+          ORDER BY created_at DESC, session_id ASC
+          LIMIT $${params.length}`,
+        params,
+      );
+      return rows.map(toSession);
+    },
+
     /** Read a session (marks it expired if its time has passed). */
     async get(sessionId) {
       const now = nowDate();

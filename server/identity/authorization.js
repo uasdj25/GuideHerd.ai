@@ -69,6 +69,7 @@ const PERMISSIONS = Object.freeze([
   'conversation:complete',
   'summary:read',
   'configuration:read',
+  'operations:read',
 ]);
 
 /**
@@ -95,6 +96,15 @@ const DEFAULT_POLICY = Object.freeze({
     receptionist: Object.freeze({
       scope: 'organization',
       permissions: Object.freeze(['handoff:create', 'configuration:read']),
+    }),
+
+    // Operations Center users (ADR-0014): read-only operational
+    // visibility into their own organization. Org-scoped; a future
+    // platform-operator persona would be a separate, explicitly
+    // platform-scoped role.
+    operator: Object.freeze({
+      scope: 'organization',
+      permissions: Object.freeze(['operations:read']),
     }),
   }),
 

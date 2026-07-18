@@ -150,6 +150,7 @@ live in one codebase; the boundaries let them separate later without a rewrite.
 - [ADR-0009: The GuideHerd Identity Contract](docs/architecture-decisions/ADR-0009-identity-contract.md)
 - [ADR-0010: GuideHerd Authorization](docs/architecture-decisions/ADR-0010-authorization.md)
 - [ADR-0011: The GuideHerd Notification Contract](docs/architecture-decisions/ADR-0011-notification-contract.md)
+- [ADR-0012: The GuideHerd Scheduling Policy Engine](docs/architecture-decisions/ADR-0012-scheduling-policy-engine.md)
 
 See also [Vision](docs/Vision.md) and [Roadmap](docs/Roadmap.md).
 

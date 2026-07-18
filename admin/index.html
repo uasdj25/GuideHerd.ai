@@ -4,117 +4,242 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>GuideHerd Administration</title>
+<title>GuideHerd Administration Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter+Tight:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="../assets/guideherd.css">
 <style>
-  :root { --accent: #1f3a5f; --line: #d8d8d8; --dim: #666; --bad: #a33; --ok: #2a6f2a; }
-  * { box-sizing: border-box; }
-  body { font-family: Georgia, 'Times New Roman', serif; margin: 0; color: #222; background: #fafaf8; }
-  header { border-bottom: 3px solid var(--accent); padding: 14px 24px; display: flex; justify-content: space-between; align-items: baseline; }
-  header h1 { font-size: 18px; margin: 0; }
-  header .who { color: var(--dim); font-size: 13px; }
-  main { max-width: 860px; margin: 0 auto; padding: 16px 24px 48px; }
-  section { margin-top: 28px; border: 1px solid var(--line); background: #fff; padding: 16px 20px; }
-  h2 { font-size: 15px; margin-top: 0; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
-  label { display: block; font-size: 13px; color: var(--dim); margin-top: 10px; }
-  input, select, button, textarea { font: inherit; padding: 6px 9px; }
-  input, select, textarea { width: 100%; border: 1px solid var(--line); }
-  button { background: var(--accent); color: #fff; border: 0; cursor: pointer; margin-top: 12px; }
-  table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 8px; }
-  th, td { text-align: left; padding: 4px 10px 4px 0; border-bottom: 1px solid #eee; }
-  th { color: var(--dim); font-weight: normal; }
-  .msg { font-size: 13px; margin-top: 8px; min-height: 1.2em; }
-  .msg.ok { color: var(--ok); } .msg.bad { color: var(--bad); }
-  .muted { color: var(--dim); }
-  form.login { max-width: 360px; margin: 80px auto; border: 1px solid var(--line); padding: 24px; background: #fff; }
-  code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
-  #app { display: none; }
+  /* ── Page composition on the GuideHerd Design System (ADR-0019) ──
+     Tokens, reset, focus language, header, wordmark, sections, cards,
+     tables, badges, alerts, buttons, and form primitives come from
+     /assets/guideherd.css. Everything below is administration-specific
+     COMPOSITION and layout only — no palette, typography, spacing, or
+     component redefinitions. */
+
+  /* Sign-in surface — layout only; card, wordmark, field, button, and
+     error treatments are Design System primitives (the Operations
+     Center and Reception Console are the pattern references). */
+  .admin-login-wrap {
+    min-height: 70vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: var(--sp-3);
+  }
+  .admin-login { width: 100%; max-width: 400px; }
+  .admin-login .gh-wordmark { font-size: 24px; }
+  .admin-login h1 {
+    font-family: var(--serif); font-size: var(--fs-xl);
+    margin: var(--sp-3) 0 var(--sp-1);
+  }
+  .admin-login p { color: var(--text-dim); font-size: var(--fs-sm); margin-bottom: var(--sp-3); }
+  .admin-login form { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+  .admin-main { padding: var(--sp-4) 0 var(--sp-6); }
+
+  /* Area cards: shared card, form rows stacked with shared spacing. */
+  .area-card { margin-top: var(--sp-2); }
+  .area-card .gh-field + .gh-field,
+  .area-card .gh-check,
+  .area-card .gh-btn,
+  .area-card .gh-alert { margin-top: var(--sp-2); }
+  .area-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; }
+  .area-sub { font-family: var(--serif); font-size: var(--fs-md); margin: var(--sp-3) 0 var(--sp-1); }
+
+  /* Two-column field rows collapse on narrow viewports. */
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); margin-top: var(--sp-2); }
+  @media (max-width: 560px) { .field-row { grid-template-columns: 1fr; } }
+
+  /* Alerts double as per-area save status; empty alerts collapse. */
+  .gh-alert:empty { display: none; }
+
+  .catalog-tables { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
 </style>
 </head>
 <body>
 <!--
-  GuideHerd Administration (ADR-0015) — the first administration client.
-  This page holds NO credentials and NO secrets: authentication is a
-  GuideHerd user session in an HttpOnly cookie the page cannot read.
-  Every change is validated, versioned, and audited server-side; the
-  version fields below carry the optimistic-concurrency tokens.
+  GuideHerd Administration Center (ADR-0015; presentation per ADR-0019) —
+  the first administration client. This page holds NO credentials and NO
+  secrets: authentication is a GuideHerd user session in an HttpOnly
+  cookie the page cannot read. Every change is validated, versioned, and
+  audited server-side; the version fields below carry the optimistic-
+  concurrency tokens. The #56 migration changed markup and rendering
+  helpers only — same endpoints, same payloads, same flow, same IDs.
 -->
-<form class="login" id="login" autocomplete="off">
-  <h1>GuideHerd Administration</h1>
-  <p class="muted">Sign in with your administrator credential.</p>
-  <input type="password" id="credential" placeholder="Credential" required>
-  <button type="submit">Sign in</button>
-  <p class="msg bad" id="login-error"></p>
-</form>
 
-<div id="app">
-<header>
-  <h1>GuideHerd Administration</h1>
-  <span class="who"><span id="who"></span> · <a href="#" id="logout">sign out</a></span>
+<a class="gh-skip-link" href="#main">Skip to content</a>
+
+<!-- Branded sign-in (always session-gated, unlike the Reception Console). -->
+<div class="admin-login-wrap" id="login-wrap">
+  <div class="admin-login gh-card">
+    <span class="gh-wordmark">GuideHerd<span class="gh-wordmark-sup">AI</span></span>
+    <h1>Administration Center</h1>
+    <p>Sign in with your administrator credential.</p>
+    <form id="login" autocomplete="off">
+      <div class="gh-field">
+        <label class="gh-label" for="credential">Credential</label>
+        <input class="gh-input" type="password" id="credential" required autocomplete="current-password">
+      </div>
+      <button class="gh-btn gh-btn-primary gh-btn-full" type="submit">Sign in</button>
+      <p class="gh-form-error" id="login-error" role="alert"></p>
+    </form>
+  </div>
+</div>
+
+<div id="app" hidden>
+<header class="gh-app-header">
+  <div class="gh-container gh-app-header-row">
+    <span class="gh-row" style="gap:0">
+      <a class="gh-wordmark" href="/" aria-label="GuideHerd home">GuideHerd<span class="gh-wordmark-sup">AI</span></a>
+      <span class="gh-app-name">Administration Center</span>
+    </span>
+    <span class="gh-app-header-meta"><span id="who"></span><span aria-hidden="true">·</span><a href="#" id="logout">Sign out</a></span>
+  </div>
 </header>
-<main>
-  <section>
-    <h2>Organization</h2>
-    <label>Name <input id="org-name"></label>
-    <label>Display name <input id="org-display"></label>
-    <label>Timezone <input id="org-tz"></label>
-    <button data-area="organization" id="save-org">Save organization</button>
-    <p class="msg" id="msg-organization"></p>
+<main class="gh-container gh-container--reading admin-main" id="main">
+
+  <section class="gh-section">
+    <div class="gh-eyebrow"><span class="gh-eyebrow-dot" aria-hidden="true"></span><span>Firm identity</span></div>
+    <div class="gh-card area-card">
+      <div class="area-head">
+        <h2 class="gh-section-title">Organization</h2>
+        <span class="gh-badge gh-badge--ok">Live</span>
+      </div>
+      <div class="gh-field" style="margin-top:var(--sp-2)">
+        <label class="gh-label" for="org-name">Name</label>
+        <input class="gh-input" id="org-name">
+      </div>
+      <div class="gh-field">
+        <label class="gh-label" for="org-display">Display name</label>
+        <input class="gh-input" id="org-display">
+      </div>
+      <div class="gh-field">
+        <label class="gh-label" for="org-tz">Timezone</label>
+        <input class="gh-input" id="org-tz">
+      </div>
+      <button class="gh-btn gh-btn-primary" data-area="organization" id="save-org">Save organization</button>
+      <p class="gh-alert" id="msg-organization" role="status" aria-live="polite"></p>
+    </div>
   </section>
 
-  <section>
-    <h2>Attorney ordering</h2>
-    <label>Routing group
-      <select id="order-group"></select>
-    </label>
-    <label>Order <span class="muted">(comma-separated attorney keys, first = highest priority)</span>
-      <input id="order-list">
-    </label>
-    <button id="save-order">Save order</button>
-    <p class="msg" id="msg-attorney-order"></p>
+  <section class="gh-section">
+    <div class="gh-eyebrow"><span class="gh-eyebrow-dot" aria-hidden="true"></span><span>Scheduling</span></div>
+
+    <div class="gh-card area-card">
+      <div class="area-head">
+        <h2 class="gh-section-title">Attorney ordering</h2>
+        <span class="gh-badge gh-badge--ok">Live</span>
+      </div>
+      <div class="gh-field" style="margin-top:var(--sp-2)">
+        <label class="gh-label" for="order-group">Routing group</label>
+        <select class="gh-select" id="order-group"></select>
+      </div>
+      <div class="gh-field">
+        <label class="gh-label" for="order-list">Order</label>
+        <input class="gh-input" id="order-list" aria-describedby="order-note">
+        <span class="gh-muted" id="order-note" style="font-size:var(--fs-xs)">Comma-separated attorney keys; first = highest priority.</span>
+      </div>
+      <button class="gh-btn gh-btn-primary" id="save-order">Save order</button>
+      <p class="gh-alert" id="msg-attorney-order" role="status" aria-live="polite"></p>
+    </div>
+
+    <div class="gh-card area-card">
+      <div class="area-head">
+        <h2 class="gh-section-title">Scheduling policy</h2>
+        <span id="badge-scheduling-policy"></span>
+      </div>
+      <div class="gh-field" style="margin-top:var(--sp-2)">
+        <label class="gh-label" for="pol-attorneys">Preferred attorneys</label>
+        <input class="gh-input" id="pol-attorneys" aria-describedby="pol-attorneys-note">
+        <span class="gh-muted" id="pol-attorneys-note" style="font-size:var(--fs-xs)">Comma-separated, ordered.</span>
+      </div>
+      <div class="field-row">
+        <div class="gh-field">
+          <label class="gh-label" for="pol-days">Preferred days</label>
+          <input class="gh-input" id="pol-days" placeholder="monday,tuesday">
+        </div>
+        <div class="gh-field">
+          <label class="gh-label" for="pol-time">Preferred time of day</label>
+          <select class="gh-select" id="pol-time"><option value="">—</option><option>morning</option><option>afternoon</option></select>
+        </div>
+      </div>
+      <div class="gh-field">
+        <label class="gh-label" for="pol-duration">Preferred duration (minutes)</label>
+        <input class="gh-input" id="pol-duration" type="number" min="5" max="480">
+      </div>
+      <button class="gh-btn gh-btn-primary" id="save-policy">Save policy</button>
+      <p class="gh-alert" id="msg-scheduling-policy" role="status" aria-live="polite"></p>
+    </div>
   </section>
 
-  <section>
-    <h2>Scheduling policy</h2>
-    <label>Preferred attorneys <span class="muted">(comma-separated, ordered)</span> <input id="pol-attorneys"></label>
-    <label>Preferred days <span class="muted">(e.g. monday,tuesday)</span> <input id="pol-days"></label>
-    <label>Preferred time of day
-      <select id="pol-time"><option value="">—</option><option>morning</option><option>afternoon</option></select>
-    </label>
-    <label>Preferred duration (minutes) <input id="pol-duration" type="number" min="5" max="480"></label>
-    <button id="save-policy">Save policy</button>
-    <p class="msg" id="msg-scheduling-policy"></p>
+  <section class="gh-section">
+    <div class="gh-eyebrow"><span class="gh-eyebrow-dot" aria-hidden="true"></span><span>Notifications</span></div>
+    <div class="gh-card area-card">
+      <div class="area-head">
+        <h2 class="gh-section-title">Notifications</h2>
+        <span id="badge-notifications"></span>
+      </div>
+      <label class="gh-check" style="margin-top:var(--sp-2)">
+        <input type="checkbox" id="notif-enabled">
+        <span>Send appointment confirmations
+          <span class="gh-check-note">Enable only once calendar-provider attendee emails are confirmed off (double-notification risk).</span></span>
+      </label>
+      <button class="gh-btn gh-btn-primary" id="save-notifications">Save notification settings</button>
+      <p class="gh-alert" id="msg-notifications" role="status" aria-live="polite"></p>
+
+      <div class="area-head" style="margin-top:var(--sp-3)">
+        <h3 class="area-sub" style="margin:0">Notification branding</h3>
+        <span id="badge-notification-branding"></span>
+      </div>
+      <div class="gh-field" style="margin-top:var(--sp-2)">
+        <label class="gh-label" for="brand-sender">Sender name</label>
+        <input class="gh-input" id="brand-sender">
+      </div>
+      <div class="field-row">
+        <div class="gh-field">
+          <label class="gh-label" for="brand-accent">Accent color</label>
+          <input class="gh-input" id="brand-accent" placeholder="#1f3a5f">
+        </div>
+        <div class="gh-field">
+          <label class="gh-label" for="brand-footer">Footer</label>
+          <input class="gh-input" id="brand-footer">
+        </div>
+      </div>
+      <button class="gh-btn gh-btn-primary" id="save-branding">Save branding</button>
+      <p class="gh-alert" id="msg-notification-branding" role="status" aria-live="polite"></p>
+    </div>
   </section>
 
-  <section>
-    <h2>Notifications</h2>
-    <label><input type="checkbox" id="notif-enabled" style="width:auto"> Send appointment confirmations
-      <span class="muted">(enable only once calendar-provider attendee emails are confirmed off — ADR-0011 §7)</span></label>
-    <button id="save-notifications">Save notification settings</button>
-    <p class="msg" id="msg-notifications"></p>
-    <h2 style="margin-top:18px">Notification branding</h2>
-    <label>Sender name <input id="brand-sender"></label>
-    <label>Accent color <input id="brand-accent" placeholder="#1f3a5f"></label>
-    <label>Footer <input id="brand-footer"></label>
-    <button id="save-branding">Save branding</button>
-    <p class="msg" id="msg-notification-branding"></p>
+  <section class="gh-section">
+    <div class="gh-eyebrow"><span class="gh-eyebrow-dot" aria-hidden="true"></span><span>Access</span></div>
+    <div class="gh-card area-card">
+      <div class="area-head">
+        <h2 class="gh-section-title">Identity provider</h2>
+        <span id="badge-identity-provider"></span>
+      </div>
+      <div class="gh-field" style="margin-top:var(--sp-2)">
+        <label class="gh-label" for="idp">Provider</label>
+        <select class="gh-select" id="idp"></select>
+      </div>
+      <button class="gh-btn gh-btn-primary" id="save-idp">Save identity provider</button>
+      <p class="gh-alert" id="msg-identity-provider" role="status" aria-live="polite"></p>
+    </div>
   </section>
 
-  <section>
-    <h2>Identity provider</h2>
-    <label>Provider <select id="idp"></select></label>
-    <button id="save-idp">Save identity provider</button>
-    <p class="msg" id="msg-identity-provider"></p>
+  <section class="gh-section">
+    <div class="gh-eyebrow"><span class="gh-eyebrow-dot" aria-hidden="true"></span><span>Configured catalog</span></div>
+    <div class="gh-card area-card">
+      <h2 class="gh-section-title">Practice areas, attorneys, routing &amp; locations</h2>
+      <div class="catalog-tables" id="catalog" aria-live="polite"></div>
+      <p class="gh-muted" style="margin-top:var(--sp-2);font-size:var(--fs-sm)">Create and edit via the JSON areas below in this first client; richer forms arrive with the portal polish pass.</p>
+    </div>
   </section>
 
-  <section>
-    <h2>Practice areas &amp; attorneys</h2>
-    <div id="catalog"></div>
-    <p class="muted">Create and edit via the JSON areas below in this first client; richer forms arrive with the portal polish pass.</p>
-  </section>
-
-  <section>
-    <h2>Recent configuration changes</h2>
-    <div id="audit"></div>
+  <section class="gh-section">
+    <div class="gh-eyebrow"><span class="gh-eyebrow-dot" aria-hidden="true"></span><span>History</span></div>
+    <div class="gh-card area-card">
+      <h2 class="gh-section-title">Recent configuration changes</h2>
+      <div id="audit" aria-live="polite" style="margin-top:var(--sp-2)"></div>
+    </div>
   </section>
 </main>
 </div>
@@ -131,6 +256,33 @@
   var versions = {}; // entity -> optimistic concurrency token
   function el(id) { return document.getElementById(id); }
   function esc(v) { var d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; }
+
+  // ── Design System rendering helpers (presentation only) ─────────────
+  function badge(text, tone) {
+    var cls = tone ? 'gh-badge gh-badge--' + tone : 'gh-badge';
+    return '<span class="' + cls + '">' + esc(text) + '</span>';
+  }
+  function liveBadge(setting) {
+    // live=true: an administered change affects the very next request.
+    // live=false: the deployment must restart before the change applies.
+    return setting && setting.live === false
+      ? badge('Restart required', 'warn')
+      : badge('Live', 'ok');
+  }
+  function empty(message) {
+    return '<div class="gh-empty"><span class="gh-empty-title">All quiet.</span>' + esc(message) + '</div>';
+  }
+  function loading() { return '<p class="gh-loading">Loading…</p>'; }
+  function activeBadge(v) { return v ? badge('Active', 'ok') : badge('Inactive'); }
+  function table(head, rows) {
+    return '<div class="gh-table-wrap"><table class="gh-table"><thead><tr>'
+      + head.map(function (h) { return '<th scope="col">' + esc(h) + '</th>'; }).join('')
+      + '</tr></thead><tbody>' + rows.join('') + '</tbody></table></div>';
+  }
+  function setAlert(target, tone, text) {
+    target.className = tone ? 'gh-alert gh-alert--' + tone : 'gh-alert';
+    target.textContent = text;
+  }
 
   function api(path, options) {
     options = options || {};
@@ -150,26 +302,25 @@
 
   function change(area, entity, payload, msgId) {
     var target = el('msg-' + (msgId || area));
-    target.className = 'msg';
-    target.textContent = 'Saving…';
+    setAlert(target, null, 'Saving…');
     return api('/api/v1/admin/' + area, {
       method: 'POST',
       body: JSON.stringify({ payload: payload, expectedVersion: versions[entity] || 0 }),
     }).then(function (out) {
       versions[entity] = out.version;
-      target.className = 'msg ok';
-      target.textContent = 'Saved (version ' + out.version + ').';
+      setAlert(target, 'ok', 'Saved (version ' + out.version + ').');
       loadAudit();
     }).catch(function (err) {
-      target.className = 'msg bad';
-      target.textContent = err.code === 'configuration_version_conflict'
-        ? 'Changed by someone else — reload before saving.'
-        : err.message;
+      if (err.code === 'configuration_version_conflict') {
+        setAlert(target, 'warn', 'Changed by someone else — reload before saving.');
+      } else {
+        setAlert(target, 'bad', err.message);
+      }
     });
   }
 
-  function showLogin() { el('login').style.display = 'block'; el('app').style.display = 'none'; }
-  function showApp() { el('login').style.display = 'none'; el('app').style.display = 'block'; }
+  function showLogin() { el('login-wrap').hidden = false; el('app').hidden = true; }
+  function showApp() { el('login-wrap').hidden = true; el('app').hidden = false; }
 
   el('login').addEventListener('submit', function (e) {
     e.preventDefault();
@@ -220,13 +371,14 @@
   });
 
   function loadAudit() {
+    el('audit').innerHTML = loading();
     api('/api/v1/admin/audit?limit=15').then(function (r) {
-      if (!r.audit.length) { el('audit').innerHTML = '<p class="muted">No changes yet.</p>'; return; }
-      el('audit').innerHTML = '<table><tr><th>At</th><th>Entity</th><th>Action</th><th>By</th><th>v</th></tr>'
-        + r.audit.map(function (a) {
-          return '<tr><td>' + esc(a.at) + '</td><td><code>' + esc(a.entity) + '</code></td><td>' + esc(a.action)
-            + '</td><td>' + esc(a.actor) + '</td><td>' + esc(a.version) + '</td></tr>';
-        }).join('') + '</table>';
+      if (!r.audit.length) { el('audit').innerHTML = empty('No changes yet.'); return; }
+      el('audit').innerHTML = table(['At', 'Entity', 'Action', 'By', 'v'], r.audit.map(function (a) {
+        return '<tr><td><span class="gh-tnum">' + esc(String(a.at).replace('T', ' ').replace(/\.\d+Z$/, 'Z')) + '</span></td>'
+          + '<td><code class="gh-mono">' + esc(a.entity) + '</code></td><td>' + esc(a.action)
+          + '</td><td>' + esc(a.actor) + '</td><td class="gh-num">' + esc(a.version) + '</td></tr>';
+      }));
     });
   }
 
@@ -271,11 +423,34 @@
         return '<option' + ((c.settings.identityProvider.value || {}).provider === p ? ' selected' : '') + '>' + esc(p) + '</option>';
       }).join('');
 
-      el('catalog').innerHTML = '<table><tr><th>Practice area</th><th>Active</th></tr>'
-        + c.practiceAreas.map(function (a) { return '<tr><td>' + esc(a.name) + '</td><td>' + esc(a.active) + '</td></tr>'; }).join('')
-        + '</table><table><tr><th>Attorney</th><th>Active</th></tr>'
-        + c.attorneys.map(function (a) { return '<tr><td>' + esc(a.displayName || a.name) + ' <code>' + esc(a.key) + '</code></td><td>' + esc(a.active) + '</td></tr>'; }).join('')
-        + '</table>';
+      // Live vs restart-required classification, from the API's own facts.
+      el('badge-scheduling-policy').innerHTML = liveBadge(c.settings.schedulingPolicy);
+      el('badge-notifications').innerHTML = liveBadge(c.settings.notifications);
+      el('badge-notification-branding').innerHTML = liveBadge(c.settings.notificationBranding);
+      el('badge-identity-provider').innerHTML = liveBadge(c.settings.identityProvider);
+
+      var parts = [];
+      parts.push(c.practiceAreas.length
+        ? table(['Practice area', 'Status'], c.practiceAreas.map(function (a) {
+            return '<tr><td>' + esc(a.name) + '</td><td>' + activeBadge(a.active) + '</td></tr>';
+          }))
+        : empty('No practice areas configured yet.'));
+      parts.push(c.attorneys.length
+        ? table(['Attorney', 'Key', 'Status'], c.attorneys.map(function (a) {
+            return '<tr><td>' + esc(a.displayName || a.name) + '</td><td><code class="gh-mono">' + esc(a.key) + '</code></td><td>' + activeBadge(a.active) + '</td></tr>';
+          }))
+        : empty('No attorneys configured yet.'));
+      parts.push(c.routingGroups.length
+        ? table(['Routing group', 'Attorneys (ordered)'], c.routingGroups.map(function (g) {
+            return '<tr><td>' + esc(g.name) + '</td><td><code class="gh-mono">' + esc(g.providers.join(', ')) + '</code></td></tr>';
+          }))
+        : empty('No routing groups configured yet.'));
+      parts.push((c.locations || []).length
+        ? table(['Location', 'Timezone'], c.locations.map(function (l) {
+            return '<tr><td>' + esc(l.name || l.key) + '</td><td>' + esc(l.timezone || '—') + '</td></tr>';
+          }))
+        : empty('No locations configured yet.'));
+      el('catalog').innerHTML = parts.join('');
 
       loadAudit();
     }).catch(function () {});

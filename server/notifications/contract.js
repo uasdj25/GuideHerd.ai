@@ -46,9 +46,20 @@ const NOTIFICATION_TYPES = Object.freeze([
   'appointment-cancellation',
   'appointment-rescheduled',
   'appointment-reminder',
+  'consultation-summary',
 ]);
 
-const REQUEST_KEYS = Object.freeze(['type', 'organizationKey', 'notificationKey', 'recipient', 'appointment', 'locale']);
+/**
+ * Types whose payload is a bespoke model rather than the appointment
+ * shape. Their renderers register with the template layer (one template +
+ * one registration per future type; Core unchanged). The consultation
+ * summary is firm-facing: its delivery target is the firm's configured
+ * summary mailbox (owned by the delivery boundary), so `recipient` is
+ * optional for it.
+ */
+const MODEL_TYPES = Object.freeze(['consultation-summary']);
+
+const REQUEST_KEYS = Object.freeze(['type', 'organizationKey', 'notificationKey', 'recipient', 'appointment', 'locale', 'model']);
 const RECIPIENT_KEYS = Object.freeze(['name', 'email']);
 const APPOINTMENT_KEYS = Object.freeze(['startsAt', 'timezone', 'attorneyName', 'consultationType', 'location']);
 
@@ -73,13 +84,37 @@ function validateNotificationRequest(request) {
   if (!isNonblank(request.organizationKey, 128)) fail('organizationKey required');
   if (!isNonblank(request.notificationKey, LIMITS.key)) fail('notificationKey required');
 
+  const isModelType = MODEL_TYPES.includes(request.type);
+
   const recipient = request.recipient;
-  if (recipient === null || typeof recipient !== 'object') fail('recipient required');
-  for (const key of Object.keys(recipient)) {
-    if (!RECIPIENT_KEYS.includes(key)) fail(`unknown recipient key ${key}`);
+  if (recipient === undefined || recipient === null) {
+    if (!isModelType) fail('recipient required');
+  } else {
+    if (typeof recipient !== 'object') fail('recipient required');
+    for (const key of Object.keys(recipient)) {
+      if (!RECIPIENT_KEYS.includes(key)) fail(`unknown recipient key ${key}`);
+    }
+    if (!isNonblank(recipient.email)) fail('recipient.email required');
+    if (recipient.name !== undefined && !isNonblank(recipient.name, 200)) fail('recipient.name invalid');
   }
-  if (!isNonblank(recipient.email)) fail('recipient.email required');
-  if (recipient.name !== undefined && !isNonblank(recipient.name, 200)) fail('recipient.name invalid');
+
+  if (isModelType) {
+    if (request.model === null || typeof request.model !== 'object' || Array.isArray(request.model)) {
+      fail('model required for this notification type');
+    }
+    if (request.appointment !== undefined) fail('appointment is not accepted for model types');
+    return {
+      type: request.type,
+      organizationKey: request.organizationKey.trim(),
+      notificationKey: request.notificationKey.trim(),
+      recipient: recipient
+        ? { name: recipient.name === undefined ? null : recipient.name.trim(), email: recipient.email.trim() }
+        : null,
+      model: request.model,
+      locale: request.locale === undefined ? 'en-US' : request.locale.trim(),
+    };
+  }
+  if (request.model !== undefined) fail('model is only accepted for model types');
 
   const appointment = request.appointment;
   if (appointment === null || typeof appointment !== 'object') fail('appointment required');
@@ -145,4 +180,4 @@ function createNotificationProviderRegistry() {
   };
 }
 
-module.exports = { NOTIFICATION_TYPES, validateNotificationRequest, createNotificationProviderRegistry };
+module.exports = { NOTIFICATION_TYPES, MODEL_TYPES, validateNotificationRequest, createNotificationProviderRegistry };

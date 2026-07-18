@@ -172,7 +172,9 @@ Graph accepted the message), `failed` (retry permitted via an identical
 outcome call), or `not-configured` (mail settings absent — a controlled
 result, not an error). **Mail delivery failure never reverses a confirmed
 booking.** A summary that was `sent` is never resent, including under
-concurrent duplicate outcome calls.
+concurrent duplicate outcome calls. Since ADR-0011 §8 the summary is
+delivered as a first-class notification (`consultation-summary`) through
+the Notification Contract; these response semantics are unchanged.
 
 ## GET /api/v1/demo/summary/latest
 

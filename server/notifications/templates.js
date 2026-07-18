@@ -95,6 +95,29 @@ function buildTemplateModel(request, branding) {
 }
 
 /**
+ * Bespoke renderers for model-typed notifications (ADR-0011 §8): a future
+ * notification type is ONE renderer registration plus its template —
+ * Core, the service, and providers are untouched.
+ * @type {Map<string, (request, branding) => { subject, html, text }>}
+ */
+const RENDERERS = new Map();
+
+/** Register a bespoke renderer for a notification type. */
+function registerNotificationRenderer(type, render) {
+  if (typeof type !== 'string' || type === '' || typeof render !== 'function') {
+    throw new TypeError('A notification renderer needs a type and a render function.');
+  }
+  RENDERERS.set(type, render);
+}
+
+/** Render any validated request: bespoke renderer or the appointment template. */
+function renderNotificationRequest(request, branding) {
+  const bespoke = RENDERERS.get(request.type);
+  if (bespoke) return bespoke(request, branding);
+  return renderNotification(buildTemplateModel(request, branding));
+}
+
+/**
  * Render a notification for delivery: subject, HTML, and plain text.
  * @param {ReturnType<typeof buildTemplateModel>} model
  * @returns {{ subject: string, html: string, text: string }}
@@ -149,4 +172,4 @@ function renderNotification(model) {
   return { subject, html, text };
 }
 
-module.exports = { buildTemplateModel, renderNotification, STRINGS };
+module.exports = { buildTemplateModel, renderNotification, renderNotificationRequest, registerNotificationRenderer, STRINGS };

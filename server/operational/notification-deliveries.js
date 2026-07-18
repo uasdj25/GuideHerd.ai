@@ -49,6 +49,21 @@ function createPostgresNotificationDeliveryStore({ pool, clock }) {
       return { notificationKey, status };
     },
 
+    /** Operational visibility (ADR-0014): recent delivery records. */
+    async listRecent({ limit = 50 } = {}) {
+      const { rows } = await pool.query(
+        `SELECT notification_key, status, claimed_at FROM notification_deliveries
+          ORDER BY claimed_at DESC NULLS LAST, notification_key ASC
+          LIMIT $1`,
+        [Math.max(1, limit)],
+      );
+      return rows.map((r) => ({
+        notificationKey: r.notification_key,
+        status: r.status,
+        claimedAtMs: r.claimed_at === null ? null : new Date(r.claimed_at).getTime(),
+      }));
+    },
+
     async get(notificationKey) {
       const { rows } = await pool.query(
         'SELECT notification_key, status FROM notification_deliveries WHERE notification_key = $1',

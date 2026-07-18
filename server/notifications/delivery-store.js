@@ -59,6 +59,18 @@ function createInMemoryNotificationDeliveryStore({ clock }) {
       return { notificationKey, status };
     },
 
+    /**
+     * Operational visibility (ADR-0014): recent delivery records (keys and
+     * statuses only — the store never holds content or recipients).
+     * @param {{ limit?: number }} [options]
+     */
+    async listRecent({ limit = 50 } = {}) {
+      const records = [...deliveries.entries()]
+        .map(([notificationKey, record]) => ({ notificationKey, status: record.status, claimedAtMs: record.claimedAtMs }))
+        .sort((a, b) => ((b.claimedAtMs ?? 0) - (a.claimedAtMs ?? 0)) || a.notificationKey.localeCompare(b.notificationKey));
+      return records.slice(0, Math.max(1, limit));
+    },
+
     /** Read a delivery record (tests/introspection). */
     async get(notificationKey) {
       const record = deliveries.get(notificationKey);

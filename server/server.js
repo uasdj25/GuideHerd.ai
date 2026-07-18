@@ -83,6 +83,7 @@ async function main() {
   let handoffStore; // undefined -> createApp uses the in-memory default
   let notificationDeliveryStore; // undefined -> in-memory default (ADR-0011)
   let outboxStore; // undefined -> in-memory default (ADR-0017)
+  let scheduledActionStore; // undefined -> in-memory default (ADR-0018)
   let operationalMigrationsApplied = null;
   if (OPERATIONAL_PROVIDER === 'postgres') {
     const { createOperationalPool } = require('./operational/db');
@@ -90,10 +91,12 @@ async function main() {
     const { createPostgresHandoffStore } = require('./operational/session-repository');
     const { createPostgresNotificationDeliveryStore } = require('./operational/notification-deliveries');
     const { createPostgresOutboxStore } = require('./operational/outbox-store');
+    const { createPostgresScheduledActionStore } = require('./operational/scheduled-actions');
     try {
       const pool = createOperationalPool();
       operationalMigrationsApplied = await migrateOperational(pool);
       outboxStore = createPostgresOutboxStore({ pool, clock: systemClock() });
+      scheduledActionStore = createPostgresScheduledActionStore({ pool, clock: systemClock() });
       handoffStore = createPostgresHandoffStore({ pool, clock: systemClock(), outbox: outboxStore });
       notificationDeliveryStore = createPostgresNotificationDeliveryStore({ pool, clock: systemClock() });
     } catch (err) {
@@ -108,24 +111,30 @@ async function main() {
 
   // Browser origins are allowlisted via CORS_ALLOWED_ORIGINS (comma-separated).
   // Defaults to https://guideherd.ai and http://localhost:8080. Never `*`.
-  const app = createApp({ configService, configDb, handoffStore, notificationDeliveryStore, outboxStore });
+  const app = createApp({ configService, configDb, handoffStore, notificationDeliveryStore, outboxStore, scheduledActionStore });
   const { handler } = app;
   const server = http.createServer(handler);
 
-  // Outbox restart recovery (ADR-0017): process anything left pending by
-  // a previous instance before/while serving traffic.
+  // Restart recovery (ADR-0017/ADR-0018): process anything left pending
+  // by a previous instance — durable events AND due scheduled actions —
+  // before/while serving traffic.
   app.outbox.drain().catch(() => {});
+  app.scheduler.drain().catch(() => {});
 
-  // Outbox liveness (ADR-0017 §3): post-commit nudges give low latency;
-  // the poller guarantees EVENTUAL processing — pending retries and stale
-  // processing claims recover without new traffic or a restart. Safe with
-  // multiple API instances via the store's atomic delivery claims.
+  // Liveness (ADR-0017 §3): post-commit nudges give low latency; ONE
+  // poller guarantees EVENTUAL processing for both the outbox and the
+  // scheduler — pending retries, stale claims, and newly-due scheduled
+  // actions all progress without new traffic or a restart. Safe with
+  // multiple API instances via the stores' atomic claims.
   const RAW_POLL_INTERVAL = process.env.GUIDEHERD_OUTBOX_POLL_INTERVAL_MS;
   const OUTBOX_POLL_INTERVAL_MS = RAW_POLL_INTERVAL === undefined ? DEFAULT_POLL_INTERVAL_MS : Number(RAW_POLL_INTERVAL);
   if (!Number.isFinite(OUTBOX_POLL_INTERVAL_MS) || OUTBOX_POLL_INTERVAL_MS <= 0) {
     fatal(`Invalid GUIDEHERD_OUTBOX_POLL_INTERVAL_MS "${RAW_POLL_INTERVAL}" (expected a positive number of milliseconds).`);
   }
-  const outboxPoller = createOutboxPoller({ outbox: app.outbox, intervalMs: OUTBOX_POLL_INTERVAL_MS });
+  const outboxPoller = createOutboxPoller({
+    outbox: { drain: () => Promise.all([app.outbox.drain(), app.scheduler.drain()]) },
+    intervalMs: OUTBOX_POLL_INTERVAL_MS,
+  });
   server.on('close', () => outboxPoller.stop());
 
   server.listen(PORT, HOST, () => {

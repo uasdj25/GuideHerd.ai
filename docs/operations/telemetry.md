@@ -83,7 +83,9 @@ internal.unexpected_error · notification.delivered ·
 notification.delivery_failed · notification.suppressed (ADR-0011) ·
 authentication.login · authentication.login_failed ·
 authentication.logout (ADR-0013) · outbox.delivered ·
-outbox.delivery_failed · outbox.abandoned (ADR-0017)
+outbox.delivery_failed · outbox.abandoned (ADR-0017) ·
+scheduler.action_scheduled · scheduler.action_completed ·
+scheduler.action_failed · scheduler.action_expired (ADR-0018)
 
 ¹ primary emission lives in the authorization service (ADR-0010).
 ² reserved seams: availability/booking execute provider-side today; the

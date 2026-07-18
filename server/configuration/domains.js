@@ -112,6 +112,67 @@ function registerProductionDomains(framework) {
     },
   });
 
+  // Appointment reminder scheduling — validator owned by the Scheduler
+  // (ADR-0018). DISABLED BY DEFAULT: today's production behavior is
+  // preserved until a firm explicitly enables reminders. The offsets
+  // list naturally admits additional intervals later (one more entry).
+  framework.register({
+    id: 'appointment-reminders',
+    title: 'Appointment reminders',
+    owner: 'scheduler',
+    namespace: 'scheduler',
+    key: 'appointment-reminders',
+    live: true,
+    schemaVersion: 1,
+    normalize(raw) {
+      const DEFAULT_OFFSETS = [
+        { slot: '24h', minutesBefore: 24 * 60 },
+        { slot: '1h', minutesBefore: 60 },
+      ];
+      const defaults = { enabled: false, offsets: DEFAULT_OFFSETS };
+      if (raw === null || raw === undefined) return { value: defaults, issues: [] };
+      if (!isPlainObject(raw)) {
+        return { value: defaults, issues: ['must be an object like { "enabled": true, "offsets": [...] }'] };
+      }
+      const issues = [];
+      for (const k of Object.keys(raw)) {
+        if (!['enabled', 'offsets'].includes(k)) issues.push(`unknown field: ${k}`);
+      }
+      if (raw.enabled !== undefined && typeof raw.enabled !== 'boolean') issues.push('enabled must be a boolean');
+
+      let offsets = DEFAULT_OFFSETS;
+      if (raw.offsets !== undefined) {
+        if (!Array.isArray(raw.offsets) || raw.offsets.length === 0) {
+          issues.push('offsets must be a non-empty array of { slot, minutesBefore }');
+        } else {
+          const seen = new Set();
+          const cleaned = [];
+          for (const entry of raw.offsets) {
+            const slot = isPlainObject(entry) && typeof entry.slot === 'string' ? entry.slot.trim() : '';
+            const minutes = isPlainObject(entry) ? entry.minutesBefore : undefined;
+            if (slot === '' || !/^[a-z0-9-]{1,32}$/.test(slot)) {
+              issues.push('every offset needs a short lowercase slot (e.g. "24h")');
+              continue;
+            }
+            if (seen.has(slot)) {
+              issues.push(`duplicate offset slot: ${slot}`);
+              continue;
+            }
+            if (!Number.isInteger(minutes) || minutes < 1 || minutes > 40320) {
+              issues.push(`offset "${slot}": minutesBefore must be an integer between 1 and 40320 (4 weeks)`);
+              continue;
+            }
+            seen.add(slot);
+            cleaned.push({ slot, minutesBefore: minutes });
+          }
+          if (cleaned.length > 0) offsets = cleaned.sort((a, b) => b.minutesBefore - a.minutesBefore);
+          else issues.push('no usable offsets; defaults apply');
+        }
+      }
+      return { value: { enabled: raw.enabled === true, offsets }, issues };
+    },
+  });
+
   framework.register(providerSelectionDomain({
     id: 'identity-provider',
     title: 'Identity provider selection',

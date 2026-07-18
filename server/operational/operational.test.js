@@ -53,6 +53,7 @@ if (!PG_URL) {
   async function resetDatabase(pool) {
     await pool.query('DROP TABLE IF EXISTS outbox_deliveries');
     await pool.query('DROP TABLE IF EXISTS outbox_events');
+    await pool.query('DROP TABLE IF EXISTS scheduled_actions');
     await pool.query('DROP TABLE IF EXISTS handoff_sessions');
     await pool.query('DROP TABLE IF EXISTS notification_deliveries');
     await pool.query('DROP TABLE IF EXISTS operational_schema_migrations');
@@ -62,18 +63,18 @@ if (!PG_URL) {
     sharedPool = createOperationalPool({ connectionString: PG_URL });
     await resetDatabase(sharedPool);
 
-    assert.equal(await migrate(sharedPool), 3, 'all pending migrations apply');
+    assert.equal(await migrate(sharedPool), 4, 'all pending migrations apply');
     assert.equal(await migrate(sharedPool), 0, 're-run is a no-op');
 
     // Concurrent boots: several runners at once, advisory lock serializes.
     await resetDatabase(sharedPool);
     const pools = [createOperationalPool({ connectionString: PG_URL }), createOperationalPool({ connectionString: PG_URL })];
     const results = await Promise.all([migrate(sharedPool), migrate(pools[0]), migrate(pools[1])]);
-    assert.equal(results.reduce((a, b) => a + b, 0), 3, 'exactly one runner applies the migrations');
+    assert.equal(results.reduce((a, b) => a + b, 0), 4, 'exactly one runner applies the migrations');
     await Promise.all(pools.map((p) => p.end()));
 
     const { rows } = await sharedPool.query('SELECT count(*)::int AS n FROM operational_schema_migrations');
-    assert.equal(rows[0].n, 3);
+    assert.equal(rows[0].n, 4);
   });
 
   // Contract suite against PostgreSQL. Each test gets a truncated table on
@@ -401,6 +402,109 @@ if (!PG_URL) {
     const pc = mkProcessor(storeB);
     await pc.drain();
     assert.equal(handled, 1, 'completed deliveries never redeliver');
+    await poolB.end();
+  });
+
+  test('[postgres] scheduler: durable scheduled actions — dedupe, claims, retries, expiry, cross-instance', async () => {
+    const { createPostgresScheduledActionStore } = require('./scheduled-actions');
+    const { createScheduler, SCHEDULER_STALE_PROCESSING_MS } = require('../scheduler/scheduler');
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE scheduled_actions');
+    const store = createPostgresScheduledActionStore({ pool: sharedPool, clock });
+
+    // Structural dedupe: the primary key is the idempotency boundary.
+    const action = {
+      actionKey: 'appointment-reminder:s-1:24h', actionType: 'appointment-reminder',
+      organizationKey: 'org-a', sessionId: 's-1', correlationId: 'gh-sched00000000000000001',
+      runAtMs: T0 + 1000, expiresAtMs: T0 + 100_000, payload: { slot: '24h' },
+    };
+    assert.equal((await store.schedule(action)).scheduled, true);
+    assert.equal((await store.schedule(action)).scheduled, false, 'duplicate scheduling is inert');
+    assert.equal(await store.size(), 1);
+    const stored = await store.get(action.actionKey);
+    assert.equal(stored.state, 'pending');
+    assert.equal(stored.runAtMs, T0 + 1000);
+    assert.deepEqual(stored.payload, { slot: '24h' });
+
+    // Not due: unclaimable. Due: presented ready, atomically claimed once
+    // across two instances sharing the database.
+    assert.equal(await store.claim(action.actionKey, { maxAttempts: 3 }), null, 'never claims early');
+    clock.advance(1000);
+    assert.equal((await store.get(action.actionKey)).presentedState, 'ready');
+    const poolB = createOperationalPool({ connectionString: PG_URL });
+    const storeB = createPostgresScheduledActionStore({ pool: poolB, clock });
+    const claims = await Promise.all([
+      store.claim(action.actionKey, { maxAttempts: 3 }),
+      storeB.claim(action.actionKey, { maxAttempts: 3 }),
+    ]);
+    assert.equal(claims.filter(Boolean).length, 1, 'exactly one instance wins the claim');
+
+    // Retry metadata: failed with a next attempt, re-claimable only when due.
+    await store.fail(action.actionKey, { nextAttemptAtMs: clock.now() + 5000 });
+    assert.equal(await store.claim(action.actionKey, { maxAttempts: 3 }), null, 'backoff holds');
+    clock.advance(5000);
+    const retried = await store.claim(action.actionKey, { maxAttempts: 3 });
+    assert.equal(retried.attempts, 2);
+    // Exhaustion: attempts at the cap never re-claim.
+    await store.fail(action.actionKey, { nextAttemptAtMs: null });
+    clock.advance(60_000);
+    assert.equal(await store.claim(action.actionKey, { maxAttempts: 2 }), null, 'terminal failed never retries');
+
+    // Stale processing reclaim (crashed executor on another instance).
+    const crash = {
+      actionKey: 'appointment-reminder:s-2:1h', actionType: 'appointment-reminder',
+      organizationKey: 'org-a', sessionId: 's-2', runAtMs: clock.now(), payload: { slot: '1h' },
+    };
+    await store.schedule(crash);
+    await storeB.claim(crash.actionKey, { maxAttempts: 3 }); // instance B claims, then dies
+    assert.equal(await store.claim(crash.actionKey, { maxAttempts: 3 }), null, 'fresh claim honored');
+    clock.advance(SCHEDULER_STALE_PROCESSING_MS);
+    const reclaimed = await store.claim(crash.actionKey, { maxAttempts: 3 });
+    assert.equal(reclaimed.attempts, 2, 'stale claim re-granted');
+    await store.complete(crash.actionKey);
+    assert.equal((await store.get(crash.actionKey)).state, 'completed');
+
+    // Expiry: unexecuted work past expires_at dies instead of running late.
+    const expiring = {
+      actionKey: 'appointment-reminder:s-3:1h', actionType: 'appointment-reminder',
+      organizationKey: 'org-a', sessionId: 's-3', runAtMs: clock.now() + 1000,
+      expiresAtMs: clock.now() + 2000, payload: { slot: '1h' },
+    };
+    await store.schedule(expiring);
+    clock.advance(10_000);
+    const expired = await store.expireDue(clock.now());
+    // s-3 expires; s-1's expiry has also long passed by now and it sits in
+    // non-terminal 'failed' — worthless failed work past its expiry dies too.
+    assert.deepEqual(expired.map((a) => a.actionKey).sort(),
+      [action.actionKey, expiring.actionKey].sort());
+    assert.equal((await store.get(expiring.actionKey)).state, 'expired');
+    assert.equal(await store.claim(expiring.actionKey, { maxAttempts: 3 }), null, 'expired is terminal');
+
+    // Cancellation is durable and terminal.
+    const cancellable = {
+      actionKey: 'consultation-follow-up:s-4', actionType: 'consultation-follow-up',
+      organizationKey: 'org-a', sessionId: 's-4', runAtMs: clock.now() + 60_000, payload: {},
+    };
+    await store.schedule(cancellable);
+    assert.equal((await store.cancel(cancellable.actionKey)).cancelled, true);
+    assert.equal((await store.cancel(cancellable.actionKey)).cancelled, false);
+    clock.advance(120_000);
+    assert.equal(await store.claim(cancellable.actionKey, { maxAttempts: 3 }), null, 'cancelled never executes');
+
+    // A full processor over the durable store: restart recovery.
+    await sharedPool.query('TRUNCATE scheduled_actions');
+    await store.schedule({
+      actionKey: 'k:revive', actionType: 't', organizationKey: 'org-a', runAtMs: clock.now() - 1,
+    });
+    const ran = [];
+    const revived = createScheduler({ store: storeB, clock });
+    revived.register({ actionType: 't', handle: async (a) => { ran.push(a.actionKey); } });
+    await revived.drain();
+    assert.deepEqual(ran, ['k:revive'], 'a rebooted instance executes what a dead one scheduled');
+
+    // Safe facts only in durable rows.
+    const { rows } = await sharedPool.query('SELECT * FROM scheduled_actions');
+    assert.equal(/@|caller|phone|subject|html|token/i.test(JSON.stringify(rows)), false);
     await poolB.end();
   });
 

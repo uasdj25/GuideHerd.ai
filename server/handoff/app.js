@@ -44,6 +44,8 @@ const { UnauthenticatedError: SessionRequiredError, InvalidCredentialsError: Ses
 const { createOperationsCenter } = require('../operations/operations');
 const { createAdministrationService } = require('../administration/service');
 const { createOutbox, createInMemoryOutboxStore } = require('../outbox/outbox');
+const { createScheduler, createInMemoryScheduledActionStore } = require('../scheduler/scheduler');
+const { registerAppointmentReminders } = require('../scheduler/reminders');
 
 // Scheduling context is tiny; cap the body to reject oversized payloads early.
 const MAX_BODY_BYTES = 16 * 1024;
@@ -74,7 +76,7 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore } = {}) {
   // Operational Store (ADR-0006): the handoff repository is injectable. The
   // in-memory implementation remains the default; server.js selects the
   // durable PostgreSQL implementation via GUIDEHERD_OPERATIONAL_PROVIDER.
@@ -97,6 +99,11 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   // supplies the PostgreSQL store; the in-memory pair is the default.
   const outboxEventStore = outboxStore || createInMemoryOutboxStore({ clock });
   const outbox = createOutbox({ store: outboxEventStore, clock, telemetry: observedTelemetry });
+  // The GuideHerd Scheduler (ADR-0018): time-based business actions
+  // behind the same drain()/claim reliability model as the outbox —
+  // one liveness poller drives both (server.js).
+  const schedulerStore = scheduledActionStore || createInMemoryScheduledActionStore({ clock });
+  const scheduler = createScheduler({ store: schedulerStore, clock, telemetry: observedTelemetry });
   const store = handoffStore || createInMemoryHandoffStore({ clock, outbox: outboxEventStore });
   // Abuse containment for the deliberately-anonymous create route
   // (ADR-0010): cap concurrently prepared (awaiting-transfer, unexpired)
@@ -222,6 +229,13 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   });
   const summaryNotifier = createSummaryNotifier({ notificationService, telemetry: observedTelemetry });
   registerSummaryRecovery({ outbox, store, summaryNotifier });
+  // Appointment reminders (ADR-0018): the outbox consumer schedules,
+  // the scheduler executes, the Notification Contract delivers.
+  // DISABLED BY DEFAULT per organization (appointment-reminders domain).
+  registerAppointmentReminders({
+    outbox, scheduler, store, notificationService,
+    configService: configService || null, clock,
+  });
 
   deps.conversations = createConversationService({
     service, store, summaryNotifier, events, clock, telemetry: observedTelemetry,
@@ -309,6 +323,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     operations,
     administration,
     outbox,
+    scheduler,
   };
 }
 

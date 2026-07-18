@@ -54,6 +54,10 @@ const EVENTS = Object.freeze([
   'outbox.delivered',
   'outbox.delivery_failed',
   'outbox.abandoned',
+  'scheduler.action_scheduled',
+  'scheduler.action_completed',
+  'scheduler.action_failed',
+  'scheduler.action_expired',
 ]);
 
 /** GuideHerd component names for failure attribution. */
@@ -96,6 +100,10 @@ const ALLOWED_FIELDS = Object.freeze([
   'code',
   'notificationType',
   'notificationKey',
+  'actionType',
+  'actionKey',
+  'scheduleSlot',
+  'runAt',
   'errorName',
   'stack',
   'method',

@@ -209,8 +209,7 @@
       margin-top: var(--sp-2);
     }
 
-    /* Panels */
-    .panel[hidden] { display: none; }
+    /* Panels — `hidden` is honored by the Design System reset. */
 
     .preparing {
       display: flex;
@@ -255,7 +254,6 @@
       padding: var(--sp-2) 0;
       margin: 0 0 var(--sp-3);
     }
-    .summary-row[hidden] { display: none; }
     .summary-row {
       display: grid;
       grid-template-columns: 130px 1fr;
@@ -313,7 +311,6 @@
     }
 
     /* Inline cancel confirmation */
-    .cancel-confirm[hidden] { display: none; }
     .cancel-confirm {
       border: 1px solid var(--line);
       border-radius: 10px;

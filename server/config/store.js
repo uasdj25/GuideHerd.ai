@@ -218,15 +218,15 @@ function createConfigStore({ db }) {
   // ── Routing group members ──────────────────────────────────────────────────
 
   const routingGroupMembers = {
-    /** Replace-all semantics: group membership is set atomically. */
+    /** Replace-all semantics: group membership is set atomically, in order. */
     replaceForGroup(groupId, providerIds) {
       db.prepare('DELETE FROM routing_group_members WHERE group_id = ?').run(groupId);
       const insert = db.prepare(
-        'INSERT INTO routing_group_members (group_id, provider_id) VALUES (?, ?)',
+        'INSERT INTO routing_group_members (group_id, provider_id, position) VALUES (?, ?, ?)',
       );
-      for (const providerId of providerIds) {
-        insert.run(groupId, providerId);
-      }
+      providerIds.forEach((providerId, index) => {
+        insert.run(groupId, providerId, index);
+      });
     },
 
     /** Member provider keys, ordered. */
@@ -234,7 +234,7 @@ function createConfigStore({ db }) {
       return db.prepare(
         `SELECT p.key FROM routing_group_members m
          JOIN providers p ON p.id = m.provider_id
-         WHERE m.group_id = ? ORDER BY p.key`,
+         WHERE m.group_id = ? ORDER BY m.position, p.key`,
       ).all(groupId).map((row) => row.key);
     },
   };
@@ -283,18 +283,31 @@ function createConfigStore({ db }) {
   // ── Transactions ───────────────────────────────────────────────────────────
 
   /**
-   * Run `fn` inside a single transaction. Not re-entrant (SQLite has no
-   * nested BEGIN); individual repository calls outside a transaction are
-   * already atomic statements.
+   * Run `fn` inside a transaction. RE-ENTRANT via savepoints (ADR-0015):
+   * the outermost call is a real BEGIN/COMMIT; nested calls become
+   * savepoints, so composed operations — e.g. the Administration
+   * Framework wrapping a repository method that transacts internally —
+   * are one atomic unit with correct partial rollback on inner failure.
    */
+  let transactionDepth = 0;
   function transaction(fn) {
-    db.exec('BEGIN');
+    const savepoint = `sp_${transactionDepth}`;
+    if (transactionDepth === 0) db.exec('BEGIN');
+    else db.exec(`SAVEPOINT ${savepoint}`);
+    transactionDepth += 1;
     try {
       const result = fn();
-      db.exec('COMMIT');
+      transactionDepth -= 1;
+      if (transactionDepth === 0) db.exec('COMMIT');
+      else db.exec(`RELEASE ${savepoint}`);
       return result;
     } catch (err) {
-      db.exec('ROLLBACK');
+      transactionDepth -= 1;
+      if (transactionDepth === 0) db.exec('ROLLBACK');
+      else {
+        db.exec(`ROLLBACK TO ${savepoint}`);
+        db.exec(`RELEASE ${savepoint}`);
+      }
       throw err;
     }
   }

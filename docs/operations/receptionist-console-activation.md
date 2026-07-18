@@ -170,20 +170,48 @@ acceptance criteria: flip to `required`, verify the gate appears, roll back to
 
 ## Known operational characteristics
 
-**Sessions are in-memory.** The session store is the in-memory reference
-implementation, so **a service restart signs everyone out**. Re-login is the
-only consequence — no data is lost, and a prepared handoff continues on its own
-capability token. A durable PostgreSQL session store is on the ADR-0013
-activation path and should land before multi-instance production enforcement.
-With more than one API instance, in-memory sessions will not work: a
-receptionist's session lives on exactly one instance.
+### The session-store operating boundary
 
-**Session TTL is absolute** — 8 hours by default
-(`GUIDEHERD_USER_SESSION_TTL_SECONDS`), not sliding. A receptionist mid-shift
-will be signed out at the 8-hour mark regardless of activity. The console
-handles this gracefully: the caller's entered details are preserved behind the
-gate so signing back in resumes rather than restarts the work. Consider whether
-8 hours matches the firm's shift length before the flip.
+**Login sessions are held in process memory.** This is acceptable for a
+single-instance pilot, and the rule is precise:
+
+1. **A process restart signs every user out.** Re-login is the only
+   consequence — no data is lost, and a prepared handoff continues on its own
+   capability token, unaffected.
+2. **Exactly one API instance is required while sessions are in memory.** A
+   session lives on the instance that issued it; a second instance would
+   reject it.
+3. **Durable session storage is mandatory before any multi-instance
+   deployment.** This is a precondition, not an optimization.
+4. **Sticky sessions must not become the permanent architecture.** Routing a
+   receptionist back to "their" instance would make the pilot's constraint
+   permanent and mask the missing durability. If scale demands more than one
+   instance, build the durable store.
+
+> **Verified 2026-07-18:** production runs **one instance**
+> (`numReplicas: 1`, region `sfo`, one RUNNING instance). The in-memory store
+> is therefore within its boundary today. **Re-check this before scaling the
+> service** — raising the replica count without durable session storage
+> silently breaks sign-in.
+>
+> Note this is specifically about *login sessions*. Production already runs
+> `GUIDEHERD_OPERATIONAL_PROVIDER=postgres`, so handoff sessions, notification
+> records, the outbox, and scheduled reminders are durable and survive
+> restarts. Login sessions are the one thing that does not.
+
+**Session lifetime is absolute — 12 hours by default**
+(`GUIDEHERD_USER_SESSION_TTL_SECONDS`), not sliding. A session ends 12 hours
+after it was *issued*, regardless of activity.
+
+12 hours is the V1 receptionist figure: a receptionist may sign in before a
+shift, and shifts plus lunch, overtime, and handoff coverage routinely exceed
+eight hours. The intent is that a normal shift never hits the boundary
+mid-call.
+
+The console handles expiry gracefully regardless — the caller's entered details
+are preserved behind the gate, so signing back in resumes rather than restarts
+the work. Confirm 12 hours covers the firm's longest realistic shift before the
+flip, and override per deployment if not.
 
 **Cookies are `Secure` + host-only.** Sign-in works only over HTTPS and only on
 the exact API host. Local development over plain HTTP will not persist a

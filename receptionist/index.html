@@ -42,13 +42,8 @@
       justify-content: center;
       padding: var(--sp-3);
     }
-    /* The shared stylesheet carries no global [hidden] reset, and an author
-       `display` declaration outranks the UA's [hidden] rule — so every
-       primitive that sets `display` must honor `hidden` explicitly here.
-       (Recommended upstream: a global [hidden] reset in guideherd.css.) */
-    .console-login-wrap[hidden],
-    .main[hidden],
-    .gh-app-header-meta[hidden] { display: none; }
+    /* `hidden` on the sign-in wrap, the console, and the identity slot is
+       honored by the Design System's global reset — no page-local rule. */
     .console-login { width: 100%; max-width: 400px; }
     /* The console is a touch surface; the sign-in controls match the
        console's own 48px+ targets, expressed through shared tokens. */

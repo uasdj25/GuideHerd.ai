@@ -8,7 +8,7 @@ const { DEMO_FIRM_ID } = require('./demo-bridge');
 const { buildConsultationSummary, renderSummaryHtml } = require('./summary');
 const { NoCompletedSummaryError } = require('./errors');
 const { createMailer } = require('./mailer');
-const { HandoffError, MalformedRequestError, UnauthorizedError, BridgeNotConfiguredError } = require('./errors');
+const { HandoffError, MalformedRequestError, UnauthorizedError, BridgeNotConfiguredError, ValidationError } = require('./errors');
 const { ConfigError } = require('../config/errors');
 const { IdentityError, IdentityNotConfiguredError } = require('../identity/errors');
 const { createIdentityProviderRegistry } = require('../identity/contract');
@@ -31,6 +31,11 @@ const { createGraphEmailProvider } = require('../notifications/graph-email-provi
 const { createInMemoryNotificationDeliveryStore } = require('../notifications/delivery-store');
 const { createNotificationService } = require('../notifications/service');
 const { registerNotificationTriggers } = require('../notifications/triggers');
+const { createUserSessionService, SESSION_TOKEN_PREFIX } = require('../identity/user-sessions');
+const { createUserAuthProviderRegistry, resolveUserAuthProviderKey } = require('../identity/user-auth');
+const { createDevUserProvider } = require('../identity/dev-user-provider');
+const { DEFAULT_POLICY } = require('../identity/authorization');
+const { UnauthenticatedError: SessionRequiredError, InvalidCredentialsError: SessionForbiddenError } = require('../identity/errors');
 
 // Scheduling context is tiny; cap the body to reject oversized payloads early.
 const MAX_BODY_BYTES = 16 * 1024;
@@ -61,7 +66,7 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds } = {}) {
   // Operational Store (ADR-0006): the handoff repository is injectable. The
   // in-memory implementation remains the default; server.js selects the
   // durable PostgreSQL implementation via GUIDEHERD_OPERATIONAL_PROVIDER.
@@ -107,11 +112,41 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     configService: configService || null,
   });
 
+  // GuideHerd User Sessions (ADR-0013): authentication providers establish
+  // identity; GuideHerd establishes and owns the authenticated session.
+  // Console enforcement is deployment configuration:
+  //   GUIDEHERD_CONSOLE_AUTH = 'anonymous' (default — today's behavior) |
+  //                            'required'  (anonymous console grants are
+  //                                         withdrawn; sessions required)
+  // An unknown value refuses to compose — never a silent default.
+  const consoleAuthMode = (consoleAuth !== undefined ? consoleAuth : (process.env.GUIDEHERD_CONSOLE_AUTH || 'anonymous')).trim();
+  if (!['anonymous', 'required'].includes(consoleAuthMode)) {
+    throw new Error(`Unknown GUIDEHERD_CONSOLE_AUTH "${consoleAuthMode}" (expected "anonymous" or "required").`);
+  }
+  const userAuthProviders = createUserAuthProviderRegistry();
+  userAuthProviders.register(createDevUserProvider({
+    devUsersJson: devUsersJson !== undefined ? devUsersJson : process.env.GUIDEHERD_DEV_USERS,
+  }));
+  const activeUserAuthProviderKey = userAuthProviderKey !== undefined
+    ? userAuthProviderKey
+    : resolveUserAuthProviderKey(process.env);
+  const userSessions = createUserSessionService({
+    clock,
+    ttlSeconds: userSessionTtlSeconds !== undefined
+      ? userSessionTtlSeconds
+      : Number(process.env.GUIDEHERD_USER_SESSION_TTL_SECONDS || 0) || undefined,
+  });
+
   // GuideHerd Authorization (ADR-0010): the single decision point for "may
   // this principal perform this operation, in this organization, on this
   // resource?" Routes express GuideHerd permissions; the policy inside the
-  // authorization service decides. Injectable only for tests.
-  const authz = authorization || createAuthorization();
+  // authorization service decides. Injectable only for tests. With console
+  // authentication REQUIRED, the anonymous grants are withdrawn entirely —
+  // fail closed; authenticated receptionists hold the console permissions.
+  const activePolicy = consoleAuthMode === 'required'
+    ? Object.freeze({ ...DEFAULT_POLICY, anonymous: Object.freeze([]) })
+    : DEFAULT_POLICY;
+  const authz = authorization || createAuthorization({ policy: activePolicy });
 
   const deps = {
     service,
@@ -125,6 +160,10 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     adapters,
     identityService,
     authz,
+    userSessions,
+    userAuthProviders,
+    activeUserAuthProviderKey,
+    consoleAuthMode,
   };
   deps.telemetry = tel;
   deps.conversations = createConversationService({
@@ -165,6 +204,11 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
       service: notificationService,
       deliveryStore: notificationsDeliveryStore,
     },
+    users: {
+      registry: userAuthProviders,
+      sessions: userSessions,
+      consoleAuthMode,
+    },
   };
 }
 
@@ -181,13 +225,14 @@ function corsHeadersFor(req, allowedOrigins) {
   }
   return {
     'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Expose-Headers': 'X-GuideHerd-Correlation-Id',
     'Vary': 'Origin',
   };
 }
 
 /** Build the raw Node http request handler. */
-function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry }) {
+function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode }) {
   /**
    * Resolve the active Conversation Adapter for a firm. Provider selection
    * comes from the Configuration Store (connect/conversation-provider),
@@ -221,6 +266,22 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
     return identity;
   };
 
+  /** Cookie parsing (no dependencies; values are opaque tokens only). */
+  const parseCookies = (req) => {
+    const header = req.headers.cookie;
+    const cookies = {};
+    if (typeof header !== 'string') return cookies;
+    for (const part of header.split(';')) {
+      const eq = part.indexOf('=');
+      if (eq === -1) continue;
+      cookies[part.slice(0, eq).trim()] = part.slice(eq + 1).trim();
+    }
+    return cookies;
+  };
+  const SESSION_COOKIE = 'gh_session';
+  const sessionCookieValue = (token, maxAgeSeconds) =>
+    `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAgeSeconds}`;
+
   return async function handle(req, res) {
     const startedAt = Date.now();
     let status = 500;
@@ -240,6 +301,23 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
       if (suppliedCorrelationId && identity && identity.type === 'service') {
         correlationId = suppliedCorrelationId;
       }
+    };
+    // GuideHerd user session (ADR-0013): the HttpOnly cookie, validated
+    // server-side into a GuideHerdIdentity. Browser-supplied organization
+    // or role information never exists — everything comes from the
+    // server-held session record.
+    const presentedSessionToken = parseCookies(req)[SESSION_COOKIE];
+    /**
+     * The principal for browser-facing console operations: the
+     * authenticated user session when present; otherwise anonymous — and
+     * with console authentication REQUIRED, no session is a 401, so an
+     * unauthenticated browser never even reaches an authorization denial.
+     */
+    const consolePrincipal = async () => {
+      const session = await userSessions.validate(presentedSessionToken);
+      if (session) return { identity: session.identity };
+      if (consoleAuthMode === 'required') throw new SessionRequiredError();
+      return { anonymous: true };
     };
     // Demo bridge endpoints are server-to-server only: they are never
     // granted browser CORS headers, regardless of Origin.
@@ -267,6 +345,99 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
         return res.end();
       }
 
+      // ── GuideHerd user authentication (ADR-0013) ────────────────────
+      // Login: the configured User Authentication Provider turns the
+      // opaque credential into an identity claim; GuideHerd validates the
+      // claim, verifies organization membership, and establishes ITS OWN
+      // session (fresh token, HttpOnly cookie — rotation invalidates any
+      // session presented with the login request). Provider tokens and
+      // claims never reach the browser.
+      if (method === 'POST' && path === '/api/v1/auth/login') {
+        const body = await readJsonBody(req);
+        const credential = body && typeof body.credential === 'string' ? body.credential.trim() : '';
+        if (credential === '' || credential.length > 512) {
+          throw new ValidationError('One or more fields are invalid.', [
+            { field: 'credential', message: 'is required' },
+          ]);
+        }
+        let claim;
+        try {
+          const provider = userAuthProviders.resolve(activeUserAuthProviderKey); // loud 503 on misconfiguration
+          claim = await provider.authenticateUser({ credential });
+          // Organization membership is GuideHerd's to validate — an
+          // identity claiming an organization the platform does not know
+          // is refused, regardless of what the provider asserted.
+          if (configService) configService.organizations.get(claim.organizationKey); // throws on unknown org
+        } catch (err) {
+          telemetry.event('authentication.login_failed', {
+            severity: 'warn',
+            component: 'identity',
+            operation: 'login',
+            provider: activeUserAuthProviderKey,
+            correlationId,
+            code: err && err.code ? err.code : 'invalid_credentials',
+          });
+          if (err instanceof IdentityError) throw err;
+          throw new SessionForbiddenError();
+        }
+        const { token, identity, expiresAtMs } = await userSessions.establish(
+          claim, activeUserAuthProviderKey, { presentedToken: presentedSessionToken },
+        );
+        telemetry.event('authentication.login', {
+          severity: 'info',
+          component: 'identity',
+          operation: 'login',
+          provider: activeUserAuthProviderKey,
+          subject: identity.subject,
+          organizationKey: identity.organizationKey,
+          correlationId,
+        });
+        res.setHeader('Set-Cookie', sessionCookieValue(token, userSessions.ttlSeconds));
+        status = 200;
+        return sendJson(res, status, {
+          subject: identity.subject,
+          displayName: identity.displayName,
+          organizationKey: identity.organizationKey,
+          roles: identity.roles,
+          expiresAt: new Date(expiresAtMs).toISOString(),
+        }, cors, correlationId);
+      }
+
+      // Logout: server-side invalidation plus cookie clearance. Always
+      // succeeds — logging out twice is not an error.
+      if (method === 'POST' && path === '/api/v1/auth/logout') {
+        const session = await userSessions.validate(presentedSessionToken);
+        await userSessions.invalidate(presentedSessionToken);
+        if (session) {
+          telemetry.event('authentication.logout', {
+            severity: 'info',
+            component: 'identity',
+            operation: 'logout',
+            subject: session.identity.subject,
+            organizationKey: session.identity.organizationKey,
+            correlationId,
+          });
+        }
+        res.setHeader('Set-Cookie', sessionCookieValue('', 0));
+        status = 204;
+        res.writeHead(status, { 'Cache-Control': 'no-store', 'X-GuideHerd-Correlation-Id': correlationId, ...(cors || {}) });
+        return res.end();
+      }
+
+      // Current session (console bootstrapping): who am I, if anyone?
+      if (method === 'GET' && path === '/api/v1/auth/session') {
+        const session = await userSessions.validate(presentedSessionToken);
+        if (!session) throw new SessionRequiredError();
+        status = 200;
+        return sendJson(res, status, {
+          subject: session.identity.subject,
+          displayName: session.identity.displayName,
+          organizationKey: session.identity.organizationKey,
+          roles: session.identity.roles,
+          expiresAt: new Date(session.expiresAtMs).toISOString(),
+        }, cors, correlationId);
+      }
+
       // Scheduling options for the GuideHerd Console: the firm's practice
       // areas and, per practice area, the attorneys its routing groups reach.
       // Read-only, browser-facing (same CORS posture as the handoff routes),
@@ -280,10 +451,10 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
           }, cors, correlationId);
         }
         const firmId = decodeURIComponent(optionsMatch[1]);
-        // PUBLIC BY DESIGN (ADR-0010): the console renders this without a
-        // login. The anonymous grant is declared centrally in the policy —
-        // this route is intentionally, not accidentally, anonymous.
-        authz.authorize({ anonymous: true }, 'configuration:read', { organizationKey: firmId });
+        // With console authentication enabled, an authenticated
+        // receptionist (organization-scoped) reads their firm's options;
+        // otherwise the explicit anonymous grant applies (ADR-0010/0013).
+        authz.authorize(await consolePrincipal(), 'configuration:read', { organizationKey: firmId });
         const options = getSchedulingOptions(configService, firmId);
         status = 200;
         return sendJson(res, status, options, cors, correlationId);
@@ -292,12 +463,13 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
       if (method === 'POST' && path === '/api/v1/handoffs') {
         const body = await readJsonBody(req);
         const request = normalizeCreate(body);
-        // PUBLIC BY DESIGN until a user-facing identity provider arrives
-        // (ADR-0010 records the deferral): the anonymous grant is declared
-        // centrally in the policy. The per-organization prepared-session
-        // cap that contains anonymous abuse is enforced ATOMICALLY inside
-        // the repository via service.create (429 when full).
-        authz.authorize({ anonymous: true }, 'handoff:create', { organizationKey: request.firmId });
+        // Session-aware (ADR-0013): an authenticated receptionist creates
+        // handoffs only within their own organization (the org in the body
+        // is untrusted input checked against the server-held session);
+        // anonymously only while the explicit anonymous grant remains.
+        // The per-organization prepared-session cap is enforced ATOMICALLY
+        // inside the repository via service.create (429 when full).
+        authz.authorize(await consolePrincipal(), 'handoff:create', { organizationKey: request.firmId });
         const { response } = await service.create(request);
         sessionId = response.sessionId;
         status = 201;

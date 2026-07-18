@@ -88,6 +88,14 @@ const DEFAULT_POLICY = Object.freeze({
       scope: 'organization',
       permissions: Object.freeze(['conversation:connect', 'conversation:complete', 'summary:read']),
     }),
+
+    // Reception Console users (ADR-0013): authenticated receptionists hold
+    // exactly the console's two operations, scoped to their organization.
+    // Session status/cancel remain capability-token operations (ADR-0010).
+    receptionist: Object.freeze({
+      scope: 'organization',
+      permissions: Object.freeze(['handoff:create', 'configuration:read']),
+    }),
   }),
 
   /**

@@ -48,6 +48,9 @@ const EVENTS = Object.freeze([
   'notification.delivered',
   'notification.delivery_failed',
   'notification.suppressed',
+  'authentication.login',
+  'authentication.login_failed',
+  'authentication.logout',
 ]);
 
 /** GuideHerd component names for failure attribution. */
@@ -75,6 +78,7 @@ const COMPONENTS = Object.freeze([
 const ALLOWED_FIELDS = Object.freeze([
   'correlationId',
   'organizationKey',
+  'subject',
   'component',
   'operation',
   'severity',

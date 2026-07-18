@@ -40,7 +40,7 @@
  */
 
 const { ConfigError, ValidationError } = require('../config/errors');
-const { normalizePolicy, SETTINGS_NAMESPACE: SCHEDULING_NS, POLICY_KEY } = require('../scheduling/policy');
+const { validateDomain, domainDescriptors } = require('../configuration/framework');
 
 /** A concurrent administrator changed this entity since it was read. */
 class ConfigurationConflictError extends ConfigError {
@@ -59,39 +59,6 @@ class UnknownAdministrationAreaError extends ConfigError {
 
 function isPlainObject(v) {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
-}
-
-/** Validate a notification-branding document (mirrors branding.js rules). */
-function validateBranding(branding) {
-  if (!isPlainObject(branding)) throw new ValidationError('Branding must be an object.', [{ field: 'branding', message: 'must be an object' }]);
-  const details = [];
-  const allowed = ['senderName', 'accentColor', 'logoUrl', 'footerText', 'office'];
-  for (const key of Object.keys(branding)) {
-    if (!allowed.includes(key)) details.push({ field: `branding.${key}`, message: 'is not a branding field' });
-  }
-  const str = (v) => typeof v === 'string' && v.trim() !== '';
-  if (branding.senderName !== undefined && (!str(branding.senderName) || branding.senderName.length > 200)) {
-    details.push({ field: 'branding.senderName', message: 'must be a nonblank string of at most 200 characters' });
-  }
-  if (branding.accentColor !== undefined && !/^#[0-9a-fA-F]{3,8}$/.test(String(branding.accentColor))) {
-    details.push({ field: 'branding.accentColor', message: 'must be a hex color' });
-  }
-  if (branding.logoUrl !== undefined && !(str(branding.logoUrl) && branding.logoUrl.startsWith('https://') && branding.logoUrl.length <= 500)) {
-    details.push({ field: 'branding.logoUrl', message: 'must be an https URL' });
-  }
-  if (branding.footerText !== undefined && (!str(branding.footerText) || branding.footerText.length > 500)) {
-    details.push({ field: 'branding.footerText', message: 'must be a nonblank string of at most 500 characters' });
-  }
-  if (branding.office !== undefined) {
-    if (!isPlainObject(branding.office)) {
-      details.push({ field: 'branding.office', message: 'must be an object' });
-    } else {
-      for (const key of Object.keys(branding.office)) {
-        if (!['phone', 'email', 'address'].includes(key)) details.push({ field: `branding.office.${key}`, message: 'is not an office field' });
-      }
-    }
-  }
-  if (details.length > 0) throw new ValidationError('One or more branding fields are invalid.', details);
 }
 
 /**
@@ -174,18 +141,33 @@ function createAdministrationService({ configService, configDb, clock, identityP
     }
   }
 
-  const settingArea = (namespace, key, entityName, validate) => ({
-    read: (org) => settingValue(org, namespace, key),
+  /**
+   * A change area generated from a registered configuration domain
+   * (ADR-0016): the domain's own normalizer validates STRICTLY (zero
+   * issues) and only the canonical normalized document is persisted —
+   * administration cannot bypass the Configuration Framework, and a new
+   * domain registration becomes administrable with no code here.
+   */
+  const domainArea = (descriptor) => ({
     apply: (ctx, payload) => {
-      validate(ctx.organizationKey, payload);
+      const { ok, issues, normalized } = validateDomain(descriptor.id, payload, {
+        configService,
+        organizationKey: ctx.organizationKey,
+        identityProviderKeys: identityProviderKeys(),
+      });
+      if (!ok) {
+        throw new ValidationError(`The ${descriptor.title} configuration is invalid.`,
+          issues.map((message) => ({ field: descriptor.id, message })));
+      }
+      const entity = `setting:${descriptor.namespace}/${descriptor.key}`;
       return administer({
         ...ctx,
-        entity: entityName,
+        entity,
         action: 'update',
-        before: settingValue(ctx.organizationKey, namespace, key),
+        before: settingValue(ctx.organizationKey, descriptor.namespace, descriptor.key),
         change: () => {
-          configService.settings.set(ctx.organizationKey, namespace, key, payload);
-          return payload;
+          configService.settings.set(ctx.organizationKey, descriptor.namespace, descriptor.key, normalized);
+          return normalized;
         },
       });
     },
@@ -265,29 +247,6 @@ function createAdministrationService({ configService, configDb, clock, identityP
       },
     },
 
-    // Scheduling policy: validation is OWNED by the Scheduling Policy
-    // Engine. A document with any invalid field is refused outright.
-    'scheduling-policy': settingArea(SCHEDULING_NS, POLICY_KEY, 'setting:scheduling/policy', (org, payload) => {
-      const { policy, issues } = normalizePolicy(payload);
-      if (issues.length > 0) {
-        throw new ValidationError('The scheduling policy is invalid.', issues.map((message) => ({ field: 'policy', message })));
-      }
-      if (payload !== null && policy === null) {
-        throw new ValidationError('The scheduling policy has no valid fields.', []);
-      }
-    }),
-
-    'notification-branding': settingArea('notifications', 'branding', 'setting:notifications/branding', (org, payload) => {
-      validateBranding(payload);
-    }),
-
-    notifications: settingArea('notifications', 'appointment-confirmation', 'setting:notifications/appointment-confirmation', (org, payload) => {
-      if (!isPlainObject(payload) || typeof payload.enabled !== 'boolean'
-        || Object.keys(payload).length !== 1) {
-        throw new ValidationError('notifications requires { enabled: boolean }.', []);
-      }
-    }),
-
     office: {
       apply: (ctx, payload) => {
         const { locationKey, action, fields } = payload || {};
@@ -324,21 +283,13 @@ function createAdministrationService({ configService, configDb, clock, identityP
       },
     },
 
-    // Identity provider selection: LIVE (resolved per login). The key must
-    // name a REGISTERED provider — configuring an unknown provider would
-    // break every login for the organization, so it is refused here.
-    'identity-provider': settingArea('identity', 'provider', 'setting:identity/provider', (org, payload) => {
-      if (!isPlainObject(payload) || typeof payload.provider !== 'string' || Object.keys(payload).length !== 1) {
-        throw new ValidationError('identity-provider requires { provider: string }.', []);
-      }
-      const known = identityProviderKeys();
-      if (!known.includes(payload.provider)) {
-        throw new ValidationError('The identity provider is not registered on this deployment.', [
-          { field: 'provider', message: `must be one of: ${known.join(', ')}` },
-        ]);
-      }
-    }),
   };
+
+  // Every registered configuration domain is administrable, generated
+  // from the registry (ADR-0016) — one registration, one area, no code.
+  for (const descriptor of domainDescriptors()) {
+    areas[descriptor.id] = domainArea(descriptor);
+  }
 
   return {
     /** Administrable area names (clients/tests). */
@@ -367,12 +318,14 @@ function createAdministrationService({ configService, configDb, clock, identityP
         attorneys: configService.providers.list(organizationKey, {}),
         routingGroups: configService.routingGroups.list(organizationKey, {}),
         locations: configService.locations.list(organizationKey, {}),
-        settings: {
-          schedulingPolicy: { value: settingValue(organizationKey, SCHEDULING_NS, POLICY_KEY), version: versionOf('setting:scheduling/policy') },
-          notificationBranding: { value: settingValue(organizationKey, 'notifications', 'branding'), version: versionOf('setting:notifications/branding') },
-          notifications: { value: settingValue(organizationKey, 'notifications', 'appointment-confirmation'), version: versionOf('setting:notifications/appointment-confirmation') },
-          identityProvider: { value: settingValue(organizationKey, 'identity', 'provider'), version: versionOf('setting:identity/provider') },
-        },
+        settings: Object.fromEntries(domainDescriptors().map((d) => [
+          d.id.replace(/-([a-z])/g, (_, c) => c.toUpperCase()),
+          {
+            value: settingValue(organizationKey, d.namespace, d.key),
+            version: versionOf(`setting:${d.namespace}/${d.key}`),
+            live: d.live,
+          },
+        ])),
         registeredIdentityProviders: identityProviderKeys(),
       };
     },

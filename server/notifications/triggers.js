@@ -39,12 +39,8 @@ const CONFIRMATION_KEY = 'appointment-confirmation';
 /** Is the appointment-confirmation trigger explicitly enabled for the org? */
 function confirmationEnabled(configService, organizationKey) {
   if (!configService) return false;
-  try {
-    const setting = configService.settings.get(organizationKey, SETTINGS_NAMESPACE, CONFIRMATION_KEY);
-    return Boolean(setting && setting.value && setting.value.enabled === true);
-  } catch {
-    return false;
-  }
+  const { readDomain } = require('../configuration/framework');
+  return readDomain(configService, 'notifications', organizationKey).value.enabled === true;
 }
 
 /** Best-effort display names from the Configuration Store; never blocking. */

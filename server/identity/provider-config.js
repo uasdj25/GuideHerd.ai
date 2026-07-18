@@ -35,17 +35,9 @@ const SETTINGS_KEY = 'provider';
  */
 function resolveIdentityProviderKey(configService, organizationKey) {
   if (!configService || !organizationKey) return DEFAULT_IDENTITY_PROVIDER;
-  let setting;
-  try {
-    setting = configService.settings.get(organizationKey, SETTINGS_NAMESPACE, SETTINGS_KEY);
-  } catch {
-    return DEFAULT_IDENTITY_PROVIDER;
-  }
-  const value = setting && setting.value;
-  if (value && typeof value === 'object' && typeof value.provider === 'string' && value.provider.trim() !== '') {
-    return value.provider.trim();
-  }
-  return DEFAULT_IDENTITY_PROVIDER;
+  // Consumer read via the Customer Configuration Framework (ADR-0016).
+  const { readDomain } = require('../configuration/framework');
+  return readDomain(configService, 'identity-provider', organizationKey).value.provider;
 }
 
 module.exports = {

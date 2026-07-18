@@ -35,45 +35,80 @@ function nonblank(v, max = 300) {
 }
 
 /**
- * Resolve the branding model for an organization. Fail-safe: with no
- * Configuration Store, unknown organization, or absent setting, neutral
- * defaults apply — a notification is never blocked on branding.
+ * The branding domain's normalizer (ADR-0016): the SINGLE place branding
+ * documents are validated, defaulted, and normalized — registered with
+ * the Customer Configuration Framework and owned here by the
+ * Notification subsystem. Lenient: every malformed field degrades to its
+ * default AND is reported as an issue (producers require zero issues;
+ * consumers use the value regardless).
  *
- * @param {object|null} configService
- * @param {string} organizationKey
- * @returns {{ senderName: string, accentColor: string, logoUrl: string|null,
- *             footerText: string, office: { phone: string|null, email: string|null, address: string|null } }}
+ * @param {unknown} raw the stored branding document (or null)
+ * @param {{ configService?: object|null, organizationKey?: string }} [context]
+ * @returns {{ value: object, issues: string[] }}
  */
-function resolveBranding(configService, organizationKey) {
+function normalizeBrandingDocument(raw, { configService = null, organizationKey } = {}) {
+  const issues = [];
   let organizationName = null;
-  let overrides = {};
-  if (configService) {
+  if (configService && organizationKey) {
     try {
       const org = configService.organizations.get(organizationKey);
       organizationName = nonblank(org && org.name, 200);
     } catch { /* unknown organization — defaults apply */ }
-    try {
-      const setting = configService.settings.get(organizationKey, SETTINGS_NAMESPACE, BRANDING_KEY);
-      if (setting && setting.value && typeof setting.value === 'object') overrides = setting.value;
-    } catch { /* unset — defaults apply */ }
+  }
+  let overrides = {};
+  if (raw !== null && raw !== undefined) {
+    if (typeof raw === 'object' && !Array.isArray(raw)) overrides = raw;
+    else issues.push('branding must be an object');
+  }
+  for (const key of Object.keys(overrides)) {
+    if (!['senderName', 'accentColor', 'logoUrl', 'footerText', 'office'].includes(key)) {
+      issues.push(`unknown field: ${key}`);
+    }
+  }
+  const check = (field, ok) => { if (overrides[field] !== undefined && !ok) issues.push(`${field} is invalid`); };
+  const senderOverride = nonblank(overrides.senderName, 200);
+  check('senderName', senderOverride !== null);
+  const accentOverride = nonblank(overrides.accentColor, 16);
+  const accentValid = accentOverride !== null && /^#[0-9a-fA-F]{3,8}$/.test(accentOverride);
+  check('accentColor', accentValid);
+  const logoCandidate = nonblank(overrides.logoUrl, 500);
+  const logoValid = logoCandidate !== null && logoCandidate.startsWith('https://');
+  check('logoUrl', logoValid);
+  const footerOverride = nonblank(overrides.footerText, 500);
+  check('footerText', footerOverride !== null);
+  const office = overrides.office && typeof overrides.office === 'object' && !Array.isArray(overrides.office)
+    ? overrides.office : {};
+  if (overrides.office !== undefined && office !== overrides.office) issues.push('office must be an object');
+  for (const key of Object.keys(office)) {
+    if (!['phone', 'email', 'address'].includes(key)) issues.push(`office.${key} is not an office field`);
   }
 
-  const senderName = nonblank(overrides.senderName, 200) || organizationName || 'Your law office';
-  const office = overrides.office && typeof overrides.office === 'object' ? overrides.office : {};
-  const logoUrl = nonblank(overrides.logoUrl, 500);
-
+  const senderName = senderOverride || organizationName || 'Your law office';
   return {
-    senderName,
-    accentColor: nonblank(overrides.accentColor, 16) || DEFAULT_ACCENT,
-    logoUrl: logoUrl && logoUrl.startsWith('https://') ? logoUrl : null,
-    footerText: nonblank(overrides.footerText, 500)
-      || `This message was sent on behalf of ${senderName}.`,
-    office: {
-      phone: nonblank(office.phone, 40),
-      email: nonblank(office.email, 254),
-      address: nonblank(office.address, 300),
+    value: {
+      senderName,
+      accentColor: accentValid ? accentOverride : DEFAULT_ACCENT,
+      logoUrl: logoValid ? logoCandidate : null,
+      footerText: footerOverride || `This message was sent on behalf of ${senderName}.`,
+      office: {
+        phone: nonblank(office.phone, 40),
+        email: nonblank(office.email, 254),
+        address: nonblank(office.address, 300),
+      },
     },
+    issues,
   };
 }
 
-module.exports = { resolveBranding, SETTINGS_NAMESPACE, BRANDING_KEY };
+/**
+ * Resolve the branding model for an organization — the consumer read,
+ * served by the Customer Configuration Framework (ADR-0016). Fail-safe:
+ * with no store, unknown organization, or absent/malformed setting,
+ * neutral defaults apply — a notification is never blocked on branding.
+ */
+function resolveBranding(configService, organizationKey) {
+  const { readDomain } = require('../configuration/framework');
+  return readDomain(configService, 'notification-branding', organizationKey).value;
+}
+
+module.exports = { resolveBranding, normalizeBrandingDocument, SETTINGS_NAMESPACE, BRANDING_KEY };

@@ -21,11 +21,26 @@ const { ProviderUnavailableError } = require('./errors');
  *     providerKey: 'elevenlabs',
  *
  *     // Translate the provider's "give me the prepared caller" request
- *     // into a neutral connect intent. Receives the raw parsed request
- *     // body (which may be undefined). Returns a neutral intent object
- *     // (empty in v1 — correlation is exactly-one-prepared-session).
+ *     // into a neutral ConnectIntent. Receives the raw parsed request
+ *     // body (which may be undefined). Every field is OPTIONAL; an empty
+ *     // intent means "no correlation signals" and preserves the
+ *     // exactly-one-prepared-session behavior:
+ *     //
+ *     //   {
+ *     //     sessionId,               // explicit GuideHerd session id, when
+ *     //                              // the provider can carry one through
+ *     //     callerPhone,             // caller ID / ANI as reported; the
+ *     //                              // Correlation Engine normalizes it —
+ *     //                              // adapters never normalize
+ *     //     providerConversationId,  // the provider's own conversation
+ *     //                              // reference (provenance only — never
+ *     //                              // a key of a GuideHerd object)
+ *     //   }
+ *     //
+ *     // How the prepared session is FOUND from these signals belongs to
+ *     // the Correlation Engine (correlation.js) — never to an adapter.
  *     // Throws a HandoffError/ConnectError subclass for invalid requests.
- *     translateConnect(rawBody) -> object
+ *     translateConnect(rawBody) -> ConnectIntent
  *
  *     // Translate the provider's outcome report into GuideHerd's
  *     // canonical outcome contract. Provider-dialect tolerances (flat

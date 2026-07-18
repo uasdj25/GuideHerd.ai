@@ -18,6 +18,7 @@ const crypto = require('node:crypto');
 const { fixedClock } = require('../handoff/clock');
 const { SessionStatus } = require('../handoff/status');
 const { STALE_CLAIM_MS } = require('../handoff/store');
+const { normalizePhone } = require('../handoff/phone');
 
 const T0 = Date.parse('2026-07-12T15:15:00Z');
 const TTL_MS = 600 * 1000;
@@ -34,6 +35,7 @@ function makeSession({ firmId = 'org-a', now = T0, phone = '+15550100' } = {}) {
       sessionId: crypto.randomUUID(),
       firmId,
       caller: { fullName: 'Test Caller', email: 'caller@example.com', phone },
+      callerPhoneNormalized: normalizePhone(phone),
       scheduling: { attorneyId: 'att-1', practiceAreaId: 'area-1', consultationTypeId: 'type-1' },
       handoff: { createdByUserId: null, source: 'contract-test', mode: 'live-transfer' },
       status: SessionStatus.AWAITING_TRANSFER,
@@ -79,6 +81,7 @@ function runHandoffRepositoryContractSuite(label, makeStore) {
     assert.equal(loaded.status, SessionStatus.AWAITING_TRANSFER);
     assert.equal(loaded.caller.fullName, 'Test Caller');
     assert.equal(loaded.caller.email, 'caller@example.com');
+    assert.equal(loaded.callerPhoneNormalized, '+15550100', 'normalized phone persists');
     assert.equal(loaded.scheduling.consultationTypeId, 'type-1');
     assert.equal(loaded.tokenHash, session.tokenHash);
     assert.equal(loaded.outcome, null);
@@ -206,6 +209,153 @@ function runHandoffRepositoryContractSuite(label, makeStore) {
     assert.equal((await store.get(b.session.sessionId)).status, SessionStatus.AWAITING_TRANSFER, 'other tenant untouched');
     const other = await store.connectDemo('org-b');
     assert.equal(other.sessionId, b.session.sessionId);
+  });
+
+  // ── connectEligible: the Correlation Engine's storage primitive ──────────
+
+  t('connectEligible: empty criteria is the exactly-one-eligible baseline (404 / connect / 409)', async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+
+    await assert.rejects(() => store.connectEligible('org-a', {}), (e) => e.status === 404 && e.code === 'no_prepared_session');
+
+    const a = makeSession();
+    await store.create(a.session);
+    const connected = await store.connectEligible('org-a', {});
+    assert.equal(connected.sessionId, a.session.sessionId);
+    assert.equal(connected.status, SessionStatus.CONNECTED);
+
+    const b = makeSession();
+    const c = makeSession();
+    await store.create(b.session);
+    await store.create(c.session);
+    await assert.rejects(() => store.connectEligible('org-a', {}), (e) => e.status === 409 && e.code === 'ambiguous_prepared_sessions');
+    assert.equal((await store.get(b.session.sessionId)).status, SessionStatus.AWAITING_TRANSFER, 'ambiguity redeems neither');
+    assert.equal((await store.get(c.session.sessionId)).status, SessionStatus.AWAITING_TRANSFER, 'ambiguity redeems neither');
+  });
+
+  t('connectEligible by session id: addresses one session among many; unknown/ineligible ids match nothing', async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const a = makeSession({ phone: '+15550101' });
+    const b = makeSession({ phone: '+15550102' });
+    const c = makeSession({ phone: '+15550103' });
+    for (const s of [a, b, c]) await store.create(s.session);
+
+    const connected = await store.connectEligible('org-a', { sessionId: b.session.sessionId });
+    assert.equal(connected.sessionId, b.session.sessionId);
+    assert.equal((await store.get(a.session.sessionId)).status, SessionStatus.AWAITING_TRANSFER, 'others untouched');
+    assert.equal((await store.get(c.session.sessionId)).status, SessionStatus.AWAITING_TRANSFER, 'others untouched');
+
+    await assert.rejects(() => store.connectEligible('org-a', { sessionId: 'no-such-session' }), (e) => e.code === 'no_prepared_session');
+    await assert.rejects(() => store.connectEligible('org-a', { sessionId: b.session.sessionId }), (e) => e.code === 'no_prepared_session', 'a connected session is no longer eligible');
+  });
+
+  t('connectEligible by session id never crosses organizations', async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const other = makeSession({ firmId: 'org-b' });
+    await store.create(other.session);
+
+    await assert.rejects(
+      () => store.connectEligible('org-a', { sessionId: other.session.sessionId }),
+      (e) => e.code === 'no_prepared_session',
+      'another tenant\'s session id matches nothing',
+    );
+    assert.equal((await store.get(other.session.sessionId)).status, SessionStatus.AWAITING_TRANSFER);
+  });
+
+  t('connectEligible by phone: exactly-one match connects; zero matches 404; duplicates are ambiguous and redeem none', async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const a = makeSession({ phone: '+15550101' });
+    const b = makeSession({ phone: '+15550102' });
+    const c = makeSession({ phone: null }); // prepared without a phone
+    for (const s of [a, b, c]) await store.create(s.session);
+
+    const connected = await store.connectEligible('org-a', { callerPhoneNormalized: '+15550102' });
+    assert.equal(connected.sessionId, b.session.sessionId);
+    assert.equal((await store.get(a.session.sessionId)).status, SessionStatus.AWAITING_TRANSFER);
+
+    await assert.rejects(() => store.connectEligible('org-a', { callerPhoneNormalized: '+15559999' }), (e) => e.code === 'no_prepared_session');
+
+    const d = makeSession({ phone: '+15550104' });
+    const e2 = makeSession({ phone: '+15550104' }); // duplicate within the org
+    await store.create(d.session);
+    await store.create(e2.session);
+    await assert.rejects(() => store.connectEligible('org-a', { callerPhoneNormalized: '+15550104' }), (e) => e.status === 409 && e.code === 'ambiguous_prepared_sessions');
+    assert.equal((await store.get(d.session.sessionId)).status, SessionStatus.AWAITING_TRANSFER, 'ambiguity redeems neither');
+    assert.equal((await store.get(e2.session.sessionId)).status, SessionStatus.AWAITING_TRANSFER, 'ambiguity redeems neither');
+  });
+
+  t('connectEligible by phone never crosses organizations — duplicate numbers across tenants stay isolated', async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const a = makeSession({ firmId: 'org-a', phone: '+15550100' });
+    const b = makeSession({ firmId: 'org-b', phone: '+15550100' }); // same number, different tenant
+    await store.create(a.session);
+    await store.create(b.session);
+
+    const inA = await store.connectEligible('org-a', { callerPhoneNormalized: '+15550100' });
+    assert.equal(inA.sessionId, a.session.sessionId, 'no cross-tenant ambiguity');
+    assert.equal((await store.get(b.session.sessionId)).status, SessionStatus.AWAITING_TRANSFER, 'other tenant untouched');
+    const inB = await store.connectEligible('org-b', { callerPhoneNormalized: '+15550100' });
+    assert.equal(inB.sessionId, b.session.sessionId);
+  });
+
+  t('connectEligible: expired sessions are never correlation candidates', async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const { session } = makeSession({ phone: '+15550105' });
+    await store.create(session);
+
+    clock.set(T0 + TTL_MS);
+    await assert.rejects(() => store.connectEligible('org-a', { callerPhoneNormalized: '+15550105' }), (e) => e.code === 'no_prepared_session');
+    assert.equal((await store.get(session.sessionId)).status, SessionStatus.EXPIRED);
+  });
+
+  t('connectEligible: unknown criteria keys are rejected loudly, never silently ignored', async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const { session } = makeSession();
+    await store.create(session);
+
+    await assert.rejects(
+      () => store.connectEligible('org-a', { queueId: 'q-1' }),
+      (e) => e instanceof TypeError && /queueId/.test(e.message),
+    );
+    assert.equal((await store.get(session.sessionId)).status, SessionStatus.AWAITING_TRANSFER, 'nothing redeemed');
+  });
+
+  t('concurrent connectEligible: distinct phones connect in parallel to their own sessions', async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const a = makeSession({ phone: '+15550111' });
+    const b = makeSession({ phone: '+15550112' });
+    await store.create(a.session);
+    await store.create(b.session);
+
+    const [ra, rb] = await Promise.all([
+      store.connectEligible('org-a', { callerPhoneNormalized: '+15550111' }),
+      store.connectEligible('org-a', { callerPhoneNormalized: '+15550112' }),
+    ]);
+    assert.equal(ra.sessionId, a.session.sessionId);
+    assert.equal(rb.sessionId, b.session.sessionId);
+    assert.equal(ra.status, SessionStatus.CONNECTED);
+    assert.equal(rb.status, SessionStatus.CONNECTED);
+  });
+
+  t('concurrent connectEligible on the same phone: exactly one winner', async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const { session } = makeSession({ phone: '+15550113' });
+    await store.create(session);
+
+    const attempts = await Promise.allSettled(
+      Array.from({ length: 10 }, () => store.connectEligible('org-a', { callerPhoneNormalized: '+15550113' })),
+    );
+    assert.equal(attempts.filter((r) => r.status === 'fulfilled').length, 1);
+    assert.equal((await store.get(session.sessionId)).status, SessionStatus.CONNECTED);
   });
 
   t('concurrent redeem: exactly one success', async () => {

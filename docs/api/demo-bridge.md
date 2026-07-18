@@ -23,21 +23,30 @@ Connects the controlled demonstration to the prepared session: the server-held
 equivalent of handoff-token redemption. The raw handoff token never leaves the
 API process.
 
-The request **body is optional and ignored entirely** (`{}` and
-`{"request": "connect"}` behave identically). It is tolerated only because the
+The request **body is optional** and is interpreted only by the firm's
+Conversation Adapter. Today's provider dialect carries no meaning (`{}` and
+`{"request": "connect"}` behave identically — the body exists only because the
 external assistant runtime's webhook UI requires at least one JSON property on
-POST tools.
+POST tools). A provider whose adapter reports caller metadata translates it
+into neutral correlation signals (ADR-0008); the ElevenLabs adapter reports
+none.
 
-Selection rules (deliberately safety-first):
+Selection is performed by the **Correlation Engine** (ADR-0008), deliberately
+safety-first:
 
 - Only **unexpired `awaiting-transfer`** sessions for the demo firm are
   eligible. Cancelled, expired, connected, and terminal sessions are not.
-- **Exactly one** eligible session → atomically redeemed (same single-use
+- Correlation signals, when the adapter supplies them (explicit GuideHerd
+  session id first, then the caller's phone normalized to E.164), **narrow**
+  the eligible set — always within the firm, never across organizations.
+- **Exactly one** candidate → atomically redeemed (same single-use
   semantics as token redemption); returns `200`.
 - **None** → `404 no_prepared_session`.
 - **More than one** → `409 ambiguous_prepared_sessions` and **none** are
-  redeemed. Cancel the extra sessions in GuideHerd Console and retry.
-- Concurrent connect attempts produce exactly one successful redemption.
+  redeemed — the engine never picks one arbitrarily. Cancel the extra
+  sessions in GuideHerd Console (or retry with a narrower signal).
+- Concurrent connect attempts produce exactly one successful redemption per
+  session; connects for **different** prepared callers proceed in parallel.
 
 **Response — `200 OK`**
 

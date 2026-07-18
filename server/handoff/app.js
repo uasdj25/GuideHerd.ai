@@ -187,12 +187,15 @@ function makeHandler({ service, store, allowedOrigins, mailer, demoBridgeSecret,
       if (method === 'POST' && path === '/api/v1/demo/connect') {
         requireBridgeAuth(demoBridgeSecret, req.headers.authorization);
         const adapter = adapterFor(DEMO_FIRM_ID);
-        // The request body is OPTIONAL. Provider dialects (e.g. a webhook
-        // UI that requires at least one JSON property on POST tools) are
-        // the adapter's concern; drained here (size-capped) for hygiene.
-        await drainBody(req);
-        adapter.translateConnect(undefined);
-        const context = await conversations.connect(DEMO_FIRM_ID, adapter.providerKey);
+        // The request body is OPTIONAL and read leniently (size-capped;
+        // unparseable bodies become undefined rather than 400): provider
+        // dialects — a webhook UI that requires at least one JSON property,
+        // or one that carries correlation metadata — are entirely the
+        // adapter's concern. The adapter translates the dialect into a
+        // neutral ConnectIntent; the Correlation Engine does the matching.
+        const rawBody = await readJsonBodyLenient(req);
+        const intent = adapter.translateConnect(rawBody);
+        const context = await conversations.connect(DEMO_FIRM_ID, adapter.providerKey, intent);
         sessionId = context.sessionId;
         status = 200;
         return sendJson(res, status, context, null);
@@ -278,21 +281,34 @@ function readBearerToken(req) {
 }
 
 /**
- * Consume and discard a request body without parsing it, enforcing the size
- * cap. Used where a body is tolerated but carries no meaning.
+ * Read a request body leniently, enforcing the size cap: valid JSON parses,
+ * while an empty or unparseable body resolves to undefined instead of
+ * rejecting. Used where the body is optional provider ceremony whose
+ * interpretation belongs entirely to the Conversation Adapter.
  */
-function drainBody(req) {
+function readJsonBodyLenient(req) {
   return new Promise((resolve, reject) => {
     let size = 0;
+    const chunks = [];
     req.on('data', (chunk) => {
       size += chunk.length;
       if (size > MAX_BODY_BYTES) {
         reject(new MalformedRequestError('Request body is too large.'));
         req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      const raw = Buffer.concat(chunks).toString('utf8').trim();
+      if (raw === '') return resolve(undefined);
+      try {
+        resolve(JSON.parse(raw));
+      } catch {
+        resolve(undefined); // tolerated: dialect hygiene is the adapter's concern
       }
     });
-    req.on('end', resolve);
-    req.on('error', resolve); // discarded anyway
+    req.on('error', () => resolve(undefined)); // discarded anyway
   });
 }
 

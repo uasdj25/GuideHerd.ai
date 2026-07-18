@@ -196,6 +196,52 @@ if (!PG_URL) {
     }
   });
 
+  test('[postgres] restart persistence: phone correlation works across a process handover', async () => {
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE handoff_sessions');
+
+    // "Instance one" prepares two callers and shuts down entirely.
+    const poolA = createOperationalPool({ connectionString: PG_URL });
+    const storeA = createPostgresHandoffStore({ pool: poolA, clock });
+    const first = makeSession({ phone: '+12565550101' });
+    const second = makeSession({ phone: '+12565550102' });
+    await storeA.create(first.session);
+    await storeA.create(second.session);
+    await storeA.close();
+
+    // "Instance two" correlates by phone against the durable rows.
+    const poolB = createOperationalPool({ connectionString: PG_URL });
+    const storeB = createPostgresHandoffStore({ pool: poolB, clock });
+    const connected = await storeB.connectEligible('org-a', { callerPhoneNormalized: '+12565550102' });
+    assert.equal(connected.sessionId, second.session.sessionId);
+    assert.equal(connected.status, 'connected');
+    assert.equal((await storeB.get(first.session.sessionId)).status, 'awaiting-transfer', 'the other caller is untouched');
+    await storeB.close();
+  });
+
+  test('[postgres] cross-instance connects for different callers proceed in parallel', async () => {
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE handoff_sessions');
+    const storeA = createPostgresHandoffStore({ pool: createOperationalPool({ connectionString: PG_URL }), clock });
+    const storeB = createPostgresHandoffStore({ pool: createOperationalPool({ connectionString: PG_URL }), clock });
+    try {
+      const first = makeSession({ phone: '+12565550101' });
+      const second = makeSession({ phone: '+12565550102' });
+      await storeA.create(first.session);
+      await storeA.create(second.session);
+
+      const [ra, rb] = await Promise.all([
+        storeA.connectEligible('org-a', { callerPhoneNormalized: '+12565550101' }),
+        storeB.connectEligible('org-a', { callerPhoneNormalized: '+12565550102' }),
+      ]);
+      assert.equal(ra.sessionId, first.session.sessionId);
+      assert.equal(rb.sessionId, second.session.sessionId);
+    } finally {
+      await storeA.close();
+      await storeB.close();
+    }
+  });
+
   test('[postgres] cross-instance cancel vs connect: one winner', async () => {
     const clock = fixedClock(T0);
     await sharedPool.query('TRUNCATE handoff_sessions');

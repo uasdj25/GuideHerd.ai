@@ -33,6 +33,23 @@ function hashesEqual(a, b) {
  */
 const STALE_CLAIM_MS = 5 * 60 * 1000;
 
+/** Candidate criteria keys accepted by connectEligible — both repositories. */
+const ELIGIBLE_CRITERIA_KEYS = Object.freeze(['sessionId', 'callerPhoneNormalized']);
+
+/**
+ * Reject unknown criteria keys loudly (both repository implementations use
+ * this): a future correlation signal whose storage support has not landed
+ * yet must FAIL, never silently match everything.
+ * @param {object} criteria
+ */
+function assertKnownCriteria(criteria) {
+  for (const key of Object.keys(criteria)) {
+    if (!ELIGIBLE_CRITERIA_KEYS.includes(key)) {
+      throw new TypeError(`Unknown connectEligible criteria key: ${key}`);
+    }
+  }
+}
+
 /**
  * In-memory handoff repository — the reference implementation of the async
  * Handoff repository contract (ADR-0006). The PostgreSQL implementation in
@@ -84,7 +101,7 @@ function createInMemoryHandoffStore({ clock }) {
     return session;
   }
 
-  return {
+  const api = {
     /** @param {import('./models').InternalSession} session */
     async create(session) {
       sessionsById.set(session.sessionId, session);
@@ -179,27 +196,39 @@ function createInMemoryHandoffStore({ clock }) {
     },
 
     /**
-     * TEMPORARY DEMO INFRASTRUCTURE (Slice 3).
-     * Connect the single eligible prepared session for a firm — the
-     * server-held equivalent of handoff-token redemption. Eligible means
-     * status awaiting-transfer, unexpired, matching firmId.
-     *  - zero eligible   -> 404 no_prepared_session
-     *  - more than one   -> 409 ambiguous_prepared_sessions (redeems none;
-     *    deliberately favors safety over convenience)
-     *  - exactly one     -> atomically redeemed (same single-use semantics)
+     * Atomically connect the ONE eligible prepared session matching the
+     * candidate criteria — the storage primitive beneath the Correlation
+     * Engine (server/connect/correlation.js). Eligible means status
+     * awaiting-transfer, unexpired, matching firmId; criteria only ever
+     * NARROW that set, and every criterion is evaluated inside the firm's
+     * scope — matching can never cross organizations.
+     *
+     * Criteria (all optional; unknown keys are rejected loudly so a future
+     * signal can never silently match everything):
+     *   sessionId               exact session id
+     *   callerPhoneNormalized   exact E.164-normalized caller phone
+     *
+     *  - zero candidates  -> 404 no_prepared_session
+     *  - more than one    -> 409 ambiguous_prepared_sessions (redeems none;
+     *    deliberately favors safety over convenience — never guess)
+     *  - exactly one      -> atomically redeemed (same single-use semantics)
      * One synchronous pass: concurrent connect attempts settle into exactly
-     * one successful redemption.
+     * one successful redemption per session.
      * @param {string} firmId
+     * @param {{ sessionId?: string, callerPhoneNormalized?: string }} [criteria]
      * @returns {Promise<import('./models').InternalSession>}
      */
-    async connectDemo(firmId) {
+    async connectEligible(firmId, criteria = {}) {
+      assertKnownCriteria(criteria);
       const now = clock.now();
       const eligible = [];
       for (const session of sessionsById.values()) {
         markExpiredIfNeeded(session, now);
-        if (session.firmId === firmId && session.status === SessionStatus.AWAITING_TRANSFER) {
-          eligible.push(session);
-        }
+        if (session.firmId !== firmId || session.status !== SessionStatus.AWAITING_TRANSFER) continue;
+        if (criteria.sessionId !== undefined && session.sessionId !== criteria.sessionId) continue;
+        if (criteria.callerPhoneNormalized !== undefined
+          && session.callerPhoneNormalized !== criteria.callerPhoneNormalized) continue;
+        eligible.push(session);
       }
       if (eligible.length === 0) throw new NoPreparedSessionError();
       if (eligible.length > 1) throw new AmbiguousSessionError();
@@ -208,6 +237,18 @@ function createInMemoryHandoffStore({ clock }) {
       session.redeemedAtMs = now;
       session.status = SessionStatus.CONNECTED;
       return session;
+    },
+
+    /**
+     * TEMPORARY DEMO INFRASTRUCTURE (Slice 3).
+     * Connect the single eligible prepared session for a firm — the
+     * criteria-less baseline of connectEligible, kept as a named method while
+     * the demo bridge exists.
+     * @param {string} firmId
+     * @returns {Promise<import('./models').InternalSession>}
+     */
+    async connectDemo(firmId) {
+      return api.connectEligible(firmId, {});
     },
 
     /**
@@ -321,6 +362,12 @@ function createInMemoryHandoffStore({ clock }) {
     /** Release resources. No-op for the in-memory implementation. */
     async close() {},
   };
+  return api;
 }
 
-module.exports = { createInMemoryHandoffStore, STALE_CLAIM_MS };
+module.exports = {
+  createInMemoryHandoffStore,
+  STALE_CLAIM_MS,
+  ELIGIBLE_CRITERIA_KEYS,
+  assertKnownCriteria,
+};

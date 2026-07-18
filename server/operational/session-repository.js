@@ -32,7 +32,7 @@
 const crypto = require('node:crypto');
 
 const { SessionStatus } = require('../handoff/status');
-const { STALE_CLAIM_MS } = require('../handoff/store');
+const { STALE_CLAIM_MS, assertKnownCriteria } = require('../handoff/store');
 const {
   UnknownTokenError,
   NoPreparedSessionError,
@@ -73,6 +73,7 @@ function toSession(row) {
       email: row.caller_email,
       phone: row.caller_phone,
     },
+    callerPhoneNormalized: row.caller_phone_normalized,
     scheduling: {
       attorneyId: row.attorney_id,
       practiceAreaId: row.practice_area_id,
@@ -140,22 +141,23 @@ function createPostgresHandoffStore({ pool, clock }) {
     return rows[0];
   }
 
-  return {
+  const api = {
     /** @param {import('../handoff/models').InternalSession} session */
     async create(session) {
       await pool.query(
         `INSERT INTO handoff_sessions (
            session_id, organization_key, status,
-           caller_full_name, caller_email, caller_phone,
+           caller_full_name, caller_email, caller_phone, caller_phone_normalized,
            attorney_id, practice_area_id, consultation_type_id,
            handoff_source, handoff_mode, created_by_user_id,
            token_hash, console_token_hash,
            outcome_json, summary_delivery, summary_claimed_at,
            created_at, expires_at, connected_at, completed_at, cancelled_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
         [
           session.sessionId, session.firmId, session.status,
           session.caller.fullName, session.caller.email, session.caller.phone ?? null,
+          session.callerPhoneNormalized ?? null,
           session.scheduling.attorneyId ?? null, session.scheduling.practiceAreaId ?? null,
           session.scheduling.consultationTypeId,
           session.handoff.source, session.handoff.mode, session.handoff.createdByUserId ?? null,
@@ -251,12 +253,24 @@ function createPostgresHandoffStore({ pool, clock }) {
     },
 
     /**
-     * TEMPORARY DEMO INFRASTRUCTURE (Slice 3).
-     * Exactly-one-eligible connect, multi-instance safe: candidates are
-     * locked FOR UPDATE inside one transaction, so concurrent connect
-     * attempts — on any instances — serialize and exactly one succeeds.
+     * Atomically connect the ONE eligible prepared session matching the
+     * candidate criteria — the storage primitive beneath the Correlation
+     * Engine, multi-instance safe: candidates are locked FOR UPDATE inside
+     * one transaction, so concurrent connect attempts — on any instances —
+     * serialize, and each session is redeemed at most once. Criteria on
+     * DIFFERENT sessions lock disjoint rows, so concurrent connects for
+     * different callers proceed in parallel.
+     *
+     * Every criterion is ANDed inside the organization scope — matching can
+     * never cross organizations. Unknown criteria keys are rejected loudly
+     * (shared allowlist with the in-memory reference implementation).
+     * The candidate scan is served by idx_handoff_sessions_eligibility, and
+     * phone criteria by the partial idx_handoff_sessions_phone.
+     * @param {string} firmId
+     * @param {{ sessionId?: string, callerPhoneNormalized?: string }} [criteria]
      */
-    async connectDemo(firmId) {
+    async connectEligible(firmId, criteria = {}) {
+      assertKnownCriteria(criteria);
       const now = nowDate();
       return inTransaction(async (client) => {
         // Lazy expiry first, exactly as the in-memory scan does.
@@ -265,11 +279,21 @@ function createPostgresHandoffStore({ pool, clock }) {
             WHERE organization_key = $1 AND status = 'awaiting-transfer' AND expires_at <= $2`,
           [firmId, now],
         );
+        const conditions = ["organization_key = $1", "status = 'awaiting-transfer'"];
+        const params = [firmId];
+        if (criteria.sessionId !== undefined) {
+          params.push(criteria.sessionId);
+          conditions.push(`session_id = $${params.length}`);
+        }
+        if (criteria.callerPhoneNormalized !== undefined) {
+          params.push(criteria.callerPhoneNormalized);
+          conditions.push(`caller_phone_normalized = $${params.length}`);
+        }
         const { rows } = await client.query(
           `SELECT * FROM handoff_sessions
-            WHERE organization_key = $1 AND status = 'awaiting-transfer'
+            WHERE ${conditions.join(' AND ')}
             FOR UPDATE`,
-          [firmId],
+          params,
         );
         if (rows.length === 0) throw new NoPreparedSessionError();
         if (rows.length > 1) throw new AmbiguousSessionError(); // rollback: none redeemed
@@ -282,6 +306,15 @@ function createPostgresHandoffStore({ pool, clock }) {
         );
         return toSession(updated[0]);
       });
+    },
+
+    /**
+     * TEMPORARY DEMO INFRASTRUCTURE (Slice 3).
+     * The criteria-less baseline of connectEligible, kept as a named method
+     * while the demo bridge exists.
+     */
+    async connectDemo(firmId) {
+      return api.connectEligible(firmId, {});
     },
 
     /**
@@ -394,6 +427,7 @@ function createPostgresHandoffStore({ pool, clock }) {
       await pool.end();
     },
   };
+  return api;
 }
 
 module.exports = { createPostgresHandoffStore };

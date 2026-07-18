@@ -24,9 +24,11 @@
  */
 
 const { recordOutcomeAndDeliver } = require('../handoff/demo-bridge');
+const { presentCallerContext } = require('../handoff/service');
 const { systemClock } = require('../handoff/clock');
 const { SessionStatus } = require('../handoff/status');
 const { createConversationEvents } = require('./events');
+const { createCorrelationEngine } = require('./correlation');
 
 const TERMINAL = [SessionStatus.BOOKED, SessionStatus.FAILED, SessionStatus.ESCALATED];
 
@@ -37,32 +39,45 @@ const TERMINAL = [SessionStatus.BOOKED, SessionStatus.FAILED, SessionStatus.ESCA
  *   mailer: object,
  *   events?: ReturnType<typeof createConversationEvents>,
  *   clock?: import('../handoff/clock').Clock,
+ *   correlation?: ReturnType<typeof createCorrelationEngine>,
  * }} deps
  */
-function createConversationService({ service, store, mailer, events = createConversationEvents(), clock = systemClock() }) {
+function createConversationService({
+  service, store, mailer,
+  events = createConversationEvents(),
+  clock = systemClock(),
+  correlation,
+}) {
   const atIso = () => new Date(clock.now()).toISOString();
+  // The Correlation Engine (correlation.js) answers "find the matching
+  // prepared session" — this service never knows how the match was made.
+  const engine = correlation || createCorrelationEngine({ store });
 
   return {
     events,
 
     /**
-     * Connect the provider's conversation to the prepared session for a firm
-     * (exactly-one-eligible correlation; the handoff session's single-use
-     * semantics are unchanged). Returns the prepared caller context in the
-     * exact shape the integration receives today.
+     * Connect the provider's conversation to the prepared session matching
+     * the neutral ConnectIntent (the handoff session's single-use semantics
+     * are unchanged). An empty intent preserves the original exactly-one-
+     * eligible behavior byte for byte. Returns the prepared caller context
+     * in the exact shape the integration receives today.
      *
      * @param {string} firmId
      * @param {string} provider adapter provider key, for event provenance
+     * @param {object} [intent] neutral ConnectIntent from the adapter
      */
-    async connect(firmId, provider) {
-      const context = await service.connectDemo(firmId); // throws 404/409/410 exactly as before
+    async connect(firmId, provider, intent = {}) {
+      // throws 404/409 exactly as before; ambiguity is never resolved by guessing
+      const { session, matchedBy } = await engine.correlate(firmId, intent);
       events.emit('conversation.connected', {
-        sessionId: context.sessionId,
+        sessionId: session.sessionId,
         firmId,
         provider,
+        correlation: matchedBy, // signal key only — never a signal VALUE
         at: atIso(),
       });
-      return context;
+      return presentCallerContext(session);
     },
 
     /**

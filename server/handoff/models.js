@@ -33,6 +33,9 @@
  * @property {string} sessionId
  * @property {string} firmId
  * @property {Caller} caller
+ * @property {string|null} callerPhoneNormalized  E.164 form of caller.phone,
+ *           computed at creation for tenant-scoped correlation (null when
+ *           absent or not confidently normalizable)
  * @property {Scheduling} scheduling
  * @property {HandoffMeta} handoff
  * @property {string} status

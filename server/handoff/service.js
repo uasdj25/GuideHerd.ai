@@ -2,6 +2,7 @@
 
 const { SessionStatus } = require('./status');
 const { HANDOFF_TTL_SECONDS } = require('./models');
+const { normalizePhone } = require('./phone');
 const defaultIds = require('./ids');
 
 /** Format epoch milliseconds as an ISO-8601 UTC string. */
@@ -13,6 +14,30 @@ function toIso(ms) {
 function deriveLastName(fullName) {
   const parts = String(fullName).trim().split(/\s+/);
   return parts[parts.length - 1] || fullName;
+}
+
+/**
+ * The prepared-caller context returned when a conversation connects — one
+ * shape shared by every connect path (demo bridge today, trusted telephony
+ * delivery later). Raw tokens and hashes never appear here.
+ * @param {import('./models').InternalSession} session
+ */
+function presentCallerContext(session) {
+  return {
+    sessionId: session.sessionId,
+    status: session.status,
+    caller: {
+      fullName: session.caller.fullName,
+      email: session.caller.email,
+      phone: session.caller.phone ?? null,
+    },
+    scheduling: {
+      attorneyId: session.scheduling.attorneyId ?? null,
+      practiceAreaId: session.scheduling.practiceAreaId ?? null,
+      consultationTypeId: session.scheduling.consultationTypeId,
+    },
+    firmId: session.firmId,
+  };
 }
 
 /**
@@ -43,6 +68,9 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
         sessionId,
         firmId: request.firmId,
         caller: { ...request.caller },
+        // E.164 form for tenant-scoped correlation (null when absent or not
+        // confidently normalizable — an absent signal, never a guess).
+        callerPhoneNormalized: normalizePhone(request.caller.phone),
         scheduling: { ...request.scheduling },
         handoff: { ...request.handoff },
         status: SessionStatus.AWAITING_TRANSFER,
@@ -114,21 +142,7 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
      */
     async connectDemo(firmId) {
       const session = await store.connectDemo(firmId);
-      return {
-        sessionId: session.sessionId,
-        status: session.status,
-        caller: {
-          fullName: session.caller.fullName,
-          email: session.caller.email,
-          phone: session.caller.phone ?? null,
-        },
-        scheduling: {
-          attorneyId: session.scheduling.attorneyId ?? null,
-          practiceAreaId: session.scheduling.practiceAreaId ?? null,
-          consultationTypeId: session.scheduling.consultationTypeId,
-        },
-        firmId: session.firmId,
-      };
+      return presentCallerContext(session);
     },
 
     /**
@@ -178,4 +192,4 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
   };
 }
 
-module.exports = { createHandoffService };
+module.exports = { createHandoffService, presentCallerContext };

@@ -206,6 +206,7 @@ test('the conversation lifecycle emits provider-neutral events with no secrets o
       sessionId: created.sessionId,
       firmId: FIRM,
       provider: 'elevenlabs',
+      correlation: 'exactly-one-eligible', // signal KEY only, never a value
       at: '2026-07-12T15:15:00.000Z',
     });
     const [, completed] = seen[1];

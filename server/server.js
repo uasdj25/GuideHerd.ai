@@ -83,6 +83,7 @@ async function main() {
   let handoffStore; // undefined -> createApp uses the in-memory default
   let notificationDeliveryStore; // undefined -> in-memory default (ADR-0011)
   let integrationDeliveryStore; // undefined -> in-memory default (ADR-0020)
+  let workflowStore; // undefined -> in-memory default (ADR-0021)
   let outboxStore; // undefined -> in-memory default (ADR-0017)
   let scheduledActionStore; // undefined -> in-memory default (ADR-0018)
   let operationalMigrationsApplied = null;
@@ -92,6 +93,7 @@ async function main() {
     const { createPostgresHandoffStore } = require('./operational/session-repository');
     const { createPostgresNotificationDeliveryStore } = require('./operational/notification-deliveries');
     const { createPostgresIntegrationDeliveryStore } = require('./operational/integration-deliveries');
+    const { createPostgresWorkflowStore } = require('./operational/workflow-store');
     const { createPostgresOutboxStore } = require('./operational/outbox-store');
     const { createPostgresScheduledActionStore } = require('./operational/scheduled-actions');
     try {
@@ -102,6 +104,7 @@ async function main() {
       handoffStore = createPostgresHandoffStore({ pool, clock: systemClock(), outbox: outboxStore });
       notificationDeliveryStore = createPostgresNotificationDeliveryStore({ pool, clock: systemClock() });
       integrationDeliveryStore = createPostgresIntegrationDeliveryStore({ pool, clock: systemClock() });
+      workflowStore = createPostgresWorkflowStore({ pool, clock: systemClock() });
     } catch (err) {
       fatal('Operational Store (postgres) is unavailable; refusing to start.', {
         error: { message: String(err.message || err) },
@@ -114,7 +117,7 @@ async function main() {
 
   // Browser origins are allowlisted via CORS_ALLOWED_ORIGINS (comma-separated).
   // Defaults to https://guideherd.ai and http://localhost:8080. Never `*`.
-  const app = createApp({ configService, configDb, handoffStore, notificationDeliveryStore, integrationDeliveryStore, outboxStore, scheduledActionStore });
+  const app = createApp({ configService, configDb, handoffStore, notificationDeliveryStore, integrationDeliveryStore, workflowStore, outboxStore, scheduledActionStore });
   const { handler } = app;
   const server = http.createServer(handler);
 
@@ -123,6 +126,7 @@ async function main() {
   // before/while serving traffic.
   app.outbox.drain().catch(() => {});
   app.scheduler.drain().catch(() => {});
+  app.workflow.drain().catch(() => {});
 
   // Liveness (ADR-0017 §3): post-commit nudges give low latency; ONE
   // poller guarantees EVENTUAL processing for both the outbox and the
@@ -135,7 +139,7 @@ async function main() {
     fatal(`Invalid GUIDEHERD_OUTBOX_POLL_INTERVAL_MS "${RAW_POLL_INTERVAL}" (expected a positive number of milliseconds).`);
   }
   const outboxPoller = createOutboxPoller({
-    outbox: { drain: () => Promise.all([app.outbox.drain(), app.scheduler.drain()]) },
+    outbox: { drain: () => Promise.all([app.outbox.drain(), app.scheduler.drain(), app.workflow.drain()]) },
     intervalMs: OUTBOX_POLL_INTERVAL_MS,
   });
   server.on('close', () => outboxPoller.stop());

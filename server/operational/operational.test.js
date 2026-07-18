@@ -51,6 +51,8 @@ if (!PG_URL) {
   let sharedPool;
 
   async function resetDatabase(pool) {
+    await pool.query('DROP TABLE IF EXISTS workflow_steps');
+    await pool.query('DROP TABLE IF EXISTS workflow_instances');
     await pool.query('DROP TABLE IF EXISTS integration_deliveries');
     await pool.query('DROP TABLE IF EXISTS outbox_deliveries');
     await pool.query('DROP TABLE IF EXISTS outbox_events');
@@ -64,18 +66,18 @@ if (!PG_URL) {
     sharedPool = createOperationalPool({ connectionString: PG_URL });
     await resetDatabase(sharedPool);
 
-    assert.equal(await migrate(sharedPool), 5, 'all pending migrations apply');
+    assert.equal(await migrate(sharedPool), 6, 'all pending migrations apply');
     assert.equal(await migrate(sharedPool), 0, 're-run is a no-op');
 
     // Concurrent boots: several runners at once, advisory lock serializes.
     await resetDatabase(sharedPool);
     const pools = [createOperationalPool({ connectionString: PG_URL }), createOperationalPool({ connectionString: PG_URL })];
     const results = await Promise.all([migrate(sharedPool), migrate(pools[0]), migrate(pools[1])]);
-    assert.equal(results.reduce((a, b) => a + b, 0), 5, 'exactly one runner applies the migrations');
+    assert.equal(results.reduce((a, b) => a + b, 0), 6, 'exactly one runner applies the migrations');
     await Promise.all(pools.map((p) => p.end()));
 
     const { rows } = await sharedPool.query('SELECT count(*)::int AS n FROM operational_schema_migrations');
-    assert.equal(rows[0].n, 5);
+    assert.equal(rows[0].n, 6);
   });
 
   // Contract suite against PostgreSQL. Each test gets a truncated table on
@@ -305,6 +307,20 @@ if (!PG_URL) {
       await storeB.close();
     }
   });
+
+  // Workflow store (ADR-0021): the full shared contract suite on
+  // PostgreSQL — the same suite the in-memory reference runs in
+  // server/workflow/workflow.test.js.
+  {
+    const { runWorkflowStoreContractSuite } = require('../workflow/store-contract-suite');
+    const { createPostgresWorkflowStore } = require('./workflow-store');
+    runWorkflowStoreContractSuite('postgres', async ({ clock }) => {
+      await sharedPool.query('TRUNCATE workflow_steps');
+      await sharedPool.query('TRUNCATE workflow_instances');
+      const store = createPostgresWorkflowStore({ pool: sharedPool, clock });
+      return { ...store, close: async () => {} }; // suite stores share the pool
+    });
+  }
 
   // Integration delivery store (ADR-0020): the full shared contract suite
   // runs against PostgreSQL — the same suite the in-memory reference runs

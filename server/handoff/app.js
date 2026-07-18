@@ -30,7 +30,7 @@ const { createNotificationProviderRegistry } = require('../notifications/contrac
 const { createGraphEmailProvider } = require('../notifications/graph-email-provider');
 const { createInMemoryNotificationDeliveryStore } = require('../notifications/delivery-store');
 const { createNotificationService } = require('../notifications/service');
-const { createIntegrationProviderRegistry } = require('../integrations/contract');
+const { createIntegrationProviderRegistry, INTEGRATION_TYPES } = require('../integrations/contract');
 const { createIntegrationService } = require('../integrations/service');
 const { createInMemoryIntegrationDeliveryStore } = require('../integrations/delivery-store');
 const { createDemoIntegrationProvider } = require('../integrations/demo-provider');
@@ -322,6 +322,17 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
         clock,
         telemetry: observedTelemetry,
         identityProviderKeys: () => userAuthProviders.keys(),
+        // The full write-validation context (ADR-0016): every provider
+        // registry this composition holds, so configured-but-unregistered
+        // selections are rejected at ADMINISTRATION time — runtime
+        // resolution remains loud as defense in depth.
+        validationContext: () => ({
+          identityProviderKeys: userAuthProviders.keys(),
+          conversationProviderKeys: adapters.keys(),
+          notificationProviderKeys: notificationProviders.keys(),
+          integrationProviderKeys: integrationProviders.keys(),
+          integrationTypes: Object.keys(INTEGRATION_TYPES),
+        }),
       })
     : null;
   deps.administration = administration;

@@ -18,13 +18,16 @@
  * suppressed without a provider call. A 'failed' delivery may be
  * re-claimed later; 'completed' is final forever.
  *
- * Provider selection is per-organization configuration
- * (`integrations/provider`, ADR-0016). The domain is DARK BY DEFAULT:
- * with no provider configured the request resolves to the controlled
- * 'not-configured' result — never an error, never a crash. An explicitly
- * configured but unregistered provider fails loudly (ADR-0007 §6) — the
- * failure is recorded re-claimable so recovery succeeds once the
- * deployment registers the provider.
+ * Provider selection is per-organization, PER-CAPABILITY configuration
+ * (`integrations/providers`, ADR-0016): the domain maps each integration
+ * TYPE to the provider that serves it, so one firm can simultaneously
+ * route practice-management records to one system, calendars to another,
+ * and billing to a third — and one provider may serve several types. The
+ * domain is DARK BY DEFAULT: a type with no mapping resolves to the
+ * controlled 'not-configured' result — never an error, never a crash. An
+ * explicitly configured but unregistered provider fails loudly (ADR-0007
+ * §6) — the failure is recorded re-claimable so recovery succeeds once
+ * the deployment registers the provider.
  *
  * Trigger sources are the platform's canonical asynchronous pipeline:
  * durable outbox events (ADR-0017) and scheduled actions (ADR-0018) call
@@ -37,18 +40,19 @@
 const { validateIntegrationRequest } = require('./contract');
 
 const SETTINGS_NAMESPACE = 'integrations';
-const PROVIDER_KEY_SETTING = 'provider';
+const PROVIDER_KEY_SETTING = 'providers';
 
 /**
- * Resolve the organization's integration provider key (config-driven).
- * `null` means the organization has no integration provider — the dark
- * default.
+ * Resolve the provider key configured for one integration TYPE
+ * (config-driven, per organization per capability). `null` means the
+ * organization has no provider for that type — the dark default.
  * @returns {string|null}
  */
-function resolveIntegrationProviderKey(configService, organizationKey) {
+function resolveIntegrationProviderKey(configService, organizationKey, integrationType) {
   if (!configService || !organizationKey) return null;
   const { readDomain } = require('../configuration/framework');
-  return readDomain(configService, 'integration-provider', organizationKey).value.provider;
+  const { providers } = readDomain(configService, 'integration-providers', organizationKey).value;
+  return providers[integrationType] ?? null;
 }
 
 /**
@@ -96,9 +100,10 @@ function createIntegrationService({ registry, deliveryStore, configService = nul
         return { status: 'suppressed', suppressedBy: claim.status };
       }
 
-      // Dark by default: an organization without a configured provider gets
-      // the controlled result, recorded, with no provider call and no error.
-      const providerKey = resolveIntegrationProviderKey(configService, request.organizationKey);
+      // Dark by default: a TYPE without a configured provider gets the
+      // controlled result, recorded, with no provider call and no error —
+      // other types' mappings for the same organization are unaffected.
+      const providerKey = resolveIntegrationProviderKey(configService, request.organizationKey, request.type);
       if (providerKey === null) {
         await deliveryStore.record(request.integrationKey, 'not-configured');
         emit('integration.delivery_failed', {

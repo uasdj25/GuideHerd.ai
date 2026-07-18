@@ -47,7 +47,7 @@ test('framework: the production domain model registers every settings domain, al
   const ids = domainDescriptors().map((d) => d.id).sort();
   assert.deepEqual(ids, [
     'appointment-reminders', 'conversation-provider', 'identity-provider',
-    'integration-provider', 'notification-branding', 'notification-provider', 'notifications', 'scheduling-policy',
+    'integration-providers', 'notification-branding', 'notification-provider', 'notifications', 'scheduling-policy',
   ]);
   assert.ok(domainDescriptors().every((d) => d.live === true), 'settings domains are live by construction');
   const owners = Object.fromEntries(domainDescriptors().map((d) => [d.id, d.owner]));
@@ -252,6 +252,47 @@ test('conformance: no two domains may own the same setting address', () => {
     () => framework.register({ id: 'b', namespace: 'x', key: 'y', normalize: () => ({ value: null, issues: [] }) }),
     /already owned by domain "a"/,
   );
+});
+
+// ── Provider-registry write validation through administration (ADR-0016) ────
+
+test('administration: EVERY provider-selection domain rejects configured-but-unregistered values — no silent fallback', () => {
+  const { db, configService } = fixture();
+  // Composition-supplied structured context: the registries' keys, exactly
+  // as server/handoff/app.js wires them.
+  const admin = createAdministrationService({
+    configService, configDb: db, clock: fixedClock(T0),
+    identityProviderKeys: () => ['dev-user'],
+    validationContext: () => ({
+      identityProviderKeys: ['dev-user'],
+      conversationProviderKeys: ['elevenlabs'],
+      notificationProviderKeys: ['graph-email'],
+      integrationProviderKeys: ['demo-integration'],
+      integrationTypes: ['demo-record-sync', 'demo-calendar-sync'],
+    }),
+  });
+  const ctx = { actor: 'admin-ada', organizationKey: FIRM };
+
+  const cases = [
+    ['identity-provider', { provider: 'okta' }, { provider: 'dev-user' }],
+    ['conversation-provider', { provider: 'vapi' }, { provider: 'elevenlabs' }],
+    ['notification-provider', { provider: 'sendgrid' }, { provider: 'graph-email' }],
+    ['integration-providers',
+      { providers: { 'demo-record-sync': 'clio' } },
+      { providers: { 'demo-record-sync': 'demo-integration' } }],
+  ];
+  for (const [area, unregistered, registered] of cases) {
+    assert.throws(() => admin.apply(area, ctx, unregistered),
+      (e) => e.code === 'validation_error' || e.name === 'ValidationError',
+      `${area}: unregistered selection must be rejected at administration time`);
+    const ok = admin.apply(area, ctx, registered);
+    assert.ok(ok.version >= 1, `${area}: registered selection persists`);
+  }
+
+  // The integration domain also rejects unknown CAPABILITIES.
+  assert.throws(() => admin.apply('integration-providers', ctx,
+    { providers: { 'billing-sync': 'demo-integration' } }, 1),
+    (e) => e.code === 'validation_error' || e.name === 'ValidationError');
 });
 
 // ── Live consumption through administration ─────────────────────────────────

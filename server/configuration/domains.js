@@ -203,47 +203,65 @@ function registerProductionDomains(framework) {
     registeredKeysContext: 'notificationProviderKeys',
   }));
 
-  // Integration provider selection (ADR-0020). Unlike the other provider
-  // selections this domain is DARK BY DEFAULT: the default is NO provider
-  // ({ provider: null }), and an organization opts in by naming one. The
-  // Integration Service turns the null default into the controlled
-  // 'not-configured' result — never an error. Writes stay strict: a named
-  // provider must be registered on the deployment when the producer
-  // supplies the registry context (ADR-0007 §6).
+  // Integration provider selection (ADR-0020) — PER CAPABILITY. The value
+  // maps each integration TYPE to the provider that serves it, so a firm
+  // can route practice-management records, calendars, and billing to
+  // DIFFERENT systems at once, and one provider may serve several types.
+  // DARK BY DEFAULT: the default map is empty, and an unmapped type is the
+  // controlled 'not-configured' result — never an error. Writes stay
+  // strict when the producer supplies context (ADR-0007 §6): every mapped
+  // type must be a registered integration capability, and every mapped
+  // provider must be registered on the deployment.
   framework.register({
-    id: 'integration-provider',
+    id: 'integration-providers',
     title: 'Integration provider selection',
     owner: 'integrations',
     namespace: 'integrations',
-    key: 'provider',
+    key: 'providers',
     live: true,
     schemaVersion: 1,
     normalize(raw) {
-      if (raw === null || raw === undefined) return { value: { provider: null }, issues: [] };
+      if (raw === null || raw === undefined) return { value: { providers: {} }, issues: [] };
       if (!isPlainObject(raw)) {
-        return { value: { provider: null }, issues: ['must be an object like { "provider": "…" } or { "provider": null }'] };
+        return { value: { providers: {} }, issues: ['must be an object like { "providers": { "<type>": "<provider>" } }'] };
       }
       const issues = [];
       for (const k of Object.keys(raw)) {
-        if (k !== 'provider') issues.push(`unknown field: ${k}`);
+        if (k !== 'providers') issues.push(`unknown field: ${k}`);
       }
-      let provider = null;
-      if (raw.provider !== null && raw.provider !== undefined) {
-        if (typeof raw.provider === 'string' && raw.provider.trim() !== '') {
-          provider = raw.provider.trim();
+      const providers = {};
+      if (raw.providers !== undefined) {
+        if (!isPlainObject(raw.providers)) {
+          issues.push('providers must map integration types to provider keys');
         } else {
-          issues.push('provider must be a nonblank string or null');
+          for (const [type, provider] of Object.entries(raw.providers)) {
+            if (typeof type !== 'string' || type.trim() === '') {
+              issues.push('integration type keys must be nonblank strings');
+              continue;
+            }
+            if (typeof provider !== 'string' || provider.trim() === '') {
+              issues.push(`provider for ${type} must be a nonblank string`);
+              continue;
+            }
+            providers[type.trim()] = provider.trim();
+          }
         }
       }
-      return { value: { provider }, issues };
+      return { value: { providers }, issues };
     },
     validate(value, context) {
-      if (value.provider === null) return []; // dark is always valid
+      const issues = [];
+      const types = context && context.integrationTypes;
       const registered = context && context.integrationProviderKeys;
-      if (Array.isArray(registered) && !registered.includes(value.provider)) {
-        return [`provider must be one of: ${registered.join(', ')}`];
+      for (const [type, provider] of Object.entries(value.providers)) {
+        if (Array.isArray(types) && !types.includes(type)) {
+          issues.push(`unknown integration type: ${type} (known: ${types.join(', ')})`);
+        }
+        if (Array.isArray(registered) && !registered.includes(provider)) {
+          issues.push(`provider for ${type} must be one of: ${registered.join(', ')}`);
+        }
       }
-      return [];
+      return issues;
     },
   });
 }

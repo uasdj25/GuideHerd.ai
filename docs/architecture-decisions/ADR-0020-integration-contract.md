@@ -56,7 +56,7 @@ adapted only where system-to-system semantics differ:
   re-claimable; stale 'pending' claims recover after the standard window.
   In-memory reference + PostgreSQL implementation
   (migration `0005-integrations.sql`), verified by one shared contract
-  suite on both.
+  suite on both — and implemented as one shared core (§2a).
 - **Provider registry** (ADR-0007 §6): providers register by key; selection
   is per-organization configuration; configured-but-unregistered fails
   loudly (and is recorded re-claimable, so recovery succeeds once the
@@ -72,15 +72,75 @@ adapted only where system-to-system semantics differ:
   `integration.suppressed`), carrying identifiers only — never fact
   values.
 
-### 3. Dark by default
+### 2a. One claim core, two domain contracts
 
-The `integration-provider` configuration domain (ADR-0016) defaults to
-`{ provider: null }`: an organization has NO integration provider until an
-administrator names one. The service turns that default into the
-controlled `not-configured` result — recorded, telemetered at `warn`,
-never an error, never a crash. Writes are strict: a named provider must be
-registered on the deployment when the producer supplies the registry
-context. Configuration is live — the next request honors a change.
+Analysis: the Notification and Integration delivery stores were mechanically
+identical — same claim conditions (first / failed / stale-pending), same
+finality rule, same atomic PostgreSQL conditional INSERT/UPDATE, same
+identifier-only records — differing only in key field name and final-status
+name ('sent' vs 'completed'). Two copies of a correctness-critical machine
+is exactly how drift happens.
+
+Decision: the mechanics are extracted ONCE into
+`server/reliability/claims.js` (in-memory core + PostgreSQL core + a
+field-naming wrapper); both delivery stores are now thin domain wrappers
+over it. The pre-existing notification tests pass unchanged against the
+shared core — the strongest available proof that extraction preserved
+semantics — and the integration contract suite runs the same core on both
+store implementations.
+
+What deliberately did NOT merge, to keep domain meaning intact: the public
+store contracts (domain-named key fields), request validation, provider
+contracts, telemetry, and retry POLICY — bounded attempts belong to the
+callers (outbox consumers, scheduler handlers, workflow steps) and
+duplication-safe retry classification to provider boundaries; the claim
+stores stay attempt-free by design. Table/column identifiers in the
+PostgreSQL core are wrapper-supplied compile-time constants, never runtime
+input.
+
+### 3. Provider selection is PER CAPABILITY, dark by default
+
+One global provider per organization would be wrong permanently: a firm
+will run several integrations at once (practice-management records,
+calendars, billing, documents, analytics). The `integration-providers`
+configuration domain (ADR-0016) therefore maps each integration TYPE —
+the capability — to the provider that serves it:
+
+    { "providers": { "demo-record-sync": "demo-integration",
+                     "demo-calendar-sync": "capture-2" } }
+
+Properties, all proven by test:
+
+- multiple selections coexist per organization (different capabilities →
+  different providers, simultaneously);
+- one provider may serve several capabilities (map values repeat freely);
+- a request declares its type; resolution reads exactly that type's
+  mapping;
+- an unmapped type is the controlled `not-configured` result — recorded,
+  telemetered at `warn`, never an error — while sibling mappings keep
+  working (there is no global switch to trip);
+- writes are strict when the producer supplies context: every mapped type
+  must be a registered capability AND every mapped provider must be
+  registered on the deployment (ADR-0007 §6);
+- the default map is empty — every capability ships dark.
+
+Configuration is live — the next request honors a change. Business code
+still states only its intent; no provider-specific branching exists
+anywhere outside providers.
+
+### 3a. Administration-time validation context
+
+The fail-loudly guarantee is enforced at BOTH ends: runtime resolution
+throws on an unregistered provider (defense in depth), and administration
+writes are rejected up front. The Administration service now accepts a
+composition-supplied `validationContext()` — a structured object carrying
+every registry's keys (identity, conversation, notification, integration
+providers; integration types; workflow types when ADR-0021 lands) —
+passed through the Configuration Framework's existing context parameter.
+No domain-specific validation lives in the Administration service; each
+provider-selection domain picks the context keys it validates against.
+This also activated the previously-dormant checks for the conversation
+and notification provider domains.
 
 ### 4. Triggers are the existing pipeline; no second architecture
 
@@ -99,14 +159,16 @@ telemetry feed (correlation IDs, key grammar), the delivery store's
 key-and-status records, and one `integration-provider` capability in the
 health view. Zero integration-specific Operations Center architecture.
 
-### 6. The demonstration provider
+### 6. The demonstration provider and types
 
 `demo-integration` proves the extension seam end to end — registration,
-configuration-selected resolution, delivery, retry classification,
-telemetry — with no network calls and no credentials, and ships dark (registered
-everywhere, selected nowhere). A real provider (e.g. Clio) is one provider
-implementation + one registration + configuration, with zero contract
-changes.
+per-capability configuration-selected resolution, delivery, retry
+classification, telemetry — with no network calls and no credentials, and
+ships dark (registered everywhere, mapped nowhere). TWO synthetic types
+(`demo-record-sync`, `demo-calendar-sync`) exist so the per-capability
+model is exercised for real. A real provider (e.g. Clio) is one provider
+implementation + one registration + one capability mapping, with zero
+contract changes.
 
 ### 7. Designed-for, not built: inbound events
 

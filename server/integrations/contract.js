@@ -47,16 +47,24 @@
  */
 
 /**
- * The integration type catalog. Types grow only when a workflow does —
- * each entry declares the SAFE facts its requests may carry. Today's sole
- * type is the synthetic demonstration type proving the extension seam;
- * real types (matter sync, record push) arrive with their provider
- * tickets.
+ * The integration type catalog — the platform's integration CAPABILITIES.
+ * Types grow only when a workflow does; each entry declares the SAFE facts
+ * its requests may carry. Provider selection is per-type (ADR-0020 §3):
+ * an organization maps each capability to the provider that serves it.
+ * Real types (matter sync, calendar push, billing) arrive with their
+ * provider tickets.
  */
 const INTEGRATION_TYPES = Object.freeze({
-  // Synthetic demonstration type (ships dark; no production trigger).
+  // Synthetic demonstration types (ship dark; no production triggers).
+  // TWO types exist so the per-capability provider-selection model is
+  // exercised for real: one organization may route different integration
+  // capabilities to different providers, or the same provider may serve
+  // several capabilities.
   'demo-record-sync': Object.freeze({
     facts: Object.freeze(['sessionId', 'outcome', 'attorneyId', 'practiceAreaId', 'consultationTypeId']),
+  }),
+  'demo-calendar-sync': Object.freeze({
+    facts: Object.freeze(['sessionId', 'attorneyId']),
   }),
 });
 

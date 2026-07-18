@@ -66,11 +66,19 @@ function isPlainObject(v) {
  *   configService: object,
  *   configDb: object,                      the Configuration Store database
  *   clock: import('../handoff/clock').Clock,
- *   identityProviderKeys?: () => string[], registered identity providers
+ *   identityProviderKeys?: () => string[], registered user-auth providers
+ *                          (also surfaced in describe() for the portal)
+ *   validationContext?: () => object, the FULL structured write-validation
+ *                          context for configuration domains (ADR-0016):
+ *                          composition supplies every registry's keys
+ *                          (identity/conversation/notification/integration
+ *                          providers, integration types, workflow types, …)
+ *                          so provider-selection writes fail loudly when
+ *                          misconfigured — no domain knowledge lives here
  *   telemetry?: { event: Function },
  * }} deps
  */
-function createAdministrationService({ configService, configDb, clock, identityProviderKeys = () => [], telemetry }) {
+function createAdministrationService({ configService, configDb, clock, identityProviderKeys = () => [], validationContext = () => ({}), telemetry }) {
   const nowIso = () => new Date(clock.now()).toISOString();
   const emit = telemetry ? telemetry.event.bind(telemetry) : () => {};
 
@@ -154,6 +162,9 @@ function createAdministrationService({ configService, configDb, clock, identityP
         configService,
         organizationKey: ctx.organizationKey,
         identityProviderKeys: identityProviderKeys(),
+        // Structured, composition-supplied context (ADR-0016): each
+        // provider-selection domain picks the keys it validates against.
+        ...validationContext(),
       });
       if (!ok) {
         throw new ValidationError(`The ${descriptor.title} configuration is invalid.`,

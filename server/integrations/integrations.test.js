@@ -139,7 +139,7 @@ test('service: DARK BY DEFAULT — no configured provider yields the controlled 
 
 test('service: a configured organization delivers through the selected provider, exactly once per key', async () => {
   const configService = configServiceWithFirm();
-  configService.settings.set(FIRM, 'integrations', 'provider', { provider: PROVIDER_KEY });
+  configService.settings.set(FIRM, 'integrations', 'providers', { providers: { 'demo-record-sync': PROVIDER_KEY } });
   const { service, provider, lines } = makeService({ configService });
 
   const first = await service.request(makeRequest(), { correlationId: 'gh-c2', sessionId: 'sess-1' });
@@ -162,7 +162,7 @@ test('service: a configured organization delivers through the selected provider,
 
 test('service: configured-but-unregistered fails LOUDLY and re-claimably (ADR-0007 §6)', async () => {
   const configService = configServiceWithFirm();
-  configService.settings.set(FIRM, 'integrations', 'provider', { provider: 'clio' }); // not registered
+  configService.settings.set(FIRM, 'integrations', 'providers', { providers: { 'demo-record-sync': 'clio' } }); // not registered
   const { service, deliveryStore, lines } = makeService({ configService });
 
   const result = await service.request(makeRequest(), { correlationId: 'gh-c3' });
@@ -179,7 +179,7 @@ test('service: configured-but-unregistered fails LOUDLY and re-claimably (ADR-00
 
 test('service: duplication-safe retry classification — transient refusals retry inside the provider, permanent ones never do', async () => {
   const configService = configServiceWithFirm();
-  configService.settings.set(FIRM, 'integrations', 'provider', { provider: PROVIDER_KEY });
+  configService.settings.set(FIRM, 'integrations', 'providers', { providers: { 'demo-record-sync': PROVIDER_KEY } });
 
   // Transient (provably not accepted): bounded retries succeed, one claim.
   {
@@ -208,7 +208,7 @@ test('service: duplication-safe retry classification — transient refusals retr
 
 test('service: a provider returning nonsense fails closed', async () => {
   const configService = configServiceWithFirm();
-  configService.settings.set(FIRM, 'integrations', 'provider', { provider: PROVIDER_KEY });
+  configService.settings.set(FIRM, 'integrations', 'providers', { providers: { 'demo-record-sync': PROVIDER_KEY } });
   const { service, deliveryStore } = makeService({ configService, behavior: () => 'nonsense' });
   const result = await service.request(makeRequest(), {});
   assert.deepEqual(result, { status: 'failed' });
@@ -217,7 +217,7 @@ test('service: a provider returning nonsense fails closed', async () => {
 
 test('service: a stale pending claim (claimant crashed mid-delivery) is recovered after the stale window', async () => {
   const configService = configServiceWithFirm();
-  configService.settings.set(FIRM, 'integrations', 'provider', { provider: PROVIDER_KEY });
+  configService.settings.set(FIRM, 'integrations', 'providers', { providers: { 'demo-record-sync': PROVIDER_KEY } });
   const clock = fixedClock(T0);
   const { service, deliveryStore, provider } = makeService({ configService, clock });
 
@@ -230,7 +230,7 @@ test('service: a stale pending claim (claimant crashed mid-delivery) is recovere
 
 test('service: telemetry carries correlation and identifiers — never fact values', async () => {
   const configService = configServiceWithFirm();
-  configService.settings.set(FIRM, 'integrations', 'provider', { provider: PROVIDER_KEY });
+  configService.settings.set(FIRM, 'integrations', 'providers', { providers: { 'demo-record-sync': PROVIDER_KEY } });
   const { service, lines } = makeService({ configService });
   await service.request(makeRequest({ facts: { sessionId: 'sess-1', outcome: 'booked', attorneyId: 'clay-martinson' } }),
     { correlationId: 'gh-c9' });
@@ -242,29 +242,99 @@ test('service: telemetry carries correlation and identifiers — never fact valu
 
 // ── Configuration domain ────────────────────────────────────────────────────
 
-test('domain: integration-provider is dark by default and write-strict', () => {
+test('domain: integration-providers maps capabilities to providers, dark by default, write-strict', () => {
   const configService = configServiceWithFirm();
 
-  // Read default: no provider — the dark posture.
-  assert.deepEqual(readDomain(configService, 'integration-provider', FIRM).value, { provider: null });
+  // Read default: an empty map — the dark posture for every capability.
+  assert.deepEqual(readDomain(configService, 'integration-providers', FIRM).value, { providers: {} });
 
   // Reads are fail-safe: a damaged stored value degrades to the default.
-  configService.settings.set(FIRM, 'integrations', 'provider', { provider: 42 });
-  const damaged = readDomain(configService, 'integration-provider', FIRM);
-  assert.deepEqual(damaged.value, { provider: null });
+  configService.settings.set(FIRM, 'integrations', 'providers', { providers: 'nonsense' });
+  const damaged = readDomain(configService, 'integration-providers', FIRM);
+  assert.deepEqual(damaged.value, { providers: {} });
   assert.ok(damaged.issues.length > 0);
 
-  // Writes are strict: unknown fields and unregistered providers are refused.
-  assert.equal(validateDomain('integration-provider', { provider: PROVIDER_KEY, extra: 1 }, {}).ok, false);
-  const unregistered = validateDomain('integration-provider', { provider: 'clio' },
-    { integrationProviderKeys: [PROVIDER_KEY] });
-  assert.equal(unregistered.ok, false);
-  const registered = validateDomain('integration-provider', { provider: PROVIDER_KEY },
-    { integrationProviderKeys: [PROVIDER_KEY] });
-  assert.equal(registered.ok, true);
+  const ctx = {
+    integrationProviderKeys: [PROVIDER_KEY, 'capture-2'],
+    integrationTypes: ['demo-record-sync', 'demo-calendar-sync'],
+  };
+  // Writes are strict: unknown fields, unknown TYPES, and unregistered
+  // providers are all refused when the producer supplies context.
+  assert.equal(validateDomain('integration-providers', { providers: {}, extra: 1 }, {}).ok, false);
+  assert.equal(validateDomain('integration-providers',
+    { providers: { 'billing-sync': PROVIDER_KEY } }, ctx).ok, false, 'unknown capability refused');
+  assert.equal(validateDomain('integration-providers',
+    { providers: { 'demo-record-sync': 'clio' } }, ctx).ok, false, 'unregistered provider refused');
+  // A full multi-capability map with distinct providers is valid.
+  assert.equal(validateDomain('integration-providers',
+    { providers: { 'demo-record-sync': PROVIDER_KEY, 'demo-calendar-sync': 'capture-2' } }, ctx).ok, true);
   // Explicitly returning to dark is always a valid write.
-  assert.equal(validateDomain('integration-provider', { provider: null },
-    { integrationProviderKeys: [PROVIDER_KEY] }).ok, true);
+  assert.equal(validateDomain('integration-providers', { providers: {} }, ctx).ok, true);
+});
+
+test('service: PER-CAPABILITY selection — one organization routes different types to different providers at once', async () => {
+  const configService = configServiceWithFirm();
+  const { lines, telemetry } = capture();
+  const registry = createIntegrationProviderRegistry();
+  const recordProvider = createDemoIntegrationProvider({ telemetry });
+  const calendarDeliveries = [];
+  registry.register(recordProvider);
+  registry.register({
+    providerKey: 'capture-2',
+    deliver: async ({ request }) => { calendarDeliveries.push(request.integrationKey); return { status: 'completed' }; },
+  });
+  const clock = fixedClock(T0);
+  const service = createIntegrationService({
+    registry, deliveryStore: createInMemoryIntegrationDeliveryStore({ clock }), configService, telemetry,
+  });
+
+  configService.settings.set(FIRM, 'integrations', 'providers', {
+    providers: { 'demo-record-sync': PROVIDER_KEY, 'demo-calendar-sync': 'capture-2' },
+  });
+
+  // Records go to one provider…
+  const record = await service.request(makeRequest(), {});
+  assert.equal(record.status, 'completed');
+  assert.equal(recordProvider.deliveries().length, 1);
+  // …calendars go to the other, simultaneously, same organization.
+  const calendar = await service.request({
+    type: 'demo-calendar-sync', organizationKey: FIRM,
+    integrationKey: 'demo-calendar-sync:sess-1', facts: { sessionId: 'sess-1' },
+  }, {});
+  assert.equal(calendar.status, 'completed');
+  assert.deepEqual(calendarDeliveries, ['demo-calendar-sync:sess-1']);
+  assert.equal(recordProvider.deliveries().length, 1, 'no cross-capability leakage');
+  assert.ok(lines.some((l) => l.event === 'guideherd.integration.delivered' && l.provider === 'capture-2'));
+});
+
+test('service: one provider may serve multiple capabilities; an unmapped type stays dark while mapped types work', async () => {
+  const configService = configServiceWithFirm();
+  const { service, provider } = makeService({ configService });
+
+  // The SAME provider serves both capabilities.
+  configService.settings.set(FIRM, 'integrations', 'providers', {
+    providers: { 'demo-record-sync': PROVIDER_KEY, 'demo-calendar-sync': PROVIDER_KEY },
+  });
+  assert.equal((await service.request(makeRequest(), {})).status, 'completed');
+  assert.equal((await service.request({
+    type: 'demo-calendar-sync', organizationKey: FIRM,
+    integrationKey: 'demo-calendar-sync:sess-1', facts: { sessionId: 'sess-1' },
+  }, {})).status, 'completed');
+  assert.equal(provider.deliveries().length, 2);
+  assert.deepEqual(provider.deliveries().map((d) => d.type).sort(),
+    ['demo-calendar-sync', 'demo-record-sync']);
+
+  // Unmap ONE capability: it goes dark; the other keeps working. Per-type
+  // resolution means no global switch exists to trip.
+  configService.settings.set(FIRM, 'integrations', 'providers', {
+    providers: { 'demo-record-sync': PROVIDER_KEY },
+  });
+  assert.equal((await service.request({
+    type: 'demo-calendar-sync', organizationKey: FIRM,
+    integrationKey: 'demo-calendar-sync:sess-2', facts: { sessionId: 'sess-2' },
+  }, {})).status, 'not-configured');
+  assert.equal((await service.request(makeRequest({ integrationKey: 'demo-record-sync:sess-2' }), {})).status,
+    'completed', 'sibling capability unaffected');
 });
 
 // ── Application composition ─────────────────────────────────────────────────
@@ -293,7 +363,7 @@ test('composition: an end-to-end request through the composed app is dark by def
   const dark = await app.integrations.service.request(makeRequest(), { correlationId: 'gh-e2e' });
   assert.equal(dark.status, 'not-configured');
 
-  configService.settings.set(FIRM, 'integrations', 'provider', { provider: PROVIDER_KEY });
+  configService.settings.set(FIRM, 'integrations', 'providers', { providers: { 'demo-record-sync': PROVIDER_KEY } });
   const live = await app.integrations.service.request(
     makeRequest({ integrationKey: 'demo-record-sync:sess-live' }), { correlationId: 'gh-e2e' });
   assert.equal(live.status, 'completed', 'configuration is live — the very next request uses it');

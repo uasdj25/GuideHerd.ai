@@ -96,6 +96,25 @@ from production composition, and no credential or connection string is ever
 printed. Use it locally where no PostgreSQL exists; CI can keep supplying
 `GUIDEHERD_TEST_DATABASE_URL` instead.
 
+Dependency review (recorded 2026-07-18, retained): `embedded-postgres` is
+MIT-licensed, maintained by Lei Nelissen (leinelissen/embedded-postgres on
+GitHub; actively published). Real PostgreSQL binaries are BUNDLED inside
+per-platform npm packages (no download-at-install), selected via
+optionalDependencies covering darwin arm64/x64, linux x64/arm64/arm/ia32/
+ppc64, and windows x64 — macOS ARM64 development and Linux CI both work.
+The only install hook is the platform package's `postinstall`
+symlink-rehydration script, which reads a bundled manifest and creates
+package-internal symlinks only (inspected; no network, no writes outside
+its own directory). Transitive runtime deps: `pg` (already a project
+dependency) and `async-exit-hook` (tiny, zero-dep). Versioning caveat: the
+package publishes no untagged-stable releases (major.minor tracks the real
+PostgreSQL version; the suffix tracks wrapper maturity) — acceptable for
+an exact-pinned dev-only harness. Preferred over a CI-service-container-
+only approach because it gives developers a real local PostgreSQL leg with
+zero system software, while CI remains free to supply
+`GUIDEHERD_TEST_DATABASE_URL` from a service container — the two paths
+share the same suite.
+
 ## Operational Store
 
 `operational/` is the durable home of operational conversation state

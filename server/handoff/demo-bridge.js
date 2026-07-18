@@ -240,7 +240,7 @@ function normalizeOutcome(body) {
  */
 async function recordOutcomeAndDeliver({ service, store, mailer, telemetry }, sessionId, outcome, context = {}) {
   const emit = telemetry ? telemetry.event.bind(telemetry) : () => {};
-  const { session } = await service.applyOutcome(sessionId, outcome); // throws on invalid transitions
+  const { session } = await service.applyOutcome(sessionId, outcome, { correlationId: context.correlationId }); // throws on invalid transitions
 
   const claim = await store.claimSummaryDelivery(session.sessionId);
   let summaryDelivery = claim.summaryDelivery;

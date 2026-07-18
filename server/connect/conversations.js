@@ -74,7 +74,7 @@ function createConversationService({
       let result;
       try {
         // throws 404/409 exactly as before; ambiguity is never resolved by guessing
-        result = await engine.correlate(firmId, intent);
+        result = await engine.correlate(firmId, intent, { correlationId: context.correlationId });
       } catch (err) {
         emit('correlation.failed', {
           severity: 'warn',

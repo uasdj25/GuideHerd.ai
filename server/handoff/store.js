@@ -76,7 +76,7 @@ function assertKnownCriteria(criteria) {
  *
  * @param {{ clock: import('./clock').Clock }} deps
  */
-function createInMemoryHandoffStore({ clock }) {
+function createInMemoryHandoffStore({ clock, outbox = null }) {
   /** @type {Map<string, import('./models').InternalSession>} */
   const sessionsById = new Map();
   /** @type {Map<string, string>} handoff tokenHash -> sessionId */
@@ -134,7 +134,7 @@ function createInMemoryHandoffStore({ clock }) {
      * @param {string} tokenHash
      * @returns {Promise<import('./models').InternalSession>}
      */
-    async redeem(tokenHash) {
+    async redeem(tokenHash, context = {}) {
       const now = clock.now();
       const sessionId = tokenHashToSessionId.get(tokenHash);
       if (!sessionId) throw new UnknownTokenError();
@@ -157,6 +157,15 @@ function createInMemoryHandoffStore({ clock }) {
 
       session.redeemedAtMs = now;
       session.status = SessionStatus.CONNECTED;
+      if (outbox) {
+        outbox.appendSync({
+          type: 'conversation.connected',
+          organizationKey: session.firmId,
+          sessionId: session.sessionId,
+          correlationId: (context && context.correlationId) || null,
+          payload: {},
+        });
+      }
       return session;
     },
 
@@ -238,7 +247,7 @@ function createInMemoryHandoffStore({ clock }) {
      * @param {{ sessionId?: string, callerPhoneNormalized?: string }} [criteria]
      * @returns {Promise<import('./models').InternalSession>}
      */
-    async connectEligible(firmId, criteria = {}) {
+    async connectEligible(firmId, criteria = {}, context = {}) {
       assertKnownCriteria(criteria);
       const now = clock.now();
       const eligible = [];
@@ -256,6 +265,16 @@ function createInMemoryHandoffStore({ clock }) {
       const session = eligible[0];
       session.redeemedAtMs = now;
       session.status = SessionStatus.CONNECTED;
+      // Durable domain event (ADR-0017), same atomic pass as the transition.
+      if (outbox) {
+        outbox.appendSync({
+          type: 'conversation.connected',
+          organizationKey: session.firmId,
+          sessionId: session.sessionId,
+          correlationId: (context && context.correlationId) || null,
+          payload: {},
+        });
+      }
       return session;
     },
 
@@ -270,6 +289,8 @@ function createInMemoryHandoffStore({ clock }) {
     async connectDemo(firmId) {
       return api.connectEligible(firmId, {});
     },
+
+    // (redeem publishes below; connectDemo delegates to connectEligible.)
 
     /**
      * Count the organization's eligible (awaiting-transfer, unexpired)
@@ -301,7 +322,7 @@ function createInMemoryHandoffStore({ clock }) {
      *          unresolvedQuestions?: string[], escalationRequired?: boolean}} outcome
      * @returns {Promise<{ session: import('./models').InternalSession, duplicate: boolean }>}
      */
-    async applyOutcome(sessionId, outcome) {
+    async applyOutcome(sessionId, outcome, context = {}) {
       const session = sessionsById.get(sessionId);
       if (!session) throw new UnknownSessionError();
       const now = clock.now();
@@ -323,6 +344,18 @@ function createInMemoryHandoffStore({ clock }) {
       session.status = outcome.status;
       session.outcome = outcome;
       session.completedAtMs = now;
+      // Durable domain event (ADR-0017): the outcome and its event are one
+      // atomic pass — the operation cannot succeed without the event, and
+      // an idempotent duplicate report publishes nothing new.
+      if (outbox) {
+        outbox.appendSync({
+          type: 'conversation.completed',
+          organizationKey: session.firmId,
+          sessionId: session.sessionId,
+          correlationId: (context && context.correlationId) || null,
+          payload: { status: outcome.status },
+        });
+      }
       return { session, duplicate: false };
     },
 

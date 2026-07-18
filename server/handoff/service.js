@@ -155,8 +155,8 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
      * @param {string} sessionId
      * @param {object} outcome validated GuideHerd outcome
      */
-    async applyOutcome(sessionId, outcome) {
-      return store.applyOutcome(sessionId, outcome);
+    async applyOutcome(sessionId, outcome, context = {}) {
+      return store.applyOutcome(sessionId, outcome, context);
     },
 
     /**
@@ -176,9 +176,9 @@ function createHandoffService({ store, clock, ttlSeconds = HANDOFF_TTL_SECONDS, 
      * @param {string} token
      * @returns {import('./models').RedeemResponse}
      */
-    async redeem(token) {
+    async redeem(token, context = {}) {
       const tokenHash = idgen.hashToken(token);
-      const session = await store.redeem(tokenHash); // throws domain errors on failure
+      const session = await store.redeem(tokenHash, context); // throws domain errors on failure
 
       return {
         sessionId: session.sessionId,

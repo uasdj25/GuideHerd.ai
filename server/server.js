@@ -8,6 +8,7 @@ const { createConfigService } = require('./config/service');
 const { loadSeedDocument } = require('./config/seed');
 const { ConfigError } = require('./config/errors');
 const { systemClock } = require('./handoff/clock');
+const { createOutboxPoller, DEFAULT_POLL_INTERVAL_MS } = require('./outbox/outbox');
 
 // ---------------------------------------------------------------------------
 // SECURITY — STATUS AND REMAINING REQUIREMENT
@@ -81,16 +82,19 @@ async function main() {
   const OPERATIONAL_PROVIDER = (process.env.GUIDEHERD_OPERATIONAL_PROVIDER || 'memory').trim().toLowerCase();
   let handoffStore; // undefined -> createApp uses the in-memory default
   let notificationDeliveryStore; // undefined -> in-memory default (ADR-0011)
+  let outboxStore; // undefined -> in-memory default (ADR-0017)
   let operationalMigrationsApplied = null;
   if (OPERATIONAL_PROVIDER === 'postgres') {
     const { createOperationalPool } = require('./operational/db');
     const { migrate: migrateOperational } = require('./operational/migrate');
     const { createPostgresHandoffStore } = require('./operational/session-repository');
     const { createPostgresNotificationDeliveryStore } = require('./operational/notification-deliveries');
+    const { createPostgresOutboxStore } = require('./operational/outbox-store');
     try {
       const pool = createOperationalPool();
       operationalMigrationsApplied = await migrateOperational(pool);
-      handoffStore = createPostgresHandoffStore({ pool, clock: systemClock() });
+      outboxStore = createPostgresOutboxStore({ pool, clock: systemClock() });
+      handoffStore = createPostgresHandoffStore({ pool, clock: systemClock(), outbox: outboxStore });
       notificationDeliveryStore = createPostgresNotificationDeliveryStore({ pool, clock: systemClock() });
     } catch (err) {
       fatal('Operational Store (postgres) is unavailable; refusing to start.', {
@@ -104,10 +108,28 @@ async function main() {
 
   // Browser origins are allowlisted via CORS_ALLOWED_ORIGINS (comma-separated).
   // Defaults to https://guideherd.ai and http://localhost:8080. Never `*`.
-  const { handler } = createApp({ configService, configDb, handoffStore, notificationDeliveryStore });
+  const app = createApp({ configService, configDb, handoffStore, notificationDeliveryStore, outboxStore });
+  const { handler } = app;
   const server = http.createServer(handler);
 
+  // Outbox restart recovery (ADR-0017): process anything left pending by
+  // a previous instance before/while serving traffic.
+  app.outbox.drain().catch(() => {});
+
+  // Outbox liveness (ADR-0017 §3): post-commit nudges give low latency;
+  // the poller guarantees EVENTUAL processing — pending retries and stale
+  // processing claims recover without new traffic or a restart. Safe with
+  // multiple API instances via the store's atomic delivery claims.
+  const RAW_POLL_INTERVAL = process.env.GUIDEHERD_OUTBOX_POLL_INTERVAL_MS;
+  const OUTBOX_POLL_INTERVAL_MS = RAW_POLL_INTERVAL === undefined ? DEFAULT_POLL_INTERVAL_MS : Number(RAW_POLL_INTERVAL);
+  if (!Number.isFinite(OUTBOX_POLL_INTERVAL_MS) || OUTBOX_POLL_INTERVAL_MS <= 0) {
+    fatal(`Invalid GUIDEHERD_OUTBOX_POLL_INTERVAL_MS "${RAW_POLL_INTERVAL}" (expected a positive number of milliseconds).`);
+  }
+  const outboxPoller = createOutboxPoller({ outbox: app.outbox, intervalMs: OUTBOX_POLL_INTERVAL_MS });
+  server.on('close', () => outboxPoller.stop());
+
   server.listen(PORT, HOST, () => {
+    outboxPoller.start(); // after successful boot: the port is bound
     console.log(JSON.stringify({
       level: 'info',
       message: `GuideHerd Context Handoff API listening on ${HOST}:${PORT}`,
@@ -117,6 +139,7 @@ async function main() {
       seeded: seedResult ? { organization: seedResult.organization, counts: seedResult.counts } : null,
       operationalProvider: OPERATIONAL_PROVIDER,
       operationalMigrationsApplied,
+      outboxPollIntervalMs: OUTBOX_POLL_INTERVAL_MS,
     }));
   });
 

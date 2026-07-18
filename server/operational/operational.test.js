@@ -51,6 +51,8 @@ if (!PG_URL) {
   let sharedPool;
 
   async function resetDatabase(pool) {
+    await pool.query('DROP TABLE IF EXISTS outbox_deliveries');
+    await pool.query('DROP TABLE IF EXISTS outbox_events');
     await pool.query('DROP TABLE IF EXISTS handoff_sessions');
     await pool.query('DROP TABLE IF EXISTS notification_deliveries');
     await pool.query('DROP TABLE IF EXISTS operational_schema_migrations');
@@ -60,18 +62,18 @@ if (!PG_URL) {
     sharedPool = createOperationalPool({ connectionString: PG_URL });
     await resetDatabase(sharedPool);
 
-    assert.equal(await migrate(sharedPool), 2, 'both pending migrations apply');
+    assert.equal(await migrate(sharedPool), 3, 'all pending migrations apply');
     assert.equal(await migrate(sharedPool), 0, 're-run is a no-op');
 
     // Concurrent boots: several runners at once, advisory lock serializes.
     await resetDatabase(sharedPool);
     const pools = [createOperationalPool({ connectionString: PG_URL }), createOperationalPool({ connectionString: PG_URL })];
     const results = await Promise.all([migrate(sharedPool), migrate(pools[0]), migrate(pools[1])]);
-    assert.equal(results.reduce((a, b) => a + b, 0), 2, 'exactly one runner applies the migrations');
+    assert.equal(results.reduce((a, b) => a + b, 0), 3, 'exactly one runner applies the migrations');
     await Promise.all(pools.map((p) => p.end()));
 
     const { rows } = await sharedPool.query('SELECT count(*)::int AS n FROM operational_schema_migrations');
-    assert.equal(rows[0].n, 2);
+    assert.equal(rows[0].n, 3);
   });
 
   // Contract suite against PostgreSQL. Each test gets a truncated table on
@@ -340,6 +342,66 @@ if (!PG_URL) {
     // Nothing sensitive at rest: keys and statuses only.
     const { rows } = await sharedPool.query('SELECT * FROM notification_deliveries');
     assert.equal(/@|caller|phone|subject|html/i.test(JSON.stringify(rows)), false);
+  });
+
+  test('[postgres] outbox: transactional publishing — the event commits and rolls back WITH the business change', async () => {
+    const { createPostgresOutboxStore } = require('./outbox-store');
+    const { createPostgresHandoffStore: mkStore } = require('./session-repository');
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE outbox_deliveries, outbox_events');
+    await sharedPool.query('TRUNCATE handoff_sessions');
+    const outbox = createPostgresOutboxStore({ pool: sharedPool, clock });
+    const store = mkStore({ pool: sharedPool, clock, outbox });
+
+    // Success: outcome + event commit together.
+    const { session } = makeSession();
+    await store.create(session);
+    await store.connectEligible('org-a', { sessionId: session.sessionId }, { correlationId: 'gh-outbox00000000000000001' });
+    await store.applyOutcome(session.sessionId, { ...BOOKED_OUTCOME }, { correlationId: 'gh-outbox00000000000000001' });
+    const events = await outbox.listRecent({ organizationKey: 'org-a' });
+    assert.deepEqual(events.map((e) => e.type), ['conversation.completed', 'conversation.connected']);
+    assert.equal(events[0].correlationId, 'gh-outbox00000000000000001');
+
+    // Failure: a rejected business operation publishes NOTHING (the
+    // conflicting outcome rolls back, and its would-be event with it).
+    await assert.rejects(() => store.applyOutcome(session.sessionId, { status: 'failed', schedulingSummary: 'No.' }, {}));
+    assert.equal(await outbox.size(), 2, 'no event exists for a failed business operation');
+
+    // Idempotent duplicate: no new event either.
+    await store.applyOutcome(session.sessionId, JSON.parse(JSON.stringify(BOOKED_OUTCOME)), {});
+    assert.equal(await outbox.size(), 2);
+  });
+
+  test('[postgres] outbox: restart recovery and cross-instance exactly-one claim', async () => {
+    const { createPostgresOutboxStore } = require('./outbox-store');
+    const { createOutbox } = require('../outbox/outbox');
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE outbox_deliveries, outbox_events');
+    const storeA = createPostgresOutboxStore({ pool: sharedPool, clock });
+    const appended = await storeA.append({ type: 'conversation.completed', organizationKey: 'org-a', sessionId: 's-1', payload: { status: 'booked' } });
+
+    // "Instance one" dies before processing. "Instance two" boots, drains,
+    // and the durable event is delivered exactly once across BOTH
+    // instances' processors claiming concurrently.
+    const poolB = createOperationalPool({ connectionString: PG_URL });
+    const storeB = createPostgresOutboxStore({ pool: poolB, clock });
+    let handled = 0;
+    const mkProcessor = (s) => {
+      const processor = createOutbox({ store: s, clock });
+      processor.register({ consumer: 'notifications', async handle() { handled += 1; } });
+      return processor;
+    };
+    const [pa, pb] = [mkProcessor(storeA), mkProcessor(storeB)];
+    await Promise.all([pa.drain(), pb.drain()]);
+    assert.equal(handled, 1, 'at-least-once delivery, exactly one concurrent claimant');
+    assert.equal((await storeA.deliveryOf(appended.id, 'notifications')).status, 'completed');
+
+    // Duplicate suppression across a later restart: a fresh processor
+    // finds nothing to do.
+    const pc = mkProcessor(storeB);
+    await pc.drain();
+    assert.equal(handled, 1, 'completed deliveries never redeliver');
+    await poolB.end();
   });
 
   test('[postgres] teardown', async () => {

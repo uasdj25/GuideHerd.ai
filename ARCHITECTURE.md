@@ -155,6 +155,7 @@ live in one codebase; the boundaries let them separate later without a rewrite.
 - [ADR-0014: The GuideHerd Operations Center](docs/architecture-decisions/ADR-0014-operations-center.md)
 - [ADR-0015: The GuideHerd Administration Framework](docs/architecture-decisions/ADR-0015-administration-framework.md)
 - [ADR-0016: The GuideHerd Customer Configuration Framework](docs/architecture-decisions/ADR-0016-customer-configuration-framework.md)
+- [ADR-0017: The GuideHerd Durable Event Outbox](docs/architecture-decisions/ADR-0017-durable-event-outbox.md)
 
 See also [Vision](docs/Vision.md) and [Roadmap](docs/Roadmap.md).
 

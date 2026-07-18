@@ -58,8 +58,10 @@ Customer documentation must never contain:
 - Internal architectural terminology — *contract*, *provider registry*,
   *outbox*, *capability token*, *policy engine*, *fail-closed*, *idempotent*
 - Source file paths, function names, class names, database tables
-- Environment variable names *except* in Installation & Deployment, where the
-  reader really is the person setting them
+- Environment variable names, configuration keys, or command-line flags —
+  **anywhere**, including Installation & Deployment. That page describes
+  deployment *decisions and consequences*; the variable reference lives in the
+  internal operator documentation, so there is exactly one copy to keep true
 - HTTP endpoints, status codes, or JSON payloads *except* in the Reference Guide
 - Internal role or permission identifiers where a plain description works
 
@@ -68,6 +70,27 @@ scoping is enforced structurally."
 
 Say "Sign-in isn't set up yet — contact your GuideHerd administrator" — not
 "the user-auth provider returned 503."
+
+### Distinguish guarantees from deployment behavior
+
+A claim can be true of the GuideHerd software, true only of a particular storage
+choice, or true only of one firm's deployment. Presenting the second or third as
+the first is how documentation becomes either falsely reassuring or needlessly
+alarming.
+
+Separate them explicitly:
+
+1. **Always true** — a guarantee of the software itself.
+2. **Depends on your setup** — determined by the configured stores.
+3. **Confirm with GuideHerd support** — a fact about a specific deployment that
+   documentation cannot know.
+
+Never state a storage-provider-specific behavior as universal. "A restart clears
+your history" is false for a durable deployment; "whether history survives
+depends on your storage — ask which you have" is true everywhere.
+
+Where a fact cannot be proven for the reader's deployment, say so and say who to
+ask. Accurate uncertainty beats a confident guess in either direction.
 
 ### Document only what actually exists
 
@@ -103,7 +126,7 @@ can drift.
 docs/customer/
   README.md                      Navigation and index — start here
   getting-started.md             First-time orientation
-  installation-and-deployment.md Getting GuideHerd running
+  installation-and-deployment.md Deployment decisions and verification
   administrator-guide.md         Running GuideHerd day to day
   receptionist-guide.md          Using the Reception Console
   operations-guide.md            Monitoring what happened

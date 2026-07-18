@@ -1,12 +1,15 @@
 # Installation & Deployment
 
-This guide is for whoever runs GuideHerd's infrastructure — usually GuideHerd
-staff or a firm's IT provider. If you administer your firm's *settings* rather
-than its servers, you want the
-[Administrator Guide](administrator-guide.md) instead.
+This guide is for whoever arranges GuideHerd's infrastructure for a firm —
+usually GuideHerd staff or a firm's IT provider.
 
-Unlike the rest of this documentation, this page names the actual environment
-variables, because the reader is the person setting them.
+It covers the **decisions** a deployment involves and how to verify one is
+working. It deliberately does not list configuration variable names: whoever is
+actually typing those has the operator reference, and reproducing them here
+would only create a second copy to drift.
+
+If you administer your firm's *settings* rather than its infrastructure, you
+want the [Administrator Guide](administrator-guide.md) instead.
 
 ---
 
@@ -16,179 +19,103 @@ GuideHerd is a single service plus a set of static screens.
 
 | Piece | What it is |
 |---|---|
-| **API service** | Node.js, listens on `PORT` (default `3000`) |
-| **Configuration store** | SQLite file — your firm's setup |
-| **Operational store** | In-memory, or PostgreSQL for durability |
-| **Screens** | Static pages — Reception Console, Operations Center, Administration |
+| **API service** | The application itself |
+| **Configuration store** | Your firm's setup — practice areas, attorneys, settings |
+| **Operational store** | Sessions, notification records, reminders |
+| **Screens** | Reception Console, Operations Center, Administration |
 
-Requires Node.js 22.5 or later.
-
----
-
-## Minimum viable deployment
-
-The service starts with almost nothing configured. That's deliberate — an
-unconfigured GuideHerd runs rather than refusing to boot, so you can bring
-capabilities up one at a time.
-
-```bash
-cd server
-npm start
-```
-
-What you get with no configuration: the API runs, the console loads, and
-scheduling options come from the configuration store. What you *don't* get:
-email delivery, durable sessions, or authenticated sign-in.
+The service starts even when little is configured. That's deliberate — an
+incomplete deployment runs rather than refusing to boot, so capabilities can be
+brought up one at a time.
 
 ---
 
-## Core settings
+## The four decisions
 
-| Variable | Default | What it does |
+Every GuideHerd deployment answers these. Each has real consequences for the
+firm, so decide them deliberately rather than by default.
+
+### 1. Where does operational data live?
+
+Sessions, notification records, and pending reminders are held either **in
+memory** or in a **durable database**.
+
+| | In memory | Durable database |
 |---|---|---|
-| `PORT` | `3000` | Listen port |
-| `CORS_ALLOWED_ORIGINS` | `https://guideherd.ai,http://localhost:8080` | Browser origins allowed to call the API. Exact matches only — wildcards are ignored. |
-| `GUIDEHERD_CONFIG_DB` | `./guideherd-config.db` | Path to the configuration store. Migrations apply automatically at boot. |
+| Survives a restart | No | **Yes** |
+| Pending reminders survive | No | **Yes** |
+| Operations Center history survives | No | **Yes** |
+| More than one instance possible | No | **Yes** |
 
-**If the Reception Console can't reach the API, check `CORS_ALLOWED_ORIGINS`
-first.** It is the most common deployment mistake, because the failure looks
-like a network problem rather than a configuration one.
+**A durable database is the recommended configuration** and is what a firm
+should expect. In-memory is appropriate only for a trial that nobody depends on.
 
----
+If the service is misconfigured to use a database it cannot reach, it **stops
+rather than starting** — deliberately. A service that silently reverted to
+in-memory would lose bookings quietly, which is far worse than one that refuses
+to start loudly.
 
-## Choosing where sessions live
+### 2. How is the firm's configuration managed?
 
-`GUIDEHERD_OPERATIONAL_PROVIDER` selects the operational store:
+Two mutually exclusive modes, and **the choice must be made explicitly**:
 
-- **`memory`** (default) — sessions live in process memory. A restart clears
-  them. Fine for a single instance and a pilot.
-- **`postgres`** — durable sessions in PostgreSQL. Required for more than one
-  instance.
+- **Managed live** — the firm's setup is stored durably, and changes made in the
+  Administration screen persist.
+- **Rebuilt from a file at startup** — a setup document is re-imported every
+  time the service restarts.
 
-With `postgres`, supply a connection string via `DATABASE_URL` (Railway injects
-this when a PostgreSQL service is linked) or
-`GUIDEHERD_OPERATIONAL_DATABASE_URL` (which wins if both are set).
+> **These modes cannot be mixed.** In file mode, **anything changed through the
+> Administration screen is silently reverted at the next restart** — with no
+> warning, and no way for an administrator to tell which mode they're in.
+>
+> Whoever deploys must tell the firm's administrator which mode is in use. Not
+> knowing is how an afternoon of configuration disappears.
 
-**There is no silent fallback, by design.** Selecting `postgres` with an
-unreachable database, a failed migration, or no connection string makes the
-process **exit rather than start**. An unknown value does the same. A service
-that won't start is a loud, obvious failure; a service that silently reverted to
-in-memory sessions would lose bookings quietly.
+### 3. Is email configured?
 
-**Rollback:** set it back to `memory` and redeploy.
+Email delivery requires credentials for the mail system. Without them the
+service runs normally but **sends nothing at all** — including the consultation
+summary — and the Operations Center reports every delivery as `not-configured`.
 
-`GUIDEHERD_PG_POOL_MAX` (default `5`) sets the connection pool per instance.
-Keep the sum across all instances under your database plan's connection limit.
+**Verify email actually works before a firm relies on it.** A deployment that is
+otherwise perfect but silently sends no email looks fine from every screen.
 
----
+Note that the address email comes *from* is set here, at deployment. A firm's
+configured sender name appears inside the message but does not change the From
+address; email from the firm's own domain requires a firm-specific mailbox.
 
-## Email delivery
+### 4. Does the Reception Console require sign-in?
 
-Email goes out through Microsoft Graph. **All five of these must be present or
-the mailer stays disabled:**
+Off by default — the console is open to anyone who can reach it, which is often
+reasonable for a front-desk machine on an office network.
 
-```
-MS_TENANT_ID
-MS_CLIENT_ID
-MS_CLIENT_SECRET
-SUMMARY_MAILBOX
-SUMMARY_RECIPIENT
-```
+Turning it on is a **planned change, not a configuration tweak**: every
+receptionist must be provisioned and individually verified first, or they cannot
+work the moment it's on. There is a separate operational runbook for this, and
+it includes rehearsing the rollback.
 
-With any missing, the API starts normally and reports delivery as
-`not-configured` rather than failing. This is intentional: **a mail failure
-never reverses a confirmed appointment.** Booking and notification are separate
-outcomes, so a mail outage costs you notifications, not bookings.
-
-`NOTIFICATION_MAILBOX` sets the sending mailbox (falling back to
-`SUMMARY_MAILBOX`).
-
-**Note on sender identity:** the address emails come *from* is this mailbox — a
-deployment setting. A firm's configured sender name appears in the subject and
-body, but does **not** change the From address. If a firm needs email to come
-from its own domain, that requires a firm-specific mailbox at deployment time.
-It is not something a firm administrator can configure.
-
----
-
-## Setting up a firm's configuration
-
-The configuration store holds each firm's setup. How you populate it depends on
-whether your filesystem survives a restart.
-
-**With a persistent disk** (a real filesystem, or an attached volume): the
-database persists. Seed it once and leave `GUIDEHERD_SEED_FILE` unset.
-
-**With an ephemeral filesystem** (a container with no volume attached): the
-database is lost on every restart. Set `GUIDEHERD_SEED_FILE` to a seed document
-so the firm's setup is rebuilt at boot.
-
-> **Plan for this deliberately.** On an ephemeral filesystem without a seed
-> file, a restart leaves a firm with no practice areas, attorneys, or
-> consultation types — and the Reception Console will show its "couldn't load
-> scheduling options" error to every receptionist. Attach a volume or set a seed
-> file. Do not rely on the store surviving by luck.
-
-Some setup is **seed-file-only today** — consultation types, routing groups and
-their practice-area assignments. There is no administration screen for these, so
-changing them means editing the seed or configuration directly. See the
-[Configuration Guide](configuration-guide.md) for what is and isn't
-administrable.
-
----
-
-## Sign-in (optional, off by default)
-
-`GUIDEHERD_CONSOLE_AUTH` controls whether the Reception Console requires a
-sign-in:
-
-- **`anonymous`** (default) — no sign-in. The console is open to anyone who can
-  reach it.
-- **`required`** — receptionists must sign in.
-
-Any other value refuses to boot.
-
-**Enabling this is a deliberate, planned change, not a config tweak.** Turning
-it on immediately gates every receptionist, and an unprovisioned receptionist
-cannot work. Users must be provisioned and individually verified *before* the
-switch, and the rollback should be rehearsed first.
-
-Follow the operational runbook rather than doing it from this page.
-
-Related settings: `GUIDEHERD_DEV_USERS` (provisioned users),
-`GUIDEHERD_USER_AUTH_PROVIDER`, `GUIDEHERD_USER_SESSION_TTL_SECONDS`
-(default 8 hours, absolute — not extended by activity).
-
-**Sessions are held in memory.** A restart signs everyone out, and more than one
-instance will not work correctly with sign-in enabled until durable session
-storage is in place.
-
----
-
-## Other settings
-
-| Variable | Default | What it does |
-|---|---|---|
-| `GUIDEHERD_MAX_PREPARED_SESSIONS` | `20` | Concurrent prepared sessions per firm. Exceeding it returns a "too many prepared sessions" error. |
-| `GUIDEHERD_OUTBOX_POLL_INTERVAL_MS` | — | How often queued work (notifications, reminders) is drained |
-| `DEMO_BRIDGE_SECRET` | — | Demo infrastructure only. **Not production authentication.** Unset leaves those endpoints returning a controlled error. |
+Note that while sign-in is enabled, **login sessions are held in memory** — a
+restart signs everyone out, and exactly one instance of the service is
+supported. More than one instance requires durable session storage first.
 
 ---
 
 ## Verifying a deployment
 
-Work through these in order. Each one depends on the ones above it.
+Work through these in order; each depends on the ones above it.
 
 1. **The service starts** and stays up.
-2. **The Reception Console loads** and shows practice areas, attorneys, and
-   consultation types. If it shows the options error, the configuration store is
-   empty or unreachable — or CORS is wrong.
-3. **A full session completes:** prepare, transfer, book. Use your own email.
-4. **The confirmation arrives.** If not, check the five `MS_*` variables and the
-   Operations Center's notification view.
-5. **The Operations Center loads** and shows the session you just created.
-6. **A restart behaves as you expect** — which, with `memory`, means active
-   sessions are cleared.
+2. **The Reception Console loads** and shows the firm's practice areas,
+   attorneys, and consultation types. The "couldn't load scheduling options"
+   error here means the configuration store is empty or unreachable — or the
+   browser is being blocked from calling the API.
+3. **A full session completes:** prepare, transfer, book. Use a real address you
+   control.
+4. **The confirmation email actually arrives.** Do not skip this — it is the
+   step most often assumed rather than checked.
+5. **The Operations Center loads** and shows the session just created.
+6. **A restart behaves as expected** for the chosen storage — and confirm which
+   behavior *is* expected before testing it.
 
 Do all six before a real caller does them for you.
 
@@ -196,17 +123,50 @@ Do all six before a real caller does them for you.
 
 ## Upgrades
 
-Configuration store migrations apply automatically at boot. Operational store
-migrations apply on start when using `postgres`; a failed migration stops the
-process rather than starting in an unknown state.
+Storage migrations apply automatically at startup. A failed migration stops the
+service rather than starting it in an unknown state.
 
 Before upgrading a production deployment:
 
-1. Back up the configuration store file (and the PostgreSQL database if used).
+1. Confirm a current backup exists (see below).
 2. Deploy.
 3. Re-run the verification list above.
 
-**On backups: there is no automated backup built into GuideHerd.** Backing up
-the configuration store file and the operational database is your
-responsibility, through whatever your hosting platform provides. See
-[Backup and recovery](administrator-guide.md#backup-and-recovery).
+---
+
+## Backup and restore
+
+**GuideHerd's software does not perform backups of its own.** Backup and restore
+are properties of the storage the deployment is configured with — a managed
+database typically provides automated backups and point-in-time recovery; a
+plain file on a disk provides whatever the host provides and nothing more.
+
+Because it depends on the deployment, it must be **established and recorded per
+firm** rather than assumed:
+
+- Is the firm's configuration backed up, and on what schedule?
+- Is the operational database backed up, and does it support point-in-time
+  recovery?
+- **Has a restore ever actually been performed and verified?**
+
+An untested backup is a hope, not a plan. Record the answers where the firm
+keeps its continuity documentation, and give them to the firm's administrator —
+they are told to ask.
+
+---
+
+## Data retention
+
+**Automatic deletion of old caller data is not implemented.** Intended defaults
+exist — clearing abandoned sessions after a day, removing caller contact details
+from completed sessions after a month — but the job that would perform it has
+not been built. Nothing is deleted automatically today.
+
+A firm with a retention obligation needs a **written manual procedure**: who
+deletes what, how often, and how. Agree it before the firm goes live, not after
+someone asks.
+
+Two points in GuideHerd's favor, true in every deployment: consultation
+summaries are never stored (the delivered email is the only copy), and prepared
+sessions expire in 10 minutes, so caller details do not linger in a pending
+state.

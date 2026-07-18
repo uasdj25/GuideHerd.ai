@@ -25,11 +25,18 @@ You see your own firm's information and no one else's.
 watch it, and there's no refresh button — **reload the browser page** to see
 current information. It's a review tool, not a live wallboard.
 
-**Some history is lost on restart.** In a standard deployment, session records,
-notification records, and the event feed are cleared when the service restarts.
-Booked appointments are unaffected — those are in your calendar system — but
-GuideHerd's own recent history starts over. If you're investigating something
-and the history looks unexpectedly short, a restart is the likely reason.
+**Whether history survives a restart depends on your deployment.** On a durable
+database — the recommended configuration — session and notification records
+persist across restarts. On in-memory storage they're cleared and the page
+starts over.
+
+Booked appointments are unaffected either way; those live in your calendar
+system. If you're investigating something and the history looks unexpectedly
+short, a restart on an in-memory deployment is one explanation — but confirm
+with GuideHerd support which storage your firm uses before assuming that's it.
+
+One part is ephemeral regardless: the detailed event feed keeps only recent
+activity, so it is not a long-term audit trail in any configuration.
 
 ---
 

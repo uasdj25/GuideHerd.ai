@@ -9,7 +9,7 @@ Lookup tables, limits, and terms. For when you know what you're after.
 | Thing | Value | Notes |
 |---|---|---|
 | Transfer window | **10 minutes** | How long a prepared session waits |
-| Sign-in session | **8 hours** | Absolute — not extended by activity |
+| Sign-in session | **12 hours** | Absolute — measured from sign-in, not extended by activity |
 | Concurrent prepared sessions per firm | **20** | Adjustable at deployment |
 | Recent handoffs shown | **25** | No date filter, no export |
 | Recent notifications shown | **25** | Same |
@@ -96,15 +96,25 @@ role.
 
 | Data | Survives? |
 |---|---|
-| Firm configuration and change history | **Yes** |
-| Booked appointments | **Yes** — in your calendar system |
-| Active prepared sessions | No |
-| Notification delivery records | No |
-| Pending reminders | No |
-| Operations Center history | No |
-| Sign-in sessions | No |
+| Booked appointments | **Yes** — always; they're in your calendar system |
+| Firm configuration and change history | **Yes** — always |
+| Sign-in sessions | **No** — always; everyone signs back in |
+| Active prepared sessions | **Depends on your deployment's storage** |
+| Notification delivery records | **Depends on your deployment's storage** |
+| Pending reminders | **Depends on your deployment's storage** |
+| Operations Center history | **Depends on your deployment's storage** |
 
-Durable storage exists but isn't enabled by default.
+"Depends" means: on a durable database these survive; on in-memory storage they
+are cleared. Durable storage is the recommended configuration. **Confirm which
+your firm uses with GuideHerd support** — see the
+[Administrator Guide](administrator-guide.md#backup-and-recovery).
+
+## Backup and restore
+
+Backup and restore behavior depends on your firm's deployment. GuideHerd's
+software does not perform backups of its own; they are a property of the
+configured storage. **Confirm the policy with GuideHerd support**, including
+whether a restore has ever been tested.
 
 ---
 
@@ -120,7 +130,6 @@ Things people reasonably expect, that GuideHerd does not have:
 - Minimum notice, appointment buffers, per-type durations
 - Enforcement of business hours
 - Application of scheduling preferences to real bookings
-- Automatic backups
 - Automatic deletion of old caller data
 - Undo for configuration changes
 - Alerting when something fails
@@ -129,6 +138,10 @@ Things people reasonably expect, that GuideHerd does not have:
 - Data-export-on-request or erasure tooling
 
 Some are planned; none can be relied on today.
+
+Backups are **not** on this list, because they are not a GuideHerd software
+feature either way — they are a property of your deployment's storage. See
+"Backup and restore" above.
 
 ---
 

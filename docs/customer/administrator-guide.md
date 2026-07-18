@@ -95,8 +95,10 @@ Sign-in can be switched on. When it is:
 
 - Receptionists sign in with an issued credential
 - Their name appears at the top right, with a **Sign out** link
-- Sessions last **8 hours absolute** — not extended by activity, so a
-  receptionist on a long shift is signed out mid-shift and signs back in
+- Sessions last **12 hours absolute** — measured from signing in, not extended
+  by activity. Chosen so a normal shift never hits the boundary mid-call, since
+  someone may sign in before their shift and shifts plus lunch and overtime
+  routinely exceed eight hours
 - A service restart signs everyone out
 
 **Switching this on is a planned change, not a setting you flip.** Every
@@ -278,37 +280,71 @@ the file mode, changes must go into that file, not the screen.
 
 Read this section properly. It's the one most likely to matter on a bad day.
 
-### What survives a restart
+### First, a distinction that matters
+
+How much survives a restart **depends on how your firm's GuideHerd is set up.**
+Some answers are the same everywhere; others are a deployment choice. Mixing
+those up leads either to false comfort or to needless alarm, so this section
+separates them.
+
+- **Always true** — a guarantee of the GuideHerd software itself.
+- **Depends on your setup** — determined by the storage your deployment uses.
+- **Confirm with GuideHerd support** — a fact about *your* deployment that this
+  documentation cannot know.
+
+### Always true
+
+**Booked appointments are never at risk from a GuideHerd restart.** They live in
+your calendar system, which is the authoritative record. This is the guarantee
+that matters most, and it holds in every configuration.
 
 **Your firm's configuration survives.** Practice areas, attorneys, settings, and
-the change history are stored on disk.
+the change history are stored durably, not in memory.
 
-**In a standard deployment, almost nothing else does.** A restart clears:
+**Everyone is signed out.** Login sessions are held in memory in every current
+deployment. People sign back in; nothing is lost. This is the one restart effect
+that is the same everywhere.
 
-- Active prepared sessions
-- Notification delivery records
-- Pending reminders
-- The Operations Center's session and event history
-- Everyone's sign-in
+**Consultation summaries are never stored.** The email that was delivered is the
+only copy — there is no second copy to lose or to leak.
 
-Booked appointments are **not** affected — those live in your calendar system,
-which is the record that matters. What you lose is GuideHerd's own recent
-history.
+### Depends on your setup
 
-Durable storage that survives restarts is built and available, but is **not
-enabled by default.** If losing operational history on restart is unacceptable
-for your firm, ask for it to be turned on. It's a deployment change.
+Operational history — prepared sessions, notification delivery records, pending
+reminders, and the Operations Center's recent activity — is held in whichever
+operational store your deployment is configured to use.
 
-### Backups
+| If your deployment uses… | Then on a restart… |
+|---|---|
+| **A durable database** | Operational history **survives**. Pending reminders still fire. Notification records remain visible. |
+| **In-memory storage** | Operational history is **cleared**. Pending reminders are lost. The Operations Center starts over. |
 
-**GuideHerd performs no automatic backups.**
+Durable storage is fully built and is the recommended configuration. **Do not
+assume you're on the in-memory option** — many deployments are not.
 
-Your firm's configuration is a single database file. Backing it up is your
-deployment's responsibility, through whatever your hosting provides. There is no
-built-in schedule, no export button, and no documented restore procedure.
+> **Ask GuideHerd support which one your firm uses.** It is a single question
+> with a definite answer, and it changes what you should expect after every
+> restart.
 
-**Ask your GuideHerd contact directly: is my firm's configuration backed up, and
-has a restore ever been tested?** An untested backup is a hope, not a plan.
+### Backups — confirm with GuideHerd support
+
+**GuideHerd's software does not perform backups of its own.** Backup and restore
+are properties of the storage your deployment is configured with — a managed
+database typically provides automated backups and point-in-time recovery, while
+a plain file on disk provides whatever the host provides and nothing more.
+
+This documentation cannot tell you which applies to your firm. What it can tell
+you is exactly what to ask:
+
+- **Is my firm's configuration backed up? On what schedule?**
+- **Is the operational database backed up, and does it support
+  point-in-time recovery?**
+- **Has a restore ever actually been performed and verified?**
+
+**An untested backup is a hope, not a plan.** Get these answers in writing and
+record them where your firm keeps its continuity documentation. If the answer to
+any of them is "no" or "not sure," that is the finding — treat it as an open
+item rather than an acceptable steady state.
 
 ### Data retention
 

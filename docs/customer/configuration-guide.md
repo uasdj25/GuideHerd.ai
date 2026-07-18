@@ -102,6 +102,32 @@ short — every extra option is a decision on a live call.
 > appointment outside them. If that matters to your firm, raise it as a
 > requirement rather than assuming the setting handles it.
 
+### Three kinds of "hours" — keep them separate
+
+People collapse these into one idea and then get surprised. They are three
+independent things, and a firm can set them differently on purpose:
+
+| Concept | Means | Answers |
+|---|---|---|
+| **Guide availability** | When the AI Guide may answer calls | "Can someone reach the Guide right now?" |
+| **Staffed reception hours** | When human receptionists are working | "Is a person on the phones?" |
+| **Appointment-booking availability** | When attorneys permit appointments | "Can this caller be booked into that slot?" |
+
+**These do not have to match, and usually shouldn't.**
+
+A Guide that answers calls around the clock does **not** mean appointments can
+be booked around the clock. A caller reaching the Guide at 11pm should still
+only be offered slots your attorneys actually allow — booking availability is
+governed by attorney calendars and your firm's booking rules, not by whether
+anyone answered.
+
+Conversely, staffed reception hours are about your people, not the system. A
+firm may have receptionists 9–5 while the Guide covers evenings, or no Guide at
+all and receptionists only.
+
+When you're setting something, be clear which of the three you mean. "We're open
+9 to 5" can mean any of them, and the right place to configure it differs.
+
 ---
 
 ## Notifications
@@ -162,11 +188,16 @@ The consultation summary to your firm stays GuideHerd-branded regardless.
 |---|---|---|
 | Reception Console sign-in | **Request** | **Off** |
 | Users and their roles | **Request** | Deployment change + restart |
-| Session length | **Request** | 8 hours, absolute |
+| Session length | **Request** | 12 hours, absolute |
 | Single sign-on (Microsoft / Google / Okta) | **Not available** | |
 
-Session length is **absolute, not sliding** — a receptionist is signed out 8
-hours after signing in regardless of activity, and signs back in.
+Session length is **absolute, not sliding** — a receptionist is signed out 12
+hours after signing *in*, regardless of activity, and signs back in.
+
+12 hours is chosen so a normal shift never hits the boundary mid-call: someone
+may sign in before their shift, and shifts plus lunch, overtime, and handoff
+coverage routinely exceed eight hours. If your firm runs longer shifts than
+that, it can be raised per deployment.
 
 Turning on Console sign-in is a planned change: every receptionist must be
 provisioned and verified first, or they can't work the moment it's on.

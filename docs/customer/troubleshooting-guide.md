@@ -206,7 +206,8 @@ change it back by hand using that record.
    no reset, no self-service.
 3. Did the service restart? Restarts sign everyone out. Signing back in is the
    fix.
-4. Been more than 8 hours? Sessions expire absolutely, regardless of activity.
+4. Been more than 12 hours since they signed in? Sessions expire absolutely,
+   regardless of activity. Signing back in is the fix.
 
 ### An administrator can't see the Operations Center
 
@@ -222,18 +223,24 @@ revoke.** If it's urgent, say so explicitly when you raise it.
 
 ## After a restart
 
-In a standard deployment a restart clears active sessions, notification records,
-pending reminders, recent history in the Operations Center, and everyone's
-sign-in.
+**Always true, in every deployment:**
 
-**Booked appointments are not affected** — they're in your calendar system.
-**Your firm's configuration is not affected** — it's stored on disk.
+- **Booked appointments are unaffected** — they're in your calendar system.
+- **Your firm's configuration is unaffected** — it's stored durably.
+- **Everyone is signed out.** Login sessions are held in memory. People sign
+  back in; nothing is lost.
 
-What you lose is GuideHerd's own recent history. If the Operations Center looks
-unexpectedly empty, a restart is the likely reason.
+**Depends on your deployment:** whether operational history — prepared sessions,
+notification records, pending reminders, recent Operations Center activity —
+survives.
 
-Durable storage that survives restarts exists but isn't on by default. Ask
-GuideHerd if this matters to you.
+- On a **durable database**, it survives and pending reminders still fire.
+- On **in-memory storage**, it's cleared and the Operations Center starts over.
+
+If the Operations Center looks unexpectedly empty after a restart, that's the
+likely explanation — but only on an in-memory deployment. **Ask GuideHerd
+support which storage your firm uses** before concluding data was lost; on a
+durable deployment, an empty Operations Center means something else.
 
 ---
 

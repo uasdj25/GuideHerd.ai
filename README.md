@@ -27,3 +27,5 @@ reading for contributors. In one line:
 - [docs/Vision.md](docs/Vision.md) — what GuideHerd is building and why
 - [docs/Roadmap.md](docs/Roadmap.md) — direction through October 2026
 - [docs/architecture-decisions/](docs/architecture-decisions/) — architecture decision records
+- [docs/customer/](docs/customer/) — customer documentation (administrator, receptionist,
+  operations, configuration, troubleshooting, reference)

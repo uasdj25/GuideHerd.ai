@@ -228,24 +228,46 @@ function normalizeOutcome(body) {
  * database — can never both enter the send path. A retry is permitted after
  * 'failed' (and after a stale abandoned claim); a 'sent' summary is never
  * resent. Mail failure never reverses the recorded booking outcome — the
- * appointment and the notification are separate concerns.
+ * appointment and the notification are separate concerns. The same holds
+ * for a summary GENERATION failure: it records 'failed' (retry permitted
+ * later), emits a safe diagnostic event, and never disturbs the outcome.
  *
- * @param {{ service: any, store: any, mailer: any }} deps
+ * @param {{ service: any, store: any, mailer: any, telemetry?: any }} deps
  * @param {string} sessionId
  * @param {object} outcome validated outcome
+ * @param {{ correlationId?: string, organizationKey?: string }} [context] (Issue #8)
  * @returns {Promise<{ sessionId: string, status: string, summaryDelivery: string }>}
  */
-async function recordOutcomeAndDeliver({ service, store, mailer }, sessionId, outcome) {
+async function recordOutcomeAndDeliver({ service, store, mailer, telemetry }, sessionId, outcome, context = {}) {
+  const emit = telemetry ? telemetry.event.bind(telemetry) : () => {};
   const { session } = await service.applyOutcome(sessionId, outcome); // throws on invalid transitions
 
   const claim = await store.claimSummaryDelivery(session.sessionId);
   let summaryDelivery = claim.summaryDelivery;
   if (claim.claimed) {
-    const model = buildConsultationSummary(claim.session);
-    const result = await mailer.sendSummary({
-      subject: summarySubject(model),
-      html: renderSummaryHtml(model),
-    });
+    let rendered = null;
+    try {
+      const model = buildConsultationSummary(claim.session);
+      rendered = { subject: summarySubject(model), html: renderSummaryHtml(model) };
+    } catch (err) {
+      emit('summary.generation_failed', {
+        severity: 'error',
+        component: 'handoff',
+        operation: 'summary-generation',
+        category: 'permanent_internal_failure',
+        correlationId: context.correlationId,
+        organizationKey: context.organizationKey ?? session.firmId,
+        sessionId: session.sessionId,
+        errorName: err && err.name ? String(err.name) : 'Error',
+      });
+    }
+    const result = rendered
+      ? await mailer.sendSummary(rendered, {
+          correlationId: context.correlationId,
+          organizationKey: context.organizationKey ?? session.firmId,
+          sessionId: session.sessionId,
+        })
+      : { status: 'failed' };
     const updated = await store.recordSummaryDelivery(session.sessionId, result.status);
     summaryDelivery = updated.summaryDelivery; // 'sent' | 'failed' | 'not-configured'
   }

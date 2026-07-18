@@ -40,6 +40,12 @@ handoff mechanism instead of the browser.
   token is accepted **only in the `Authorization: Bearer` header**. Tokens
   never appear in URLs.
 - Tokens are never logged and never appear in error messages.
+- **Correlation (Issue #8):** every response carries
+  `X-GuideHerd-Correlation-Id`, and every JSON error envelope includes
+  `error.correlationId` — an opaque GuideHerd identifier for support and
+  diagnostics (never a token or contact detail). Callers may supply a
+  valid ID to propagate; malformed values are replaced. See
+  docs/operations/telemetry.md.
 - **Authorization (ADR-0010):** every route passes through the GuideHerd
   authorization boundary. Both tokens are session **capability credentials**:
   a handoff token authorizes only `handoff:redeem` on exactly its own
@@ -70,7 +76,8 @@ Rules:
 - A wildcard (`*`) origin is **never** allowed; wildcard entries are ignored.
 - Preflight `OPTIONS` requests are supported.
 - Only `POST`, `GET`, `DELETE`, and `OPTIONS` methods are permitted.
-- Only the `Content-Type` and `Authorization` request headers are permitted.
+- Only the `Content-Type`, `Authorization`, and `X-GuideHerd-Correlation-Id`
+  request headers are permitted.
 - Requests from non-allowlisted origins receive no CORS headers, so browsers
   block the response.
 

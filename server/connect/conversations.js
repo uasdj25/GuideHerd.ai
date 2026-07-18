@@ -47,11 +47,13 @@ function createConversationService({
   events = createConversationEvents(),
   clock = systemClock(),
   correlation,
+  telemetry,
 }) {
   const atIso = () => new Date(clock.now()).toISOString();
   // The Correlation Engine (correlation.js) answers "find the matching
   // prepared session" — this service never knows how the match was made.
   const engine = correlation || createCorrelationEngine({ store });
+  const emit = telemetry ? telemetry.event.bind(telemetry) : () => {};
 
   return {
     events,
@@ -66,15 +68,33 @@ function createConversationService({
      * @param {string} firmId
      * @param {string} provider adapter provider key, for event provenance
      * @param {object} [intent] neutral ConnectIntent from the adapter
+     * @param {{ correlationId?: string }} [context] operation context (Issue #8)
      */
-    async connect(firmId, provider, intent = {}) {
-      // throws 404/409 exactly as before; ambiguity is never resolved by guessing
-      const { session, matchedBy } = await engine.correlate(firmId, intent);
+    async connect(firmId, provider, intent = {}, context = {}) {
+      let result;
+      try {
+        // throws 404/409 exactly as before; ambiguity is never resolved by guessing
+        result = await engine.correlate(firmId, intent);
+      } catch (err) {
+        emit('correlation.failed', {
+          severity: 'warn',
+          component: 'correlation-engine',
+          operation: 'connect',
+          category: err && err.code === 'ambiguous_prepared_sessions' ? 'conflict' : 'not_found',
+          code: err && err.code ? err.code : undefined,
+          correlationId: context.correlationId,
+          organizationKey: firmId,
+          provider,
+        });
+        throw err;
+      }
+      const { session, matchedBy } = result;
       events.emit('conversation.connected', {
         sessionId: session.sessionId,
         firmId,
         provider,
         correlation: matchedBy, // signal key only — never a signal VALUE
+        correlationId: context.correlationId ?? null,
         at: atIso(),
       });
       return presentCallerContext(session);
@@ -88,14 +108,36 @@ function createConversationService({
      * @param {string} sessionId
      * @param {object} outcome canonical validated outcome
      * @param {string} provider adapter provider key, for event provenance
+     * @param {{ correlationId?: string }} [context] operation context (Issue #8)
      */
-    async complete(sessionId, outcome, provider) {
+    async complete(sessionId, outcome, provider, context = {}) {
       // An idempotent duplicate report (allowed by the outcome contract)
       // must not emit a second completion event.
       const before = await store.get(sessionId);
       const alreadyTerminal = Boolean(before && TERMINAL.includes(before.status));
 
-      const result = await recordOutcomeAndDeliver({ service, store, mailer }, sessionId, outcome);
+      let result;
+      try {
+        result = await recordOutcomeAndDeliver(
+          { service, store, mailer, telemetry },
+          sessionId,
+          outcome,
+          { correlationId: context.correlationId, organizationKey: before ? before.firmId : undefined },
+        );
+      } catch (err) {
+        emit('outcome.failed', {
+          severity: 'warn',
+          component: 'handoff',
+          operation: 'record-outcome',
+          category: err && err.status === 409 ? 'conflict' : 'not_found',
+          code: err && err.code ? err.code : undefined,
+          correlationId: context.correlationId,
+          organizationKey: before ? before.firmId : undefined,
+          sessionId,
+          provider,
+        });
+        throw err;
+      }
 
       if (!alreadyTerminal) {
         const session = await store.get(result.sessionId);
@@ -105,6 +147,7 @@ function createConversationService({
           provider,
           status: result.status,
           summaryDelivery: result.summaryDelivery,
+          correlationId: context.correlationId ?? null,
           at: atIso(),
         });
       }

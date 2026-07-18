@@ -25,6 +25,12 @@ All endpoints are server-to-server only:
   the bridge exists).
 - Responses carry `Cache-Control: no-store` and are **never granted browser
   CORS headers**, regardless of origin.
+- **Failure envelopes (Issue #8):** error responses include
+  `error.correlationId` (opaque support identifier; the response header
+  `X-GuideHerd-Correlation-Id` matches) and `error.callerMessage` — calm,
+  provider-free text the Guide can deliver to the caller. `error.code`
+  remains the machine-readable branching signal; the Guide should not
+  read correlation IDs aloud. See docs/operations/telemetry.md.
 
 ## POST /api/v1/demo/connect
 

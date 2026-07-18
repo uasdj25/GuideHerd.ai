@@ -22,6 +22,10 @@ const { createElevenLabsAdapter } = require('../connect/elevenlabs-adapter');
 const { createConversationService } = require('../connect/conversations');
 const { createConversationEvents } = require('../connect/events');
 const { resolveProviderKey } = require('../connect/provider-config');
+const { callerMessageFor } = require('../connect/caller-messages');
+const { createTelemetry, sanitizeError } = require('../telemetry/telemetry');
+const { CORRELATION_HEADER, generateCorrelationId, extractCandidateCorrelationId } = require('../telemetry/correlation');
+const { categorize } = require('../telemetry/taxonomy');
 
 // Scheduling context is tiny; cap the body to reject oversized payloads early.
 const MAX_BODY_BYTES = 16 * 1024;
@@ -52,10 +56,13 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry } = {}) {
   // Operational Store (ADR-0006): the handoff repository is injectable. The
   // in-memory implementation remains the default; server.js selects the
   // durable PostgreSQL implementation via GUIDEHERD_OPERATIONAL_PROVIDER.
+  // Operational telemetry (Issue #8): one centralized, allowlisted event
+  // surface. Injectable so tests capture events instead of logging.
+  const tel = telemetry || createTelemetry();
   const store = handoffStore || createInMemoryHandoffStore({ clock });
   // Abuse containment for the deliberately-anonymous create route
   // (ADR-0010): cap concurrently prepared (awaiting-transfer, unexpired)
@@ -106,7 +113,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     store,
     allowedOrigins,
     // Mailer is injectable so automated tests never touch Microsoft endpoints.
-    mailer: mailer || createMailer(),
+    mailer: mailer || createMailer({ telemetry: tel }),
     // Configuration Store service (read-only use here). Optional: when
     // absent, configuration endpoints answer 503 rather than failing boot.
     configService: configService || null,
@@ -114,8 +121,9 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     identityService,
     authz,
   };
+  deps.telemetry = tel;
   deps.conversations = createConversationService({
-    service, store, mailer: deps.mailer, events, clock,
+    service, store, mailer: deps.mailer, events, clock, telemetry: tel,
   });
   const handler = makeHandler(deps);
   return {
@@ -123,6 +131,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     mailer: deps.mailer, events, adapters, conversations: deps.conversations,
     identity: { registry: identityProviders, service: identityService },
     authorization: authz,
+    telemetry: tel,
   };
 }
 
@@ -139,12 +148,13 @@ function corsHeadersFor(req, allowedOrigins) {
   }
   return {
     'Access-Control-Allow-Origin': origin,
+    'Access-Control-Expose-Headers': 'X-GuideHerd-Correlation-Id',
     'Vary': 'Origin',
   };
 }
 
 /** Build the raw Node http request handler. */
-function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz }) {
+function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry }) {
   /**
    * Resolve the active Conversation Adapter for a firm. Provider selection
    * comes from the Configuration Store (connect/conversation-provider),
@@ -182,6 +192,22 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
     const startedAt = Date.now();
     let status = 500;
     let sessionId; // captured for logging only — never a token or secret
+    // One GuideHerd correlation ID per request (Issue #8): ALWAYS freshly
+    // generated here. A caller-supplied ID is only a CANDIDATE — it is
+    // adopted below solely after the request authenticates as a trusted
+    // GuideHerd service identity (never for anonymous, browser, or
+    // capability-token requests: arbitrary callers must not control
+    // operational log identifiers). The active ID appears in logs, error
+    // envelopes, downstream context, and the response header — and is
+    // never a token, phone number, email address, or caller name.
+    let correlationId = generateCorrelationId();
+    const suppliedCorrelationId = extractCandidateCorrelationId(req.headers[CORRELATION_HEADER]);
+    /** Adopt the supplied candidate once a GuideHerd SERVICE identity has authenticated. */
+    const adoptSuppliedCorrelation = (identity) => {
+      if (suppliedCorrelationId && identity && identity.type === 'service') {
+        correlationId = suppliedCorrelationId;
+      }
+    };
     // Demo bridge endpoints are server-to-server only: they are never
     // granted browser CORS headers, regardless of Origin.
     const isDemoPath = typeof req.url === 'string' && req.url.startsWith('/api/v1/demo/');
@@ -199,10 +225,11 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
           ? {
               ...cors,
               'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
-              'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+              'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-GuideHerd-Correlation-Id',
               'Access-Control-Max-Age': '600',
             }
           : { 'Vary': 'Origin' };
+        headers['X-GuideHerd-Correlation-Id'] = correlationId;
         res.writeHead(status, headers);
         return res.end();
       }
@@ -217,7 +244,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
           status = 503;
           return sendJson(res, status, {
             error: { code: 'config_unavailable', message: 'The configuration store is not available.' },
-          }, cors);
+          }, cors, correlationId);
         }
         const firmId = decodeURIComponent(optionsMatch[1]);
         // PUBLIC BY DESIGN (ADR-0010): the console renders this without a
@@ -226,7 +253,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
         authz.authorize({ anonymous: true }, 'configuration:read', { organizationKey: firmId });
         const options = getSchedulingOptions(configService, firmId);
         status = 200;
-        return sendJson(res, status, options, cors);
+        return sendJson(res, status, options, cors, correlationId);
       }
 
       if (method === 'POST' && path === '/api/v1/handoffs') {
@@ -241,7 +268,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
         const { response } = await service.create(request);
         sessionId = response.sessionId;
         status = 201;
-        return sendJson(res, status, response, cors);
+        return sendJson(res, status, response, cors, correlationId);
       }
 
       if (method === 'POST' && path === '/api/v1/handoffs/redeem') {
@@ -257,7 +284,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
         );
         sessionId = context.sessionId;
         status = 200;
-        return sendJson(res, status, context, cors);
+        return sendJson(res, status, context, cors, correlationId);
       }
 
       // ── TEMPORARY DEMO INFRASTRUCTURE (Slice 3) ─────────────────────
@@ -266,7 +293,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
       // The demo ROUTES are temporary; the GuideHerd Connect conversation
       // layer they delegate to is not.
       if (method === 'POST' && path === '/api/v1/demo/connect') {
-        await authorizeAssistant(req, 'conversation:connect');
+        adoptSuppliedCorrelation(await authorizeAssistant(req, 'conversation:connect'));
         const adapter = adapterFor(DEMO_FIRM_ID);
         // The request body is OPTIONAL and read leniently (size-capped;
         // unparseable bodies become undefined rather than 400): provider
@@ -276,17 +303,17 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
         // neutral ConnectIntent; the Correlation Engine does the matching.
         const rawBody = await readJsonBodyLenient(req);
         const intent = adapter.translateConnect(rawBody);
-        const context = await conversations.connect(DEMO_FIRM_ID, adapter.providerKey, intent);
+        const context = await conversations.connect(DEMO_FIRM_ID, adapter.providerKey, intent, { correlationId });
         sessionId = context.sessionId;
         status = 200;
-        return sendJson(res, status, context, null);
+        return sendJson(res, status, context, null, correlationId);
       }
 
       // TEMPORARY DEMO INFRASTRUCTURE: operator view of the latest completed
       // Consultation Summary, for demos where Microsoft Graph is not yet
       // configured. Bridge-secret authorized; the Graph mailer is untouched.
       if (method === 'GET' && path === '/api/v1/demo/summary/latest') {
-        await authorizeAssistant(req, 'summary:read');
+        adoptSuppliedCorrelation(await authorizeAssistant(req, 'summary:read'));
         const session = await store.latestCompleted(DEMO_FIRM_ID);
         if (!session) throw new NoCompletedSummaryError();
         sessionId = session.sessionId;
@@ -295,21 +322,22 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
         res.writeHead(status, {
           'Content-Type': 'text/html; charset=utf-8',
           'Cache-Control': 'no-store',
+          'X-GuideHerd-Correlation-Id': correlationId,
         });
         return res.end(html);
       }
 
       if (method === 'POST' && path === '/api/v1/demo/outcome') {
-        await authorizeAssistant(req, 'conversation:complete');
+        adoptSuppliedCorrelation(await authorizeAssistant(req, 'conversation:complete'));
         const adapter = adapterFor(DEMO_FIRM_ID);
         const body = await readJsonBody(req);
         // The adapter translates the provider's dialect into the canonical
         // outcome contract; validation is shared and provider-independent.
         const { sessionId: outcomeSessionId, outcome } = adapter.translateOutcome(body);
-        const result = await conversations.complete(outcomeSessionId, outcome, adapter.providerKey);
+        const result = await conversations.complete(outcomeSessionId, outcome, adapter.providerKey, { correlationId });
         sessionId = result.sessionId;
         status = 200;
-        return sendJson(res, status, result, null);
+        return sendJson(res, status, result, null, correlationId);
       }
 
       // Console operations: GET (status) / DELETE (cancel) on a session,
@@ -332,28 +360,61 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
           authz.authorize(consoleCapability, 'handoff:read', sessionResource);
           const statusBody = await service.status(sessionId, consoleToken);
           status = 200;
-          return sendJson(res, status, statusBody, cors);
+          return sendJson(res, status, statusBody, cors, correlationId);
         }
         authz.authorize(consoleCapability, 'handoff:cancel', sessionResource);
         const cancelBody = await service.cancel(sessionId, consoleToken);
         status = 200;
-        return sendJson(res, status, cancelBody, cors);
+        return sendJson(res, status, cancelBody, cors, correlationId);
       }
 
       status = 404;
-      return sendJson(res, status, { error: { code: 'not_found', message: 'Resource not found.' } }, cors);
+      return sendJson(res, status, { error: { code: 'not_found', message: 'Resource not found.' } }, cors, correlationId);
     } catch (err) {
+      const path = typeof req.url === 'string' ? req.url.split('?')[0] : String(req.url);
       if (err instanceof HandoffError || err instanceof ConfigError || err instanceof ConnectError || err instanceof IdentityError) {
         status = err.status;
-        return sendJson(res, status, err.toBody(), cors);
+        const { category } = categorize(err);
+        const body = err.toBody();
+        // The correlation ID rides in every controlled error envelope so a
+        // support conversation can be tied to the exact failing request.
+        body.error.correlationId = correlationId;
+        // Connect-facing (assistant) responses additionally carry a calm,
+        // provider-free caller message the Guide can deliver or act on.
+        if (isDemoPath) body.error.callerMessage = callerMessageFor(category);
+        telemetry.event(status === 400 ? 'validation.failed' : 'request.failed', {
+          severity: status >= 500 ? 'error' : (status === 429 ? 'warn' : 'info'),
+          component: 'http-api',
+          operation: `${req.method} ${path}`,
+          category,
+          code: err.code,
+          httpStatus: status,
+          correlationId,
+          sessionId,
+        });
+        return sendJson(res, status, body, cors, correlationId);
       }
-      // Never leak internal details (which could include token material).
+      // Unexpected internal error: sanitized diagnostics internally (error
+      // name + stack frames, message stripped), a calm generic envelope
+      // externally. Never raw exception text, secrets, or PII.
       status = 500;
-      return sendJson(res, status, {
-        error: { code: 'internal_error', message: 'An unexpected error occurred.' },
-      }, cors);
+      telemetry.event('internal.unexpected_error', {
+        severity: 'error',
+        component: 'internal',
+        operation: `${req.method} ${path}`,
+        category: 'unexpected_error',
+        httpStatus: status,
+        correlationId,
+        sessionId,
+        ...sanitizeError(err),
+      });
+      const body = {
+        error: { code: 'internal_error', message: 'An unexpected error occurred.', correlationId },
+      };
+      if (isDemoPath) body.error.callerMessage = callerMessageFor('unexpected_error');
+      return sendJson(res, status, body, cors, correlationId);
     } finally {
-      logRequest(req, status, sessionId, Date.now() - startedAt);
+      logRequest(req, status, sessionId, Date.now() - startedAt, correlationId);
     }
   };
 }
@@ -430,17 +491,18 @@ function readJsonBody(req) {
   });
 }
 
-function sendJson(res, status, body, cors) {
+function sendJson(res, status, body, cors, correlationId) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
+    ...(correlationId ? { 'X-GuideHerd-Correlation-Id': correlationId } : {}),
     ...(cors || {}),
   });
   res.end(JSON.stringify(body));
 }
 
 /** Structured request log. Tokens are NEVER logged; only the sessionId is. */
-function logRequest(req, status, sessionId, durationMs) {
+function logRequest(req, status, sessionId, durationMs, correlationId) {
   const path = typeof req.url === 'string' ? req.url.split('?')[0] : req.url;
   console.log(JSON.stringify({
     level: 'info',
@@ -448,6 +510,7 @@ function logRequest(req, status, sessionId, durationMs) {
     path,
     status,
     sessionId: sessionId ?? null,
+    correlationId: correlationId ?? null,
     durationMs,
   }));
 }

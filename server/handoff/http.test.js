@@ -166,7 +166,7 @@ test('preflight from an allowed origin returns CORS headers', async () => {
     assert.equal(res.status, 204);
     assert.equal(res.headers.get('access-control-allow-origin'), 'https://guideherd.ai');
     assert.equal(res.headers.get('access-control-allow-methods'), 'POST, GET, DELETE, OPTIONS');
-    assert.equal(res.headers.get('access-control-allow-headers'), 'Content-Type, Authorization');
+    assert.equal(res.headers.get('access-control-allow-headers'), 'Content-Type, Authorization, X-GuideHerd-Correlation-Id');
   });
 });
 

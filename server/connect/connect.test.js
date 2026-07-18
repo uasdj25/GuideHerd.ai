@@ -201,25 +201,32 @@ test('the conversation lifecycle emits provider-neutral events with no secrets o
     app.events.on('conversation.completed', (p) => seen.push(['completed', p]));
 
     const created = await (await post(base, '/api/v1/handoffs', validRequest())).json();
-    await post(base, '/api/v1/demo/connect', {}, bridgeAuth);
-    await post(base, '/api/v1/demo/outcome', flatBooked(created.sessionId), bridgeAuth);
+    const connectRes = await post(base, '/api/v1/demo/connect', {}, bridgeAuth);
+    const outcomeRes = await post(base, '/api/v1/demo/outcome', flatBooked(created.sessionId), bridgeAuth);
 
     assert.equal(seen.length, 2);
     const [, connected] = seen[0];
+    // The event carries the request's GuideHerd correlation ID (Issue #8) —
+    // an opaque generated identifier matching the response header.
+    assert.equal(connected.correlationId, connectRes.headers.get('x-guideherd-correlation-id'));
+    assert.match(connected.correlationId, /^gh-[0-9a-f]{24}$/);
     assert.deepEqual(connected, {
       sessionId: created.sessionId,
       firmId: FIRM,
       provider: 'elevenlabs',
       correlation: 'exactly-one-eligible', // signal KEY only, never a value
+      correlationId: connected.correlationId,
       at: '2026-07-12T15:15:00.000Z',
     });
     const [, completed] = seen[1];
+    assert.equal(completed.correlationId, outcomeRes.headers.get('x-guideherd-correlation-id'));
     assert.deepEqual(completed, {
       sessionId: created.sessionId,
       firmId: FIRM,
       provider: 'elevenlabs',
       status: 'booked',
       summaryDelivery: 'sent',
+      correlationId: completed.correlationId,
       at: '2026-07-12T15:15:00.000Z',
     });
 

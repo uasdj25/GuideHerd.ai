@@ -31,6 +31,42 @@
     }
     .console { width: 100%; max-width: 520px; }
 
+    /* Sign-in surface — layout only; the card, wordmark, field, button,
+       and error treatments are all Design System primitives. Mirrors the
+       Operations Center reference so the two applications read alike. */
+    .console-login-wrap {
+      flex: 1;
+      min-height: 70vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--sp-3);
+    }
+    /* The shared stylesheet carries no global [hidden] reset, and an author
+       `display` declaration outranks the UA's [hidden] rule — so every
+       primitive that sets `display` must honor `hidden` explicitly here.
+       (Recommended upstream: a global [hidden] reset in guideherd.css.) */
+    .console-login-wrap[hidden],
+    .main[hidden],
+    .gh-app-header-meta[hidden] { display: none; }
+    .console-login { width: 100%; max-width: 400px; }
+    /* The console is a touch surface; the sign-in controls match the
+       console's own 48px+ targets, expressed through shared tokens. */
+    .console-login .gh-input { min-height: 48px; font-size: var(--fs-base); }
+    .console-login .gh-btn { min-height: 48px; }
+    .console-login .gh-wordmark { font-size: 24px; }
+    .console-login h1 {
+      font-family: var(--serif);
+      font-size: var(--fs-xl);
+      margin: var(--sp-3) 0 var(--sp-1);
+    }
+    .console-login p {
+      color: var(--text-dim);
+      font-size: var(--fs-sm);
+      margin-bottom: var(--sp-3);
+    }
+    .console-login form { display: flex; flex-direction: column; gap: var(--sp-2); }
+
     .title-row {
       display: flex;
       align-items: baseline;
@@ -371,8 +407,36 @@
         <a class="gh-wordmark" href="/" aria-label="GuideHerd home">GuideHerd<span class="gh-wordmark-sup">AI</span></a>
         <span class="gh-app-name">Reception Console</span>
       </span>
+      <!-- Identity + sign-out slot; populated once a session exists (#58). -->
+      <span class="gh-app-header-meta" id="identity" hidden><span id="who"></span><span aria-hidden="true">·</span><a href="#" id="logout">Sign out</a></span>
     </div>
   </header>
+
+  <!--
+    Sign-in surface (ADR-0013 User Sessions, ADR-0019 presentation).
+    Hidden by default and shown ONLY when the server answers a console
+    operation with 401 — which happens exactly when the deployment runs
+    GUIDEHERD_CONSOLE_AUTH=required. The page never learns the mode; the
+    server's answer drives the surface, so under the default `anonymous`
+    floor this card is never displayed and behavior is today's exactly.
+    It sits below the application header so the gated view stays branded;
+    the Operations Center is the pattern reference.
+  -->
+  <div class="console-login-wrap" id="login-wrap" hidden>
+    <div class="console-login gh-card" id="login-card">
+      <span class="gh-wordmark">GuideHerd<span class="gh-wordmark-sup">AI</span></span>
+      <h1>Reception Console</h1>
+      <p>Sign in with your receptionist credential.</p>
+      <form id="login" autocomplete="off">
+        <div class="gh-field">
+          <label class="gh-label" for="credential">Credential</label>
+          <input class="gh-input" type="password" id="credential" required autocomplete="current-password">
+        </div>
+        <button class="gh-btn gh-btn-primary gh-btn-full" type="submit" id="login-btn">Sign in</button>
+        <p class="gh-form-error" id="login-error" role="alert"></p>
+      </form>
+    </div>
+  </div>
 
   <main class="main" id="main">
     <div class="console">
@@ -643,6 +707,15 @@
       var MSG_CREATE_FAILED = "We couldn't prepare the scheduling assistant. Please try again.";
       var MSG_STATUS_UNCERTAIN = 'We temporarily lost contact with the scheduling service. The session may still be active.';
       var MSG_OPTIONS_FAILED = "We couldn't load the firm's scheduling options. Check your connection and try again.";
+      // Sign-in messages stay calm and non-enumerating: a wrong credential and
+      // an unknown user are indistinguishable, matching the server's uniform
+      // 403 (ADR-0010 §3 — a denial never reveals what exists).
+      // Arriving signed-out under `required` is normal, not an error, so the
+      // gate says nothing extra — the card's own subtitle already explains
+      // itself. The error slot carries errors only.
+      var MSG_SIGNIN_FAILED = 'That credential was not accepted. Check it and try again.';
+      var MSG_SIGNIN_UNAVAILABLE = 'Sign-in is not configured. Contact your GuideHerd administrator.';
+      var MSG_SESSION_ENDED = 'Your session ended. Sign in again to continue.';
       var NO_ATTORNEYS_LABEL = 'No Attorneys Configured';
       var NO_PREFERENCE_LABEL = 'No preference';
 
@@ -709,6 +782,127 @@
       function clearSession() {
         session = null; // drops both tokens from the only reference we hold
       }
+
+      // ── Authenticated receptionist access (ADR-0013, ADR-0010) ───────
+      // ACTIVATION ONLY — every mechanism here already shipped: session
+      // issuance/rotation/expiry, the HttpOnly host-only `gh_session` cookie,
+      // the user-auth provider registry, and the org-scoped `receptionist`
+      // role (`handoff:create` + `configuration:read`). No new authentication
+      // architecture is introduced and no server change was required.
+      //
+      // The page NEVER learns the deployment's auth mode. It reacts to the
+      // server's answer: a 401 from any console operation means a session is
+      // required (GUIDEHERD_CONSOLE_AUTH=required), so the sign-in surface is
+      // presented. Under the default `anonymous` floor that path never
+      // triggers and behavior is byte-for-byte today's. This is why the flip
+      // — and its rollback — is a one-variable server operation with no
+      // client release, and why the console needs no mode flag of its own.
+      //
+      // The session credential is an HttpOnly cookie: this page cannot read
+      // it, does not store it, and never places it in the DOM or a URL. The
+      // typed credential is cleared from the field on every outcome.
+      var loginWrap = document.getElementById('login-wrap');
+      var loginForm = document.getElementById('login');
+      var loginError = document.getElementById('login-error');
+      var loginBtn = document.getElementById('login-btn');
+      var credentialInput = document.getElementById('credential');
+      var identityChip = document.getElementById('identity');
+      var whoLabel = document.getElementById('who');
+      var logoutLink = document.getElementById('logout');
+      var mainEl = document.getElementById('main');
+
+      // A sentinel distinguishing "the server demands a session" from any
+      // other failure, so a 401 is never presented as a connection problem.
+      function authRequiredError() {
+        var e = new Error('unauthenticated');
+        e.authRequired = true;
+        return e;
+      }
+      function isAuthRequired(err) { return !!(err && err.authRequired); }
+      function signInError(message) {
+        var e = new Error(message);
+        e.userFacing = true;
+        return e;
+      }
+
+      function showSignIn(message) {
+        stopTimers();
+        clearSession();          // no capability token outlives the session
+        identityChip.hidden = true;
+        whoLabel.textContent = '';
+        loginError.textContent = message || '';
+        credentialInput.value = '';
+        mainEl.hidden = true;
+        loginWrap.hidden = false;
+        credentialInput.focus();
+      }
+
+      function showConsole() {
+        loginWrap.hidden = true;
+        mainEl.hidden = false;
+      }
+
+      // Who am I? Populates the header identity slot. A 401 simply means "no
+      // session" — under `anonymous` that is the normal, expected state and
+      // must not gate anything.
+      function probeSession() {
+        return fetch(API_BASE_URL + '/api/v1/auth/session', { credentials: 'include' })
+          .then(function(res) { return res.status === 200 ? res.json() : null; })
+          .then(function(me) {
+            if (!me) { identityChip.hidden = true; whoLabel.textContent = ''; return null; }
+            whoLabel.textContent = (me.displayName || me.subject) + ' — ' + me.organizationKey;
+            identityChip.hidden = false;
+            return me;
+          })
+          .catch(function() { return null; });
+      }
+
+      loginForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (loginBtn.dataset.busy === 'true') return; // duplicate-submit guard
+        loginError.textContent = '';
+        loginBtn.dataset.busy = 'true';
+        loginBtn.disabled = true;
+
+        fetch(API_BASE_URL + '/api/v1/auth/login', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ credential: credentialInput.value }),
+        })
+          .then(function(res) {
+            if (res.status === 200) return;
+            // 503 is the only distinguishable case: the deployment has no
+            // provider configured, which is an operator problem, not a bad
+            // credential. Everything else is deliberately uniform.
+            if (res.status === 503) throw signInError(MSG_SIGNIN_UNAVAILABLE);
+            throw signInError(MSG_SIGNIN_FAILED);
+          })
+          .then(function() {
+            credentialInput.value = '';   // typed credential never retained
+            showConsole();
+            return probeSession().then(loadSchedulingOptions);
+          })
+          .catch(function(err) {
+            credentialInput.value = '';
+            loginError.textContent = (err && err.userFacing) ? err.message : MSG_SIGNIN_FAILED;
+            credentialInput.focus();
+          })
+          .finally(function() {
+            loginBtn.dataset.busy = 'false';
+            loginBtn.disabled = false;
+          });
+      });
+
+      logoutLink.addEventListener('click', function(e) {
+        e.preventDefault();
+        // Logout is idempotent server-side (204 regardless), so the surface
+        // is reset even if the request fails — never strand a signed-out
+        // receptionist in a console they can no longer operate.
+        fetch(API_BASE_URL + '/api/v1/auth/logout', { method: 'POST', credentials: 'include' })
+          .catch(function() { /* reset regardless */ })
+          .finally(function() { showSignIn(''); });
+      });
 
       function stopTimers() {
         if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
@@ -822,20 +1016,26 @@
         setStatus('idle', 'Loading scheduling options…');
         var req = fetchWithTimeout(
           API_BASE_URL + '/api/v1/firms/' + encodeURIComponent(FIRM_ID) + '/scheduling-options',
-          {},
+          { credentials: 'include' },
           OPTIONS_TIMEOUT_MS
         );
         req.promise
           .then(function(res) {
+            if (res.status === 401) throw authRequiredError();
             if (!res.ok) throw new Error('status ' + res.status);
             return res.json();
           })
           .then(function(body) {
             applySchedulingOptions(body);
+            showConsole();
             showPanel(form);
             setStatus('idle', 'Ready for caller information');
           })
-          .catch(function() {
+          .catch(function(err) {
+            // Under GUIDEHERD_CONSOLE_AUTH=required this is the first thing a
+            // signed-out visitor hits, so it is the gate: present sign-in
+            // rather than a misleading connection error.
+            if (isAuthRequired(err)) return showSignIn('');
             errorSub.textContent = MSG_OPTIONS_FAILED;
             errorRetryAction = loadSchedulingOptions;
             showPanel(errorPanel);
@@ -1211,6 +1411,7 @@
 
         var req = fetchWithTimeout(API_BASE_URL + '/api/v1/handoffs', {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(buildCreatePayload()),
         }, CREATE_TIMEOUT_MS);
@@ -1218,6 +1419,7 @@
 
         req.promise
           .then(function(res) {
+            if (res.status === 401) throw authRequiredError();
             if (res.status !== 201) throw new Error('unexpected status');
             return res.json();
           })
@@ -1227,7 +1429,14 @@
             }
             enterReady(body);
           })
-          .catch(function() {
+          .catch(function(err) {
+            // A session that expired mid-workflow (absolute 8h TTL, ADR-0013)
+            // surfaces here. Restore the form with the caller's details intact
+            // first, so signing back in resumes rather than restarts the work.
+            if (isAuthRequired(err)) {
+              backToFormPreserving();
+              return showSignIn(MSG_SESSION_ENDED);
+            }
             enterCreateError();
           })
           .finally(function() {
@@ -1314,7 +1523,12 @@
       });
 
       refreshButton();
-      loadSchedulingOptions();
+      // Boot: ask who we are (populates the header identity slot if a session
+      // exists), then load options. Deliberately NOT the Operations Center's
+      // `boot(); showLogin();` — that surface is session-gated unconditionally,
+      // whereas this console must keep working anonymously under the default
+      // auth floor. The sign-in card appears only if the server says 401.
+      probeSession().then(loadSchedulingOptions);
     })();
   </script>
 

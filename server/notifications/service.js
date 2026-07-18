@@ -33,17 +33,8 @@ const DEFAULT_NOTIFICATION_PROVIDER = 'graph-email';
 /** Resolve the organization's notification provider key (config-driven). */
 function resolveNotificationProviderKey(configService, organizationKey) {
   if (!configService || !organizationKey) return DEFAULT_NOTIFICATION_PROVIDER;
-  let setting;
-  try {
-    setting = configService.settings.get(organizationKey, SETTINGS_NAMESPACE, PROVIDER_KEY_SETTING);
-  } catch {
-    return DEFAULT_NOTIFICATION_PROVIDER;
-  }
-  const value = setting && setting.value;
-  if (value && typeof value === 'object' && typeof value.provider === 'string' && value.provider.trim() !== '') {
-    return value.provider.trim();
-  }
-  return DEFAULT_NOTIFICATION_PROVIDER;
+  const { readDomain } = require('../configuration/framework');
+  return readDomain(configService, 'notification-provider', organizationKey).value.provider;
 }
 
 /**

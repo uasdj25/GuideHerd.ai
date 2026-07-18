@@ -35,19 +35,11 @@ const SETTINGS_KEY = 'conversation-provider';
  */
 function resolveProviderKey(configService, firmId) {
   if (!configService) return DEFAULT_PROVIDER;
-  let setting;
-  try {
-    setting = configService.settings.get(firmId, SETTINGS_NAMESPACE, SETTINGS_KEY);
-  } catch {
-    // Unknown organization or unset setting — the default keeps the
-    // current integration working without any configuration present.
-    return DEFAULT_PROVIDER;
-  }
-  const value = setting && setting.value;
-  if (value && typeof value === 'object' && typeof value.provider === 'string' && value.provider.trim() !== '') {
-    return value.provider.trim();
-  }
-  return DEFAULT_PROVIDER;
+  // Consumer read via the Customer Configuration Framework (ADR-0016):
+  // unknown organizations and unset/malformed settings resolve to the
+  // default, keeping the current integration working unconfigured.
+  const { readDomain } = require('../configuration/framework');
+  return readDomain(configService, 'conversation-provider', firmId).value.provider;
 }
 
 module.exports = {

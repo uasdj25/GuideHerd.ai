@@ -113,13 +113,11 @@ function normalizePolicy(raw) {
  */
 function resolveSchedulingPolicy(configService, organizationKey) {
   if (!configService || !organizationKey) return { policy: null, issues: [] };
-  let setting;
-  try {
-    setting = configService.settings.get(organizationKey, SETTINGS_NAMESPACE, POLICY_KEY);
-  } catch {
-    return { policy: null, issues: [] };
-  }
-  return normalizePolicy(setting && setting.value);
+  // Consumer read via the Customer Configuration Framework (ADR-0016);
+  // normalizePolicy above remains the domain's registered validator.
+  const { readDomain } = require('../configuration/framework');
+  const { value, issues } = readDomain(configService, 'scheduling-policy', organizationKey);
+  return { policy: value, issues };
 }
 
 module.exports = { resolveSchedulingPolicy, normalizePolicy, SETTINGS_NAMESPACE, POLICY_KEY, DAYS, TIMES_OF_DAY };

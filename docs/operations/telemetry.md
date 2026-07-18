@@ -78,14 +78,16 @@ provider.rejected_request · scheduling.availability_failed² ·
 booking.failed² · outcome.failed · summary.generation_failed ·
 summary.delivery_failed · retry.attempted · retry.exhausted ·
 internal.unexpected_error · notification.delivered ·
-notification.delivery_failed · notification.suppressed (ADR-0011)
+notification.delivery_failed · notification.suppressed (ADR-0011) ·
+authentication.login · authentication.login_failed ·
+authentication.logout (ADR-0013)
 
 ¹ primary emission lives in the authorization service (ADR-0010).
 ² reserved seams: availability/booking execute provider-side today; the
 names are fixed for when those operations move in-platform.
 
 **Field allowlist (everything else is dropped, never logged):**
-`correlationId, organizationKey, component, operation, severity (as
+`correlationId, organizationKey, subject, component, operation, severity (as
 level), category, retryable, attempt, maxAttempts, httpStatus, provider,
 providerRequestId, sessionId, code, notificationType, notificationKey,
 errorName, stack, method, path`.

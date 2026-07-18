@@ -80,15 +80,18 @@ async function main() {
   // Rollback is exactly: set the variable back to `memory` and redeploy.
   const OPERATIONAL_PROVIDER = (process.env.GUIDEHERD_OPERATIONAL_PROVIDER || 'memory').trim().toLowerCase();
   let handoffStore; // undefined -> createApp uses the in-memory default
+  let notificationDeliveryStore; // undefined -> in-memory default (ADR-0011)
   let operationalMigrationsApplied = null;
   if (OPERATIONAL_PROVIDER === 'postgres') {
     const { createOperationalPool } = require('./operational/db');
     const { migrate: migrateOperational } = require('./operational/migrate');
     const { createPostgresHandoffStore } = require('./operational/session-repository');
+    const { createPostgresNotificationDeliveryStore } = require('./operational/notification-deliveries');
     try {
       const pool = createOperationalPool();
       operationalMigrationsApplied = await migrateOperational(pool);
       handoffStore = createPostgresHandoffStore({ pool, clock: systemClock() });
+      notificationDeliveryStore = createPostgresNotificationDeliveryStore({ pool, clock: systemClock() });
     } catch (err) {
       fatal('Operational Store (postgres) is unavailable; refusing to start.', {
         error: { message: String(err.message || err) },
@@ -101,7 +104,7 @@ async function main() {
 
   // Browser origins are allowlisted via CORS_ALLOWED_ORIGINS (comma-separated).
   // Defaults to https://guideherd.ai and http://localhost:8080. Never `*`.
-  const { handler } = createApp({ configService, handoffStore });
+  const { handler } = createApp({ configService, handoffStore, notificationDeliveryStore });
   const server = http.createServer(handler);
 
   server.listen(PORT, HOST, () => {

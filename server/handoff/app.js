@@ -26,6 +26,11 @@ const { callerMessageFor } = require('../connect/caller-messages');
 const { createTelemetry, sanitizeError } = require('../telemetry/telemetry');
 const { CORRELATION_HEADER, generateCorrelationId, extractCandidateCorrelationId } = require('../telemetry/correlation');
 const { categorize } = require('../telemetry/taxonomy');
+const { createNotificationProviderRegistry } = require('../notifications/contract');
+const { createGraphEmailProvider } = require('../notifications/graph-email-provider');
+const { createInMemoryNotificationDeliveryStore } = require('../notifications/delivery-store');
+const { createNotificationService } = require('../notifications/service');
+const { registerNotificationTriggers } = require('../notifications/triggers');
 
 // Scheduling context is tiny; cap the body to reject oversized payloads early.
 const MAX_BODY_BYTES = 16 * 1024;
@@ -56,7 +61,7 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore } = {}) {
   // Operational Store (ADR-0006): the handoff repository is injectable. The
   // in-memory implementation remains the default; server.js selects the
   // durable PostgreSQL implementation via GUIDEHERD_OPERATIONAL_PROVIDER.
@@ -125,6 +130,29 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   deps.conversations = createConversationService({
     service, store, mailer: deps.mailer, events, clock, telemetry: tel,
   });
+
+  // GuideHerd Notifications (ADR-0011): Core owns notification intent;
+  // providers only deliver. The delivery store makes every notification
+  // exactly-once per notificationKey (in-memory default here; server.js
+  // supplies the durable PostgreSQL store). The booked-confirmation
+  // trigger is DISABLED BY DEFAULT per organization — see
+  // notifications/triggers.js for why (external calendar attendee emails).
+  const notificationProviders = createNotificationProviderRegistry();
+  notificationProviders.register(createGraphEmailProvider({ telemetry: tel }));
+  const notificationsDeliveryStore = notificationDeliveryStore || createInMemoryNotificationDeliveryStore({ clock });
+  const notificationService = createNotificationService({
+    registry: notificationProviders,
+    deliveryStore: notificationsDeliveryStore,
+    configService: configService || null,
+    telemetry: tel,
+  });
+  registerNotificationTriggers({
+    events,
+    store,
+    notificationService,
+    configService: configService || null,
+    telemetry: tel,
+  });
   const handler = makeHandler(deps);
   return {
     handler, store, service, clock, allowedOrigins,
@@ -132,6 +160,11 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     identity: { registry: identityProviders, service: identityService },
     authorization: authz,
     telemetry: tel,
+    notifications: {
+      registry: notificationProviders,
+      service: notificationService,
+      deliveryStore: notificationsDeliveryStore,
+    },
   };
 }
 

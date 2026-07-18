@@ -149,6 +149,7 @@ live in one codebase; the boundaries let them separate later without a rewrite.
 - [ADR-0008: Concurrent Call Correlation](docs/architecture-decisions/ADR-0008-concurrent-call-correlation.md)
 - [ADR-0009: The GuideHerd Identity Contract](docs/architecture-decisions/ADR-0009-identity-contract.md)
 - [ADR-0010: GuideHerd Authorization](docs/architecture-decisions/ADR-0010-authorization.md)
+- [ADR-0011: The GuideHerd Notification Contract](docs/architecture-decisions/ADR-0011-notification-contract.md)
 
 See also [Vision](docs/Vision.md) and [Roadmap](docs/Roadmap.md).
 

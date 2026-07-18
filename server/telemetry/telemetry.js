@@ -45,6 +45,9 @@ const EVENTS = Object.freeze([
   'retry.attempted',
   'retry.exhausted',
   'internal.unexpected_error',
+  'notification.delivered',
+  'notification.delivery_failed',
+  'notification.suppressed',
 ]);
 
 /** GuideHerd component names for failure attribution. */
@@ -84,6 +87,8 @@ const ALLOWED_FIELDS = Object.freeze([
   'providerRequestId',
   'sessionId',
   'code',
+  'notificationType',
+  'notificationKey',
   'errorName',
   'stack',
   'method',

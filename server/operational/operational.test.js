@@ -52,6 +52,7 @@ if (!PG_URL) {
 
   async function resetDatabase(pool) {
     await pool.query('DROP TABLE IF EXISTS handoff_sessions');
+    await pool.query('DROP TABLE IF EXISTS notification_deliveries');
     await pool.query('DROP TABLE IF EXISTS operational_schema_migrations');
   }
 
@@ -59,18 +60,18 @@ if (!PG_URL) {
     sharedPool = createOperationalPool({ connectionString: PG_URL });
     await resetDatabase(sharedPool);
 
-    assert.equal(await migrate(sharedPool), 1, 'one pending migration applies');
+    assert.equal(await migrate(sharedPool), 2, 'both pending migrations apply');
     assert.equal(await migrate(sharedPool), 0, 're-run is a no-op');
 
     // Concurrent boots: several runners at once, advisory lock serializes.
     await resetDatabase(sharedPool);
     const pools = [createOperationalPool({ connectionString: PG_URL }), createOperationalPool({ connectionString: PG_URL })];
     const results = await Promise.all([migrate(sharedPool), migrate(pools[0]), migrate(pools[1])]);
-    assert.equal(results.reduce((a, b) => a + b, 0), 1, 'exactly one runner applies the migration');
+    assert.equal(results.reduce((a, b) => a + b, 0), 2, 'exactly one runner applies the migrations');
     await Promise.all(pools.map((p) => p.end()));
 
     const { rows } = await sharedPool.query('SELECT count(*)::int AS n FROM operational_schema_migrations');
-    assert.equal(rows[0].n, 1);
+    assert.equal(rows[0].n, 2);
   });
 
   // Contract suite against PostgreSQL. Each test gets a truncated table on
@@ -299,6 +300,46 @@ if (!PG_URL) {
       await storeA.close();
       await storeB.close();
     }
+  });
+
+  test('[postgres] notification delivery store: claim/record contract and cross-instance exactly-once', async () => {
+    const { createPostgresNotificationDeliveryStore } = require('./notification-deliveries');
+    const { STALE_CLAIM_MS } = require('../handoff/store');
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE notification_deliveries');
+    const storeA = createPostgresNotificationDeliveryStore({ pool: sharedPool, clock });
+    const KEY = 'appointment-confirmation:sess-1';
+
+    // First claim wins; a concurrent second claim is refused.
+    const claims = await Promise.all(Array.from({ length: 6 }, () => storeA.claim(KEY)));
+    assert.equal(claims.filter((c) => c.claimed).length, 1, 'exactly one concurrent claimant');
+
+    // failed permits re-claim; sent is final forever.
+    await storeA.record(KEY, 'failed');
+    assert.equal((await storeA.claim(KEY)).claimed, true, 'failed permits retry');
+    await storeA.record(KEY, 'sent');
+    clock.set(T0 + STALE_CLAIM_MS * 10);
+    const afterSent = await storeA.claim(KEY);
+    assert.equal(afterSent.claimed, false, 'sent is never re-claimed — no duplicate notification, ever');
+    assert.equal(afterSent.status, 'sent');
+
+    // A stale pending claim (claimant crashed) is re-claimable.
+    clock.set(T0);
+    await storeA.claim('nk-stale');
+    clock.set(T0 + STALE_CLAIM_MS - 1);
+    assert.equal((await storeA.claim('nk-stale')).claimed, false, 'fresh pending blocks');
+    clock.set(T0 + STALE_CLAIM_MS);
+    assert.equal((await storeA.claim('nk-stale')).claimed, true, 'stale pending re-claimable');
+
+    // Cross-instance: a second repository instance sees sent-finality.
+    const poolB = createOperationalPool({ connectionString: PG_URL });
+    const storeB = createPostgresNotificationDeliveryStore({ pool: poolB, clock });
+    assert.equal((await storeB.claim(KEY)).claimed, false, 'sent is final across instances');
+    await poolB.end();
+
+    // Nothing sensitive at rest: keys and statuses only.
+    const { rows } = await sharedPool.query('SELECT * FROM notification_deliveries');
+    assert.equal(/@|caller|phone|subject|html/i.test(JSON.stringify(rows)), false);
   });
 
   test('[postgres] teardown', async () => {

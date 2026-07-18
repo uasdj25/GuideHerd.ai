@@ -5,36 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>GuideHerd Operations Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter+Tight:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="../assets/guideherd.css">
 <style>
-  :root { --accent: #1f3a5f; --line: #d8d8d8; --dim: #666; --bad: #a33; --warn: #965f00; }
-  * { box-sizing: border-box; }
-  body { font-family: Georgia, 'Times New Roman', serif; margin: 0; color: #222; background: #fafaf8; }
-  header { border-bottom: 3px solid var(--accent); padding: 14px 24px; display: flex; justify-content: space-between; align-items: baseline; }
-  header h1 { font-size: 18px; margin: 0; }
-  header .who { color: var(--dim); font-size: 13px; }
-  main { max-width: 1100px; margin: 0 auto; padding: 16px 24px 48px; }
-  section { margin-top: 28px; }
-  h2 { font-size: 15px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
-  table { border-collapse: collapse; width: 100%; font-size: 13px; }
-  th, td { text-align: left; padding: 5px 10px 5px 0; border-bottom: 1px solid #eee; vertical-align: top; }
-  th { color: var(--dim); font-weight: normal; }
-  .counters { display: flex; gap: 28px; flex-wrap: wrap; }
-  .counter { min-width: 110px; }
-  .counter .n { font-size: 26px; }
-  .counter .l { color: var(--dim); font-size: 12px; }
-  .status-available { color: #2a6f2a; }
-  .status-unavailable, .sev-error { color: var(--bad); }
-  .status-not-configured, .status-not-integrated, .sev-warn { color: var(--warn); }
-  form.login { max-width: 360px; margin: 80px auto; border: 1px solid var(--line); padding: 24px; background: #fff; }
-  input, button { font: inherit; padding: 7px 10px; }
-  input[type=password], input[type=text] { width: 100%; border: 1px solid var(--line); }
-  button { background: var(--accent); color: #fff; border: 0; cursor: pointer; margin-top: 10px; }
-  .error { color: var(--bad); font-size: 13px; }
-  .muted { color: var(--dim); }
-  .searchbar { display: flex; gap: 8px; }
-  .searchbar input { flex: 1; }
-  .searchbar button { margin-top: 0; }
-  code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+  /* Page-scoped composition only — every primitive is the Design System's. */
+  .ops-main { padding-top: var(--sp-4); padding-bottom: var(--sp-7); }
+  .ops-login-wrap { min-height: 70vh; display: flex; align-items: center; justify-content: center; padding: var(--sp-3); }
+  .ops-login { width: 100%; max-width: 400px; }
+  .ops-login .gh-wordmark { font-size: 24px; }
+  .ops-login h1 { font-family: var(--serif); font-size: var(--fs-xl); margin: var(--sp-3) 0 var(--sp-1); }
+  .ops-login p { color: var(--text-dim); font-size: var(--fs-sm); margin-bottom: var(--sp-3); }
+  .ops-login form { display: flex; flex-direction: column; gap: var(--sp-2); }
+  .ops-health-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--sp-2); }
+  .ops-health-cell { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+  .ops-health-cell .cap { font-size: var(--fs-sm); color: var(--text-soft); }
   #app { display: none; }
 </style>
 </head>
@@ -44,40 +30,85 @@
   This page holds NO credentials and NO secrets: authentication is a
   GuideHerd user session in an HttpOnly cookie the page cannot read, and
   every view is GuideHerd operational metadata served by the API.
+  Presentation: the GuideHerd Product Design System (ADR-0019,
+  /assets/guideherd.css) — this page is its reference implementation.
 -->
-<form class="login" id="login" autocomplete="off">
-  <h1>GuideHerd Operations Center</h1>
-  <p class="muted">Sign in with your operator credential.</p>
-  <input type="password" id="credential" placeholder="Credential" required>
-  <button type="submit">Sign in</button>
-  <p class="error" id="login-error"></p>
-</form>
+<a class="gh-skip-link" href="#main">Skip to content</a>
+
+<div class="ops-login-wrap" id="login-wrap">
+  <div class="ops-login gh-card" id="login-card">
+    <span class="gh-wordmark">GuideHerd<span class="gh-wordmark-sup">AI</span></span>
+    <h1>Operations Center</h1>
+    <p>Sign in with your operator credential.</p>
+    <form id="login" autocomplete="off">
+      <div class="gh-field">
+        <label class="gh-label" for="credential">Credential</label>
+        <input class="gh-input" type="password" id="credential" required autocomplete="off">
+      </div>
+      <button class="gh-btn gh-btn-primary gh-btn-full" type="submit">Sign in</button>
+      <p class="gh-form-error" id="login-error" role="alert"></p>
+    </form>
+  </div>
+</div>
 
 <div id="app">
-<header>
-  <h1>GuideHerd Operations Center</h1>
-  <span class="who"><span id="who"></span> · <a href="#" id="logout">sign out</a></span>
+<header class="gh-app-header">
+  <div class="gh-container gh-container--reading gh-app-header-row">
+    <span class="gh-row" style="gap:0">
+      <a class="gh-wordmark" href="https://guideherd.ai/">GuideHerd<span class="gh-wordmark-sup">AI</span></a>
+      <span class="gh-app-name">Operations Center</span>
+    </span>
+    <span class="gh-app-header-meta"><span id="who"></span><span aria-hidden="true">·</span><a href="#" id="logout">Sign out</a></span>
+  </div>
 </header>
-<main>
-  <section>
-    <h2>Handoffs</h2>
-    <div class="counters" id="counters"></div>
-  </section>
+<main class="gh-container gh-container--reading ops-main" id="main">
 
-  <section>
-    <h2>Search <span class="muted">(correlation ID · session ID · attorney)</span></h2>
-    <div class="searchbar">
-      <input type="text" id="q" placeholder="gh-… / session id / attorney key">
-      <button id="go">Search</button>
+  <section class="gh-section" aria-labelledby="h-handoffs">
+    <div class="gh-section-head">
+      <span class="gh-eyebrow" id="h-handoffs"><span class="gh-eyebrow-dot"></span>Handoffs</span>
+      <span class="gh-section-note">Today's conversations at a glance</span>
     </div>
-    <div id="search-result"></div>
+    <div class="gh-stats" id="counters" aria-live="polite"></div>
   </section>
 
-  <section><h2>Recent handoffs</h2><div id="sessions"></div></section>
-  <section><h2>Notification deliveries</h2><div id="notifications"></div></section>
-  <section><h2>Recent errors &amp; warnings</h2><div id="errors"></div></section>
-  <section><h2>Operational events</h2><div id="events"></div></section>
-  <section><h2>System health</h2><div id="health"></div></section>
+  <section class="gh-section" aria-labelledby="h-search">
+    <div class="gh-section-head">
+      <span class="gh-eyebrow" id="h-search"><span class="gh-eyebrow-dot"></span>Search</span>
+      <span class="gh-section-note">Correlation ID · session ID · attorney</span>
+    </div>
+    <div class="gh-search">
+      <label class="gh-visually-hidden" for="q">Search by correlation ID, session ID, or attorney</label>
+      <input class="gh-input" type="text" id="q" placeholder="gh-… / session id / attorney key">
+      <button class="gh-btn gh-btn-outline" id="go">Search</button>
+    </div>
+    <div id="search-result" aria-live="polite"></div>
+  </section>
+
+  <section class="gh-section" aria-labelledby="h-sessions">
+    <div class="gh-section-head"><span class="gh-eyebrow" id="h-sessions"><span class="gh-eyebrow-dot"></span>Recent handoffs</span></div>
+    <div id="sessions" aria-live="polite"></div>
+  </section>
+
+  <section class="gh-section" aria-labelledby="h-notifications">
+    <div class="gh-section-head"><span class="gh-eyebrow" id="h-notifications"><span class="gh-eyebrow-dot"></span>Notification deliveries</span></div>
+    <div id="notifications" aria-live="polite"></div>
+  </section>
+
+  <section class="gh-section" aria-labelledby="h-errors">
+    <div class="gh-section-head"><span class="gh-eyebrow" id="h-errors"><span class="gh-eyebrow-dot"></span>Recent errors &amp; warnings</span></div>
+    <div id="errors" aria-live="polite"></div>
+  </section>
+
+  <section class="gh-section" aria-labelledby="h-events">
+    <div class="gh-section-head"><span class="gh-eyebrow" id="h-events"><span class="gh-eyebrow-dot"></span>Operational events</span></div>
+    <div id="events" aria-live="polite"></div>
+  </section>
+
+  <section class="gh-section" aria-labelledby="h-health">
+    <div class="gh-section-head"><span class="gh-eyebrow" id="h-health"><span class="gh-eyebrow-dot"></span>System health</span></div>
+    <div id="health" aria-live="polite"></div>
+  </section>
+
 </main>
 </div>
 
@@ -101,17 +132,40 @@
   }
   function el(id) { return document.getElementById(id); }
   function esc(v) { var d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; }
-  function table(rows, columns) {
-    if (!rows.length) return '<p class="muted">Nothing to show.</p>';
-    var head = '<tr>' + columns.map(function (c) { return '<th>' + esc(c[0]) + '</th>'; }).join('') + '</tr>';
+
+  // ── Design System rendering helpers ──────────────────────────────────
+  var STATUS_TONE = {
+    // handoff lifecycle
+    booked: 'ok', connected: 'ok', 'awaiting-transfer': 'warn',
+    failed: 'bad', escalated: 'warn', cancelled: 'mute', expired: 'mute',
+    // deliveries
+    sent: 'ok', pending: 'warn', 'not-configured': 'warn',
+    // health
+    available: 'ok', unavailable: 'bad', 'not-integrated': 'mute',
+    // severities
+    info: 'mute', warn: 'warn', error: 'bad',
+  };
+  function badge(value) {
+    var tone = STATUS_TONE[value] || 'mute';
+    var cls = tone === 'mute' ? 'gh-badge' : 'gh-badge gh-badge--' + tone;
+    return '<span class="' + cls + '">' + esc(value) + '</span>';
+  }
+  function empty(message) {
+    return '<div class="gh-empty"><span class="gh-empty-title">All quiet.</span>' + esc(message) + '</div>';
+  }
+  function loading() { return '<p class="gh-loading">Loading…</p>'; }
+  function when(v) { return v ? '<span class="gh-tnum">' + esc(String(v).replace('T', ' ').replace(/\.\d+Z$/, 'Z')) + '</span>' : '<span class="gh-muted">—</span>'; }
+  function table(rows, columns, emptyMessage) {
+    if (!rows.length) return empty(emptyMessage || 'Nothing to show yet.');
+    var head = '<tr>' + columns.map(function (c) { return '<th scope="col">' + esc(c[0]) + '</th>'; }).join('') + '</tr>';
     var body = rows.map(function (r) {
       return '<tr>' + columns.map(function (c) { return '<td>' + (c[2] ? c[2](r) : esc(r[c[1]])) + '</td>'; }).join('') + '</tr>';
     }).join('');
-    return '<table>' + head + body + '</table>';
+    return '<div class="gh-table-wrap"><table class="gh-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
   }
 
-  function showLogin() { el('login').style.display = 'block'; el('app').style.display = 'none'; }
-  function showApp() { el('login').style.display = 'none'; el('app').style.display = 'block'; }
+  function showLogin() { el('login-wrap').style.display = 'flex'; el('app').style.display = 'none'; }
+  function showApp() { el('login-wrap').style.display = 'none'; el('app').style.display = 'block'; }
 
   el('login').addEventListener('submit', function (e) {
     e.preventDefault();
@@ -132,15 +186,18 @@
   });
 
   var sessionColumns = [
-    ['Session', 'sessionId', function (r) { return '<code>' + esc(r.sessionId) + '</code>'; }],
-    ['Status', 'status'], ['Attorney', 'attorneyId'], ['Practice area', 'practiceAreaId'],
-    ['Created', 'createdAt'], ['Connected', 'connectedAt'], ['Completed', 'completedAt'],
+    ['Session', 'sessionId', function (r) { return '<code class="gh-mono">' + esc(r.sessionId) + '</code>'; }],
+    ['Status', 'status', function (r) { return badge(r.status); }],
+    ['Attorney', 'attorneyId'], ['Practice area', 'practiceAreaId'],
+    ['Created', 'createdAt', function (r) { return when(r.createdAt); }],
+    ['Connected', 'connectedAt', function (r) { return when(r.connectedAt); }],
+    ['Completed', 'completedAt', function (r) { return when(r.completedAt); }],
   ];
   var eventColumns = [
-    ['At', 'at'],
-    ['Event', 'name', function (r) { return '<span class="sev-' + esc(r.severity) + '">' + esc(r.name) + '</span>'; }],
-    ['Correlation', 'c', function (r) { return '<code>' + esc(r.fields.correlationId || '') + '</code>'; }],
-    ['Session', 's', function (r) { return '<code>' + esc(r.fields.sessionId || '') + '</code>'; }],
+    ['At', 'at', function (r) { return when(r.at); }],
+    ['Event', 'name', function (r) { return badge(r.severity) + ' <span class="gh-mono">' + esc(r.name) + '</span>'; }],
+    ['Correlation', 'c', function (r) { return '<code class="gh-mono">' + esc(r.fields.correlationId || '') + '</code>'; }],
+    ['Session', 's', function (r) { return '<code class="gh-mono">' + esc(r.fields.sessionId || '') + '</code>'; }],
     ['Facts', 'f', function (r) {
       return esc(Object.keys(r.fields).filter(function (k) { return ['category', 'code', 'httpStatus', 'provider', 'operation'].indexOf(k) !== -1; })
         .map(function (k) { return k + '=' + r.fields[k]; }).join(' '));
@@ -156,43 +213,60 @@
   }
 
   function refresh() {
+    ['counters', 'sessions', 'notifications', 'errors', 'events', 'health'].forEach(function (id) {
+      el(id).innerHTML = loading();
+    });
     api('/api/v1/operations/overview').then(function (o) {
       var groups = o.sessions.groups;
       el('counters').innerHTML = ['pending', 'active', 'completed', 'failed'].map(function (g) {
-        return '<div class="counter"><div class="n">' + esc(groups[g] || 0) + '</div><div class="l">' + esc(g) + '</div></div>';
+        var bad = g === 'failed' && (groups[g] || 0) > 0;
+        return '<div class="gh-stat' + (bad ? ' gh-stat--bad' : '') + '"><div class="gh-stat-n">' + esc(groups[g] || 0) + '</div><div class="gh-stat-l">' + esc(g) + '</div></div>';
       }).join('');
-      el('health').innerHTML = table(o.health, [
-        ['Capability', 'capability'],
-        ['Status', 'status', function (r) { return '<span class="status-' + esc(r.status) + '">' + esc(r.status) + '</span>'; }],
-      ]);
+      el('health').innerHTML = o.health.length
+        ? '<div class="ops-health-grid">' + o.health.map(function (r) {
+            return '<div class="gh-card ops-health-cell"><span class="cap">' + esc(r.capability) + '</span>' + badge(r.status) + '</div>';
+          }).join('') + '</div>'
+        : empty('No capabilities registered.');
     });
-    api('/api/v1/operations/sessions?limit=25').then(function (r) { el('sessions').innerHTML = table(r.sessions, sessionColumns); });
+    api('/api/v1/operations/sessions?limit=25').then(function (r) {
+      el('sessions').innerHTML = table(r.sessions, sessionColumns, 'No handoffs yet — new conversations appear here.');
+    });
     api('/api/v1/operations/notifications?limit=25').then(function (r) {
       el('notifications').innerHTML = table(r.notifications, [
-        ['Type', 'type'], ['Session', 'sessionId', function (x) { return '<code>' + esc(x.sessionId) + '</code>'; }],
-        ['Status', 'status'], ['Claimed', 'claimedAt'],
-      ]);
+        ['Type', 'type', function (x) { return '<span class="gh-mono">' + esc(x.type) + '</span>'; }],
+        ['Session', 'sessionId', function (x) { return '<code class="gh-mono">' + esc(x.sessionId) + '</code>'; }],
+        ['Status', 'status', function (x) { return badge(x.status); }],
+        ['Claimed', 'claimedAt', function (x) { return when(x.claimedAt); }],
+      ], 'No notification deliveries yet.');
     });
-    api('/api/v1/operations/errors?limit=25').then(function (r) { el('errors').innerHTML = table(r.events, eventColumns); });
-    api('/api/v1/operations/events?limit=50').then(function (r) { el('events').innerHTML = table(r.events, eventColumns); });
+    api('/api/v1/operations/errors?limit=25').then(function (r) {
+      el('errors').innerHTML = table(r.events, eventColumns, 'No errors or warnings — as it should be.');
+    });
+    api('/api/v1/operations/events?limit=50').then(function (r) {
+      el('events').innerHTML = table(r.events, eventColumns, 'No operational events yet.');
+    });
   }
 
   el('go').addEventListener('click', function () {
     var q = el('q').value.trim();
     if (!q) return;
+    el('search-result').innerHTML = loading();
     api('/api/v1/operations/search?q=' + encodeURIComponent(q)).then(function (r) {
       if (r.kind === 'correlation') {
-        el('search-result').innerHTML = '<p class="muted">Timeline for <code>' + esc(q) + '</code></p>' + table(r.results, [
-          ['At', 'at'], ['Kind', 'kind'], ['Entry', 'label'],
-          ['Session', 's', function (x) { return '<code>' + esc(x.sessionId || '') + '</code>'; }],
+        el('search-result').innerHTML = '<p class="gh-muted" style="margin:var(--sp-2) 0">Timeline for <code class="gh-mono">' + esc(q) + '</code></p>' + table(r.results, [
+          ['At', 'at', function (x) { return when(x.at); }],
+          ['Kind', 'kind', function (x) { return badge(x.kind); }],
+          ['Entry', 'label'],
+          ['Session', 's', function (x) { return '<code class="gh-mono">' + esc(x.sessionId || '') + '</code>'; }],
         ]);
       } else if (r.results.length) {
-        el('search-result').innerHTML = '<p class="muted">' + esc(r.kind) + ' match</p>' + table(r.results, sessionColumns);
+        el('search-result').innerHTML = '<p class="gh-muted" style="margin:var(--sp-2) 0">' + esc(r.kind) + ' match</p>' + table(r.results, sessionColumns);
       } else {
-        el('search-result').innerHTML = '<p class="muted">No matches.</p>';
+        el('search-result').innerHTML = empty('No matches for that search.');
       }
     });
   });
+  el('q').addEventListener('keydown', function (e) { if (e.key === 'Enter') el('go').click(); });
 
   boot();
   showLogin();

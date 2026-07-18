@@ -157,6 +157,7 @@ live in one codebase; the boundaries let them separate later without a rewrite.
 - [ADR-0016: The GuideHerd Customer Configuration Framework](docs/architecture-decisions/ADR-0016-customer-configuration-framework.md)
 - [ADR-0017: The GuideHerd Durable Event Outbox](docs/architecture-decisions/ADR-0017-durable-event-outbox.md)
 - [ADR-0018: The GuideHerd Scheduler Contract](docs/architecture-decisions/ADR-0018-scheduler-contract.md)
+- [ADR-0019: The GuideHerd Product Design System](docs/architecture-decisions/ADR-0019-product-design-system.md)
 
 See also [Vision](docs/Vision.md) and [Roadmap](docs/Roadmap.md).
 

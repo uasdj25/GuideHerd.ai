@@ -40,7 +40,14 @@ const { validateIdentityClaim } = require('./contract');
 const { UnauthenticatedError } = require('./errors');
 
 const SESSION_TOKEN_PREFIX = 'gh_usession_';
-const DEFAULT_SESSION_TTL_SECONDS = 8 * 60 * 60; // 8 hours, absolute
+// Absolute, not sliding: a session dies this long after it was ISSUED,
+// regardless of activity. 12 hours is the V1 receptionist figure — a
+// receptionist may sign in before a shift, and shifts plus lunch, overtime,
+// and handoff coverage routinely exceed eight hours; forcing a mid-shift
+// re-login mid-call is the failure this avoids. Still bounded, still simple,
+// and still absolute. Deployments override with
+// GUIDEHERD_USER_SESSION_TTL_SECONDS.
+const DEFAULT_SESSION_TTL_SECONDS = 12 * 60 * 60; // 12 hours, absolute
 
 function hashToken(token) {
   return crypto.createHash('sha256').update(token, 'utf8').digest('hex');

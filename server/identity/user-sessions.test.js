@@ -58,6 +58,29 @@ test('sessions: establish issues opaque prefixed tokens, stores hashes only, and
   assert.equal(await sessions.validate(undefined), null);
 });
 
+test('sessions: the default lifetime is 12 hours, absolute, and remains deployment-overridable', async () => {
+  // V1 receptionist figure. Pinned because it is a product decision, not an
+  // incidental constant: a receptionist signs in before a shift, and shifts
+  // plus lunch and overtime routinely exceed eight hours.
+  assert.equal(DEFAULT_SESSION_TTL_SECONDS, 12 * 60 * 60);
+
+  const clock = fixedClock(T0);
+  const sessions = createUserSessionService({ clock });
+  assert.equal(sessions.ttlSeconds, 12 * 60 * 60, 'default applies when none is injected');
+
+  const { token } = await sessions.establish(CLAIM, 'dev-user');
+  // ABSOLUTE, not sliding: activity right before the boundary does not extend
+  // it. This is the guarantee the longer default must not quietly relax.
+  clock.set(T0 + (12 * 60 * 60 * 1000) - 1);
+  assert.ok(await sessions.validate(token), 'valid until the last ms');
+  clock.set(T0 + (12 * 60 * 60 * 1000));
+  assert.equal(await sessions.validate(token), null, 'expires exactly at 12h despite activity');
+
+  // A deployment override still wins over the default.
+  const short = createUserSessionService({ clock: fixedClock(T0), ttlSeconds: 60 });
+  assert.equal(short.ttlSeconds, 60);
+});
+
 test('sessions: expiration is absolute and lazy; invalidation is immediate; service identities never get sessions', async () => {
   const clock = fixedClock(T0);
   const sessions = createUserSessionService({ clock, ttlSeconds: 3600 });
@@ -192,7 +215,11 @@ test('HTTP: successful login sets a hardened HttpOnly cookie and returns identit
     const body = await res.json();
     assert.deepEqual(body, {
       subject: 'jane-doe', displayName: 'Jane Doe', organizationKey: FIRM,
-      roles: ['receptionist'], expiresAt: '2026-07-12T23:15:00.000Z',
+      // Derived from the default TTL rather than hardcoded, so changing the
+      // product's session lifetime cannot silently desynchronize this
+      // expectation from what the server actually issues.
+      roles: ['receptionist'],
+      expiresAt: new Date(T0 + DEFAULT_SESSION_TTL_SECONDS * 1000).toISOString(),
     });
     assert.equal(JSON.stringify(body).includes('gh_usession_'), false, 'token only in the HttpOnly cookie');
 

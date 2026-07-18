@@ -82,8 +82,15 @@ function createBody(expiresInMs) {
   };
 }
 
+// Mirrors the real server's CORS response (server/handoff/app.js
+// corsHeadersFor). `Access-Control-Allow-Credentials` matters: the console
+// sends its session cookie with `credentials: 'include'` (ADR-0013), and a
+// credentialed cross-origin request is REJECTED by the browser unless the
+// response carries this header. The mock previously omitted it, which made it
+// unfaithful to the server it stands in for.
 const CORS = (origin) => ({
   'Access-Control-Allow-Origin': origin,
+  'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 });
@@ -104,6 +111,37 @@ async function mockApi(page, behavior, calls) {
 
     if (method === 'OPTIONS') {
       return route.fulfill({ status: 204, headers: CORS(origin) });
+    }
+
+    // ── User Sessions (ADR-0013) ──────────────────────────────────────
+    // Defaults model the `anonymous` deployment floor: no session exists
+    // (/auth/session 401), and console operations succeed regardless. Tests
+    // opt into `required` by making the console routes answer 401.
+    if (method === 'GET' && url.endsWith('/api/v1/auth/session')) {
+      calls.session.push({ cookie: await req.headerValue('cookie') });
+      const b = behavior.session || { status: 401, body: { error: { code: 'unauthorized' } } };
+      return route.fulfill({
+        status: b.status, headers: { 'content-type': 'application/json', ...CORS(origin) },
+        body: JSON.stringify(b.body),
+      });
+    }
+
+    if (method === 'POST' && url.endsWith('/api/v1/auth/login')) {
+      calls.login.push(JSON.parse(req.postData() || '{}'));
+      const queue = behavior.login;
+      const b = Array.isArray(queue) ? (queue.length > 1 ? queue.shift() : queue[0]) : queue;
+      const resolved = b || { status: 200, body: SESSION_IDENTITY };
+      if (resolved === 'abort') return route.abort('failed');
+      return route.fulfill({
+        status: resolved.status, headers: { 'content-type': 'application/json', ...CORS(origin) },
+        body: JSON.stringify(resolved.body),
+      });
+    }
+
+    if (method === 'POST' && url.endsWith('/api/v1/auth/logout')) {
+      calls.logout.push(url);
+      if (behavior.logout === 'abort') return route.abort('failed');
+      return route.fulfill({ status: 204, headers: CORS(origin), body: '' });
     }
 
     if (method === 'GET' && /\/api\/v1\/firms\/[^/]+\/scheduling-options$/.test(url)) {
@@ -154,7 +192,20 @@ async function mockApi(page, behavior, calls) {
   });
 }
 
-function newCalls() { return { create: [], status: [], del: [], options: [] }; }
+function newCalls() { return { create: [], status: [], del: [], options: [], session: [], login: [], logout: [] }; }
+
+// The identity body returned by /auth/login and /auth/session — the exact
+// shape the server produces (server/handoff/app.js), token never included.
+const SESSION_IDENTITY = {
+  subject: 'jane-doe',
+  displayName: 'Jane Doe',
+  organizationKey: 'martinson-beason',
+  roles: ['receptionist'],
+  expiresAt: '2026-07-19T07:00:00.000Z',
+};
+// A deployment running GUIDEHERD_CONSOLE_AUTH=required answers every console
+// operation with 401 until a session cookie is presented (ADR-0013 §4).
+const UNAUTHORIZED = { status: 401, body: { error: { code: 'unauthorized', message: 'A bearer token is required.' } } };
 
 /**
  * Fill the required fields. Practice area drives the attorney list, so it is
@@ -196,7 +247,10 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
     }, calls);
 
     ok('title is GuideHerd Console — Reception Mode', (await page.title()) === 'GuideHerd Console — Reception Mode');
-    ok('heading + mode label', (await page.textContent('h1')).trim() === 'GuideHerd Console'
+    // The page carries two mutually-exclusive surfaces (the sign-in gate and
+    // the console itself), each with its own h1; only one is ever displayed.
+    // Target the console heading explicitly rather than the first h1 in DOM.
+    ok('heading + mode label', (await page.textContent('.console-title')).trim() === 'GuideHerd Console'
       && (await page.textContent('.mode-label')).trim() === 'Reception Mode');
 
     await fillRequired(page);
@@ -822,6 +876,199 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
     await page.click('#prepare-btn');
     await page.waitForSelector('#ready-panel:not([hidden])', { timeout: 5000 });
     ok('local page honors http://localhost:<port> override', localApiCalls.length >= 1);
+    await page.close();
+  }
+
+  // ── Authenticated receptionist access (ADR-0013 / ADR-0010, #58) ────
+  // The console never learns the deployment's auth mode; it reacts to the
+  // server's 401. These tests therefore drive both deployment floors purely
+  // by changing what the server answers.
+  console.log('— Authenticated receptionist access —');
+
+  {
+    // The `anonymous` floor is production's CURRENT posture. This is the
+    // regression guard for #58's promise that the flip is the only thing that
+    // changes behavior: with auth activation shipped but the floor untouched,
+    // the console must behave exactly as it does today.
+    const calls = newCalls();
+    const page = await freshPage({
+      create: () => ({ status: 201, body: createBody(600000) }),
+      status: [{ status: 200, body: { sessionId: MOCK.sessionId, status: 'awaiting-transfer' } }],
+    }, calls);
+    await page.waitForSelector('#caller-name');
+    ok('anonymous floor: console operates without signing in', await page.isVisible('#main'));
+    ok('anonymous floor: sign-in surface stays hidden', !(await page.isVisible('#login-wrap')));
+    ok('anonymous floor: no identity chip', !(await page.isVisible('#identity')));
+    ok('anonymous floor: session probed once at boot', calls.session.length === 1);
+    ok('anonymous floor: a 401 session probe never gates the console', calls.options.length === 1);
+    // The full workflow still completes anonymously.
+    await fillRequired(page);
+    await page.click('#prepare-btn');
+    await page.waitForSelector('#ready-panel:not([hidden])', { timeout: 5000 });
+    ok('anonymous floor: handoff still creatable', calls.create.length === 1);
+    await page.close();
+  }
+
+  {
+    // GUIDEHERD_CONSOLE_AUTH=required — the console routes fail closed.
+    const calls = newCalls();
+    const page = await freshPage({ options: UNAUTHORIZED }, calls);
+    await page.waitForSelector('#login-wrap:not([hidden])', { timeout: 5000 });
+    ok('required: 401 presents the sign-in surface', await page.isVisible('#login-wrap'));
+    ok('required: console is not reachable behind the gate', !(await page.isVisible('#main')));
+    // Arriving signed-out is normal, not an error: the card explains itself
+    // through its own subtitle and the error slot stays empty.
+    ok('required: sign-in card explains itself',
+      (await page.textContent('#login-card p')).trim() === 'Sign in with your receptionist credential.');
+    ok('required: no error is claimed for simply being signed out',
+      (await page.textContent('#login-error')).trim() === '');
+    // A 401 must never be dressed up as a connection failure.
+    ok('required: no misleading connection error', !(await page.isVisible('#error-panel')));
+    ok('required: credential field focused', await page.evaluate(() => document.activeElement.id) === 'credential');
+    // The gate is composed from Design System primitives (ADR-0019), not
+    // bespoke login styling.
+    ok('sign-in card uses the shared card primitive',
+      (await page.getAttribute('#login-card', 'class')).includes('gh-card'));
+    ok('sign-in field uses the shared input primitive',
+      (await page.getAttribute('#credential', 'class')).includes('gh-input'));
+    ok('sign-in action uses the shared primary button',
+      (await page.getAttribute('#login-btn', 'class')).includes('gh-btn-primary'));
+    ok('credential is a password field', (await page.getAttribute('#credential', 'type')) === 'password');
+    await page.close();
+  }
+
+  {
+    // Sign in successfully: the console becomes operable and identity shows.
+    const calls = newCalls();
+    const page = await freshPage({
+      options: [UNAUTHORIZED, { status: 200, body: MOCK_OPTIONS }],
+      session: { status: 200, body: SESSION_IDENTITY },
+      login: { status: 200, body: SESSION_IDENTITY },
+    }, calls);
+    await page.waitForSelector('#login-wrap:not([hidden])', { timeout: 5000 });
+    await page.fill('#credential', 'dev-key-jane-0123456789abcdef');
+    await page.click('#login-btn');
+    await page.waitForSelector('#caller-name', { timeout: 5000 });
+
+    ok('login posts the credential to /api/v1/auth/login', calls.login.length === 1);
+    ok('login body carries exactly the credential',
+      JSON.stringify(Object.keys(calls.login[0])) === JSON.stringify(['credential'])
+      && calls.login[0].credential === 'dev-key-jane-0123456789abcdef');
+    ok('successful sign-in reveals the console', await page.isVisible('#main'));
+    ok('successful sign-in hides the gate', !(await page.isVisible('#login-wrap')));
+    ok('options reloaded after sign-in', calls.options.length === 2);
+    ok('identity chip shown after sign-in', await page.isVisible('#identity'));
+    ok('identity chip names the user and organization',
+      (await page.textContent('#who')).trim() === 'Jane Doe — martinson-beason');
+    ok('credential cleared from the field after sign-in',
+      (await page.inputValue('#credential')) === '');
+    // ADR-0013: the session credential is an HttpOnly cookie the page cannot
+    // read. Nothing about the session may be persisted client-side.
+    const stored = await page.evaluate(() => JSON.stringify({
+      local: Object.entries(localStorage), session: Object.entries(sessionStorage),
+    }));
+    ok('no credential or session persisted to browser storage',
+      !stored.includes('dev-key-jane') && !stored.includes('gh_usession') && !stored.includes('jane-doe'),
+      stored);
+    ok('credential absent from the DOM',
+      !(await page.content()).includes('dev-key-jane-0123456789abcdef'));
+    await page.close();
+  }
+
+  {
+    // Wrong credential — fail closed, calmly, without enumerating.
+    const calls = newCalls();
+    const page = await freshPage({
+      options: UNAUTHORIZED,
+      login: { status: 403, body: { error: { code: 'forbidden', message: 'The provided credential is not valid.' } } },
+    }, calls);
+    await page.waitForSelector('#login-wrap:not([hidden])', { timeout: 5000 });
+    await page.fill('#credential', 'wrong-credential-000000');
+    await page.click('#login-btn');
+    await page.waitForFunction(
+      () => document.getElementById('login-error').textContent.indexOf('not accepted') !== -1,
+      { timeout: 5000 });
+    ok('wrong credential keeps the gate closed', !(await page.isVisible('#main')));
+    ok('wrong credential shows a calm branded message',
+      (await page.textContent('#login-error')).trim() === 'That credential was not accepted. Check it and try again.');
+    ok('wrong credential does not reveal whether the user exists',
+      !(await page.textContent('#login-error')).toLowerCase().includes('unknown user'));
+    ok('credential cleared after a failed attempt', (await page.inputValue('#credential')) === '');
+    ok('sign-in remains retryable', await page.isEnabled('#login-btn'));
+    await page.close();
+  }
+
+  {
+    // 503 — the deployment has no user-auth provider configured. This is an
+    // operator problem, and saying "wrong credential" would misdirect them.
+    const calls = newCalls();
+    const page = await freshPage({
+      options: UNAUTHORIZED,
+      login: { status: 503, body: { error: { code: 'identity_provider_unavailable' } } },
+    }, calls);
+    await page.waitForSelector('#login-wrap:not([hidden])', { timeout: 5000 });
+    await page.fill('#credential', 'anything-at-all-1234');
+    await page.click('#login-btn');
+    await page.waitForFunction(
+      () => document.getElementById('login-error').textContent.indexOf('not configured') !== -1,
+      { timeout: 5000 });
+    ok('unconfigured sign-in is reported as an operator problem',
+      (await page.textContent('#login-error')).trim() === 'Sign-in is not configured. Contact your GuideHerd administrator.');
+    await page.close();
+  }
+
+  {
+    // A session that expires mid-workflow: create answers 401. The caller's
+    // details must survive so signing back in resumes rather than restarts.
+    const calls = newCalls();
+    const page = await freshPage({
+      session: { status: 200, body: SESSION_IDENTITY },
+      create: () => ({ status: 401, body: UNAUTHORIZED.body }),
+    }, calls);
+    await page.waitForSelector('#caller-name', { timeout: 5000 });
+    await fillRequired(page, 'Mid Session', 'mid.session@example.com');
+    await page.click('#prepare-btn');
+    await page.waitForSelector('#login-wrap:not([hidden])', { timeout: 5000 });
+    ok('expired session during create returns to sign-in', await page.isVisible('#login-wrap'));
+    ok('expired session explains what happened',
+      (await page.textContent('#login-error')).trim() === 'Your session ended. Sign in again to continue.');
+    ok('expired session is not shown as a create failure', !(await page.isVisible('#error-panel')));
+    ok('identity chip cleared when the session ends', !(await page.isVisible('#identity')));
+    // The form is behind the gate but must retain its values underneath.
+    ok('caller details preserved for resumption after re-authentication',
+      (await page.inputValue('#caller-name')) === 'Mid Session'
+      && (await page.inputValue('#caller-email')) === 'mid.session@example.com');
+    await page.close();
+  }
+
+  {
+    // Sign out — server-side invalidation plus a returned-to-gate console.
+    const calls = newCalls();
+    const page = await freshPage({ session: { status: 200, body: SESSION_IDENTITY } }, calls);
+    await page.waitForSelector('#caller-name', { timeout: 5000 });
+    ok('identity chip visible while signed in', await page.isVisible('#identity'));
+    await page.click('#logout');
+    await page.waitForSelector('#login-wrap:not([hidden])', { timeout: 5000 });
+    ok('sign-out calls /api/v1/auth/logout', calls.logout.length === 1);
+    ok('sign-out returns to the sign-in surface', await page.isVisible('#login-wrap'));
+    ok('sign-out hides the console', !(await page.isVisible('#main')));
+    ok('sign-out clears the identity chip', !(await page.isVisible('#identity')));
+    ok('sign-out leaves no residue in browser storage',
+      (await page.evaluate(() => localStorage.length + sessionStorage.length)) === 0);
+    await page.close();
+  }
+
+  {
+    // Logout is idempotent server-side; a failed logout request must still
+    // return the receptionist to the gate rather than stranding them in a
+    // console they can no longer operate.
+    const calls = newCalls();
+    const page = await freshPage({ session: { status: 200, body: SESSION_IDENTITY }, logout: 'abort' }, calls);
+    await page.waitForSelector('#caller-name', { timeout: 5000 });
+    await page.click('#logout');
+    await page.waitForSelector('#login-wrap:not([hidden])', { timeout: 5000 });
+    ok('sign-out resets the surface even if the request fails', await page.isVisible('#login-wrap'));
+    ok('sign-out failure does not strand the receptionist', !(await page.isVisible('#main')));
     await page.close();
   }
 

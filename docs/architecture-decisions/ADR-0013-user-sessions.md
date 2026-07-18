@@ -54,8 +54,11 @@ Sessions are opaque GuideHerd tokens (`gh_usession_` + 256-bit random),
 delivered ONLY as an `HttpOnly; Secure; SameSite=Strict; Path=/` cookie
 and stored server-side as SHA-256 hashes. Browser JavaScript can never
 read the credential; a store leak reveals nothing replayable. Validation
-is server-side on every request; expiry is absolute (default 8h,
-`GUIDEHERD_USER_SESSION_TTL_SECONDS`) and lazy; logout invalidates
+is server-side on every request; expiry is absolute (default 12h — the V1
+receptionist figure, since a receptionist may sign in before a shift and
+shifts plus lunch, overtime, and handoff coverage routinely exceed eight
+hours; overridable via `GUIDEHERD_USER_SESSION_TTL_SECONDS`) and lazy;
+sliding expiration remains deliberately out of scope. Logout invalidates
 server-side and clears the cookie; login ALWAYS issues a fresh token and
 invalidates any session presented with the login request (fixation
 protection). CSRF posture: SameSite=Strict cookies plus JSON-only bodies

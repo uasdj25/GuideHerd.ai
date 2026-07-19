@@ -266,6 +266,18 @@ function newCalls() { return { session: [], login: [], logout: [], overview: [],
       apiFn && (html.match(/credentials: 'include'/g) || []).length >= 3, JSON.stringify(fetches.length));
   }
 
+  // ── ADR-0019 consumption contract (#53) ────────────────────────────
+  console.log('— ADR-0019 consumption contract —');
+  {
+    const html = fs.readFileSync(path.join(ROOT, 'operations', 'index.html'), 'utf8');
+    const styleBlock = (html.match(/<style>([\s\S]*?)<\/style>/) || [])[1] || '';
+    ok('page links the shared stylesheet', html.includes('assets/guideherd.css'));
+    ok('page defines no :root token block', !styleBlock.includes(':root'));
+    ok('page defines no custom-property tokens', !/^\s*--[a-z-]+\s*:/m.test(styleBlock));
+    ok('page sets no font-family except via shared tokens', !/font-family\s*:(?![^;]*var\(--)/.test(styleBlock));
+    ok('page declares no colors of its own', !/#[0-9a-fA-F]{3,8}\b|rgb\(/.test(styleBlock));
+  }
+
   await browser.close();
   server.close();
   console.log(`\nRESULT: ${passed} passed, ${failed} failed`);

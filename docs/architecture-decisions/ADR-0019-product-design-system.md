@@ -118,3 +118,17 @@ its CSS.
   library, dark-mode shipping, and the migration of the Reception
   Console/Administration Center (each is its own reviewed change on
   this foundation).
+
+**Addendum (#53 — deprecation cycle closed.)** With the Reception
+Console (#52), Administration Center (#56/#67), and Operations Center
+all composed on `guideherd.css`, the pre-Design-System styling is fully
+retired. It never existed as standalone stylesheet FILES — each product
+page carried its styling inline — so retirement happened in place
+during the migrations; a repository audit found no orphaned stylesheet
+and no dead selectors in any product page's composition block. The
+consumption contract (§3) is now enforced by automated tests on ALL
+THREE product surfaces (no token blocks, no custom properties, no own
+colors or fonts in page CSS). Outside the contract by design: the
+marketing site (its own brand-source styling, pre-DS), the demo page,
+and the training portal (a separately deployed product with its own
+stylesheet pair).

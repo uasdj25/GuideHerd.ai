@@ -51,6 +51,9 @@ if (!PG_URL) {
   let sharedPool;
 
   async function resetDatabase(pool) {
+    await pool.query('DROP TABLE IF EXISTS workflow_signals');
+    await pool.query('DROP TABLE IF EXISTS workflow_steps');
+    await pool.query('DROP TABLE IF EXISTS workflow_instances');
     await pool.query('DROP TABLE IF EXISTS integration_deliveries');
     await pool.query('DROP TABLE IF EXISTS outbox_deliveries');
     await pool.query('DROP TABLE IF EXISTS outbox_events');
@@ -64,18 +67,18 @@ if (!PG_URL) {
     sharedPool = createOperationalPool({ connectionString: PG_URL });
     await resetDatabase(sharedPool);
 
-    assert.equal(await migrate(sharedPool), 5, 'all pending migrations apply');
+    assert.equal(await migrate(sharedPool), 6, 'all pending migrations apply');
     assert.equal(await migrate(sharedPool), 0, 're-run is a no-op');
 
     // Concurrent boots: several runners at once, advisory lock serializes.
     await resetDatabase(sharedPool);
     const pools = [createOperationalPool({ connectionString: PG_URL }), createOperationalPool({ connectionString: PG_URL })];
     const results = await Promise.all([migrate(sharedPool), migrate(pools[0]), migrate(pools[1])]);
-    assert.equal(results.reduce((a, b) => a + b, 0), 5, 'exactly one runner applies the migrations');
+    assert.equal(results.reduce((a, b) => a + b, 0), 6, 'exactly one runner applies the migrations');
     await Promise.all(pools.map((p) => p.end()));
 
     const { rows } = await sharedPool.query('SELECT count(*)::int AS n FROM operational_schema_migrations');
-    assert.equal(rows[0].n, 5);
+    assert.equal(rows[0].n, 6);
   });
 
   // Contract suite against PostgreSQL. Each test gets a truncated table on
@@ -304,6 +307,113 @@ if (!PG_URL) {
       await storeA.close();
       await storeB.close();
     }
+  });
+
+  // Workflow store (ADR-0021): the full shared contract suite on
+  // PostgreSQL — the same suite the in-memory reference runs in
+  // server/workflow/workflow.test.js.
+  {
+    const { runWorkflowStoreContractSuite } = require('../workflow/store-contract-suite');
+    const { createPostgresWorkflowStore } = require('./workflow-store');
+    runWorkflowStoreContractSuite('postgres', async ({ clock }) => {
+      await sharedPool.query('TRUNCATE workflow_steps');
+      await sharedPool.query('TRUNCATE workflow_instances');
+      const store = createPostgresWorkflowStore({ pool: sharedPool, clock });
+      return { ...store, close: async () => {} }; // suite stores share the pool
+    });
+  }
+
+  test('[postgres] workflow signals: concurrent cross-instance delivery of one signal identity applies exactly one transition', async () => {
+    const { createPostgresWorkflowStore } = require('./workflow-store');
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE workflow_signals, workflow_steps, workflow_instances');
+    const poolB = createOperationalPool({ connectionString: PG_URL });
+    const storeA = createPostgresWorkflowStore({ pool: sharedPool, clock });
+    const storeB = createPostgresWorkflowStore({ pool: poolB, clock });
+    await storeA.createInstance({
+      instanceId: 'wfpg-1', workflowType: 'demo-follow-up', definitionVersion: 1,
+      instanceKey: 'sess-race', organizationKey: 'org-a', relatedEntityId: null,
+      state: 'a', stateData: {},
+    });
+    const step = (n) => ({ stepKey: `wfpg-1:a->b:${n}`, instanceId: 'wfpg-1', organizationKey: 'org-a', intent: { intent: 'notify' } });
+
+    // Two API instances race the SAME durable signal identity.
+    const results = await Promise.all([
+      storeA.transition('wfpg-1', 'a', { toState: 'b', stateData: {}, steps: [step(0)], signalId: 'event:evt-race' }),
+      storeB.transition('wfpg-1', 'a', { toState: 'b', stateData: {}, steps: [step(0)], signalId: 'event:evt-race' }),
+    ]);
+    assert.equal(results.filter((r) => r.applied).length, 1, 'exactly one winner');
+    assert.equal((await storeA.get('wfpg-1')).state, 'b');
+    assert.equal((await storeA.getStep('wfpg-1:a->b:0')).status, 'pending');
+    // And the loser recorded nothing extra: one signal row, one step row.
+    const { rows: sig } = await sharedPool.query("SELECT count(*)::int AS n FROM workflow_signals WHERE instance_id='wfpg-1'");
+    assert.equal(sig[0].n, 1);
+    await poolB.end();
+  });
+
+  test('[postgres] workflow signals: concurrent IGNORED delivery across two instances consumes exactly once', async () => {
+    const { createPostgresWorkflowStore } = require('./workflow-store');
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE workflow_signals, workflow_steps, workflow_instances');
+    const poolB = createOperationalPool({ connectionString: PG_URL });
+    const storeA = createPostgresWorkflowStore({ pool: sharedPool, clock });
+    const storeB = createPostgresWorkflowStore({ pool: poolB, clock });
+    await storeA.createInstance({
+      instanceId: 'wfpg-ign', workflowType: 'demo-follow-up', definitionVersion: 1,
+      instanceKey: 'sess-ign', organizationKey: 'org-a', relatedEntityId: null,
+      state: 'a', stateData: {},
+    });
+
+    // Two API instances evaluate the SAME structurally-valid-but-ignored
+    // signal concurrently: exactly one consumption commits.
+    const results = await Promise.all([
+      storeA.transition('wfpg-ign', 'a', { toState: 'a', stateData: {}, steps: [], signalId: 'event:ign-race', signalOutcome: 'ignored' }),
+      storeB.transition('wfpg-ign', 'a', { toState: 'a', stateData: {}, steps: [], signalId: 'event:ign-race', signalOutcome: 'ignored' }),
+    ]);
+    assert.equal(results.filter((r) => r.applied).length, 1, 'exactly one consumer');
+    const { rows } = await sharedPool.query(
+      "SELECT outcome FROM workflow_signals WHERE instance_id='wfpg-ign' AND signal_id='event:ign-race'");
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].outcome, 'ignored');
+    assert.equal((await storeA.get('wfpg-ign')).state, 'a', 'no state change either way');
+    await poolB.end();
+  });
+
+  test('[postgres] workflow signals: a pre-commit failure rolls the WHOLE transition back — signal, state, and steps — and retries safely', async () => {
+    const { createPostgresWorkflowStore } = require('./workflow-store');
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE workflow_signals, workflow_steps, workflow_instances');
+    const store = createPostgresWorkflowStore({ pool: sharedPool, clock });
+    await store.createInstance({
+      instanceId: 'wfpg-2', workflowType: 'demo-follow-up', definitionVersion: 1,
+      instanceKey: 'sess-crash', organizationKey: 'org-a', relatedEntityId: null,
+      state: 'a', stateData: {},
+    });
+
+    // A step violating the schema (organization_key NOT NULL) makes the
+    // transaction fail AFTER the signal insert and the state CAS.
+    await assert.rejects(() => store.transition('wfpg-2', 'a', {
+      toState: 'b', stateData: {},
+      steps: [{ stepKey: 'wfpg-2:a->b:0', instanceId: 'wfpg-2', organizationKey: null, intent: { intent: 'notify' } }],
+      signalId: 'event:evt-crash',
+    }));
+    // NOTHING committed: state, signal, and steps all rolled back.
+    assert.equal((await store.get('wfpg-2')).state, 'a');
+    assert.equal(await store.hasSignal('wfpg-2', 'event:evt-crash'), false, 'the failed delivery left no signal record');
+    assert.equal(await store.getStep('wfpg-2:a->b:0'), undefined);
+
+    // The SAME signal identity retries cleanly after the fault is fixed.
+    const retry = await store.transition('wfpg-2', 'a', {
+      toState: 'b', stateData: {},
+      steps: [{ stepKey: 'wfpg-2:a->b:0', instanceId: 'wfpg-2', organizationKey: 'org-a', intent: { intent: 'notify' } }],
+      signalId: 'event:evt-crash',
+    });
+    assert.deepEqual(retry, { applied: true });
+    // And re-delivery AFTER commit is the durable duplicate no-op.
+    const dup = await store.transition('wfpg-2', 'b', {
+      toState: 'c', stateData: {}, steps: [], signalId: 'event:evt-crash',
+    });
+    assert.deepEqual(dup, { applied: false, duplicate: true });
   });
 
   // Integration delivery store (ADR-0020): the full shared contract suite

@@ -34,6 +34,10 @@ const { createIntegrationProviderRegistry, INTEGRATION_TYPES } = require('../int
 const { createIntegrationService } = require('../integrations/service');
 const { createInMemoryIntegrationDeliveryStore } = require('../integrations/delivery-store');
 const { createDemoIntegrationProvider } = require('../integrations/demo-provider');
+const { createWorkflowEngine } = require('../workflow/engine');
+const { createInMemoryWorkflowStore } = require('../workflow/store');
+const { registerStandardIntentExecutors } = require('../workflow/executors');
+const { createDemoWorkflowDefinition } = require('../workflow/demo-workflow');
 const { registerNotificationTriggers } = require('../notifications/triggers');
 const {
   SUMMARY_TYPE, SUMMARY_PROVIDER_KEY,
@@ -80,7 +84,7 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, workflowStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore } = {}) {
   // Operational Store (ADR-0006): the handoff repository is injectable. The
   // in-memory implementation remains the default; server.js selects the
   // durable PostgreSQL implementation via GUIDEHERD_OPERATIONAL_PROVIDER.
@@ -257,6 +261,42 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     telemetry: observedTelemetry,
   });
 
+  // The Workflow Contract (ADR-0021): durable multi-step business
+  // processes composing the platform's existing signals and intents. The
+  // engine registers ONE outbox consumer and ONE scheduler action type
+  // through their public seams — those contracts remain unaware of
+  // workflows. The demonstration definition ships DARK: no organization
+  // runs it until the `workflows` configuration domain enables it.
+  // server.js supplies the PostgreSQL store; the in-memory reference is
+  // the default. Intent executors are wired here because composition is
+  // the one place that knows which services exist; the `integrate`
+  // executor rides along only because THIS deployment composes the
+  // Integration Contract — the engine and every definition work without
+  // it.
+  const workflowInstanceStore = workflowStore || createInMemoryWorkflowStore({ clock });
+  const workflow = createWorkflowEngine({
+    store: workflowInstanceStore,
+    outbox,
+    scheduler,
+    configService: configService || null,
+    clock,
+    telemetry: observedTelemetry,
+  });
+  workflow.register(createDemoWorkflowDefinition());
+  // Version activation is EXPLICIT (ADR-0021): registering a definition
+  // never selects it for new instances; this deliberate activation does.
+  workflow.activate('demo-follow-up', 1);
+  registerStandardIntentExecutors({
+    engine: workflow,
+    scheduler,
+    notificationService,
+    handoffStore: store,
+    integrationService,
+    configService: configService || null,
+    clock,
+  });
+  workflow.attach();
+
   deps.conversations = createConversationService({
     service, store, summaryNotifier, events, clock, telemetry: observedTelemetry,
   });
@@ -289,6 +329,13 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
         // (ADR-0020 — dark by default).
         capability: 'integration-provider',
         check: () => (integrationProviders.keys().length > 0 ? 'available' : 'not-configured'),
+      },
+      {
+        // The deployment CAN run workflows when definitions are
+        // registered; per-organization enablement is configuration
+        // (ADR-0021 — dark by default).
+        capability: 'workflow-engine',
+        check: () => (workflow.registry.types().length > 0 ? 'available' : 'not-configured'),
       },
       {
         capability: 'user-authentication',
@@ -332,6 +379,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
           notificationProviderKeys: notificationProviders.keys(),
           integrationProviderKeys: integrationProviders.keys(),
           integrationTypes: Object.keys(INTEGRATION_TYPES),
+          workflowTypes: workflow.registry.types(),
         }),
       })
     : null;
@@ -358,6 +406,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
       service: integrationService,
       deliveryStore: integrationsDeliveryStore,
     },
+    workflow,
     users: {
       registry: userAuthProviders,
       sessions: userSessions,

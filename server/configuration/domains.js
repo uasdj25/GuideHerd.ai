@@ -264,6 +264,54 @@ function registerProductionDomains(framework) {
       return issues;
     },
   });
+
+  // Workflow enablement (ADR-0021). DARK BY DEFAULT: no workflow type runs
+  // for an organization until it is listed here. Reads are fail-safe
+  // (damage degrades to the empty list); writes are strict — a listed type
+  // must be a registered workflow definition when the producer supplies
+  // the registry context (ADR-0007 §6).
+  framework.register({
+    id: 'workflows',
+    title: 'Workflow enablement',
+    owner: 'workflow',
+    namespace: 'workflow',
+    key: 'enabled-types',
+    live: true,
+    schemaVersion: 1,
+    normalize(raw) {
+      if (raw === null || raw === undefined) return { value: { enabledTypes: [] }, issues: [] };
+      if (!isPlainObject(raw)) {
+        return { value: { enabledTypes: [] }, issues: ['must be an object like { "enabledTypes": ["…"] }'] };
+      }
+      const issues = [];
+      for (const k of Object.keys(raw)) {
+        if (k !== 'enabledTypes') issues.push(`unknown field: ${k}`);
+      }
+      const enabledTypes = [];
+      if (raw.enabledTypes !== undefined) {
+        if (!Array.isArray(raw.enabledTypes)) {
+          issues.push('enabledTypes must be an array of workflow type keys');
+        } else {
+          for (const t of raw.enabledTypes) {
+            if (typeof t === 'string' && t.trim() !== '') {
+              if (!enabledTypes.includes(t.trim())) enabledTypes.push(t.trim());
+            } else {
+              issues.push('enabledTypes entries must be nonblank strings');
+            }
+          }
+        }
+      }
+      return { value: { enabledTypes }, issues };
+    },
+    validate(value, context) {
+      const registered = context && context.workflowTypes;
+      if (Array.isArray(registered)) {
+        const unknown = value.enabledTypes.filter((t) => !registered.includes(t));
+        if (unknown.length) return [`unknown workflow types: ${unknown.join(', ')} (registered: ${registered.join(', ') || 'none'})`];
+      }
+      return [];
+    },
+  });
 }
 
 /**

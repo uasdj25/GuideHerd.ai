@@ -95,6 +95,10 @@ The PostgreSQL test leg drops and recreates its tables — point it only at a
 ```bash
 npm run test:pg    # the same full suite, PostgreSQL leg included, against a
                    # REAL disposable embedded PostgreSQL — no system install
+npm run rehearse:restore  # backup/restore rehearsal for BOTH stores against
+                          # isolated scratch instances (#62) — quarterly, and
+                          # after schema changes; record the output in
+                          # docs/operations/backup-and-restore.md
 ```
 
 `test:pg` boots an embedded PostgreSQL (devDependency `embedded-postgres`,

@@ -12,7 +12,8 @@
     "test": "node --experimental-sqlite --test",
     "config:seed": "node --experimental-sqlite config/seed.js",
     "test:frontend": "npm --prefix ../tests/frontend install --no-audit --no-fund && npm --prefix ../tests/frontend test",
-    "test:pg": "node scripts/test-pg.js"
+    "test:pg": "node scripts/test-pg.js",
+    "rehearse:restore": "node --experimental-sqlite scripts/restore-rehearsal.js"
   },
   "dependencies": {
     "pg": "8.16.3"

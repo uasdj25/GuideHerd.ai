@@ -76,6 +76,22 @@ the reference (a restart logs users out — re-login, no data loss). A
 durable PostgreSQL store joins the activation path before multi-instance
 production enforcement.
 
+**Addendum (#65 — live directory overlay.)** Session validation consults
+the User Directory (the store-backed user source behind the dev-user
+provider) on every request: a deactivated user's session is invalidated
+at its next validation — immediate revocation without extending the
+session-store contract (no enumeration added) — and role/display-name
+changes overlay live onto existing sessions, no re-login. Users without a
+directory record pass through unchanged — and **deployment wins**:
+a deployment-provisioned (bootstrap) identity is the deployment's
+RECOVERY TIER, so the overlay never applies to it and the users
+administration area refuses to create a directory record sharing its
+subject. Deployment configuration outranks database state; nothing
+writable from the product surface can govern, re-role, or revoke a
+bootstrap identity. (The rejected alternative — directory-governs-both —
+would have let two legitimate administrator actions lock the bootstrap
+administrator out of their own deployment.)
+
 ### 4. Console protection is deployment configuration
 
 `GUIDEHERD_CONSOLE_AUTH`: `anonymous` (default — exactly today's

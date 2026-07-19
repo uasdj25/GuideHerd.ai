@@ -97,6 +97,20 @@ test('telemetry: unknown event names are surfaced loudly; emitter never throws',
   assert.ok(EVENTS.includes('retry.attempted') && EVENTS.includes('retry.exhausted'));
 });
 
+test('telemetry: configuration.changed is cataloged and flows through (ADR-0015 §4, #65 review)', () => {
+  const lines = [];
+  const tel = createTelemetry({ log: (l) => lines.push(l), clock: fixedClock(T0) });
+  tel.event('configuration.changed', {
+    severity: 'info', component: 'configuration-store', operation: 'update',
+    organizationKey: 'martinson-beason', subject: 'admin-ada', code: 'organization',
+  });
+  assert.equal(lines.length, 1);
+  const entry = JSON.parse(lines[0]);
+  assert.equal(entry.event, 'guideherd.configuration.changed');
+  assert.equal(entry.subject, 'admin-ada');
+  assert.equal(lines[0].includes('unknown_event'), false, 'no longer dropped');
+});
+
 test('telemetry: sanitizeError strips the message line and keeps only stack frames', () => {
   const err = new Error('SECRET-DATA caller@example.com +12565551212');
   const { errorName, stack } = sanitizeError(err);

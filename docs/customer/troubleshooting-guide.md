@@ -187,8 +187,11 @@ Reload, re-apply your change, save again.
 
 ### I can't edit practice areas or attorneys
 
-Expected. They're display-only in Administration today. Changes go through
-GuideHerd.
+They're editable on the Administration screen — practice areas, attorneys,
+consultation types, routing, offices, and hours all have editors. If the
+editors aren't visible, you're likely not signed in with an administrator
+account; if a save is refused, see the entry above about someone else
+changing the configuration.
 
 ### I need to undo a change
 
@@ -201,9 +204,12 @@ change it back by hand using that record.
 
 ### A receptionist can't sign in
 
-1. Have they been provisioned? Users are set up at deployment, not in a screen.
+1. Do they exist, and are they active? Check the Users card on the
+   Administration screen — a deactivated user's credential fails exactly like
+   a wrong one.
 2. Is the credential exactly right? It's an issued credential, not a password —
-   no reset, no self-service.
+   there's no self-service reset, but an administrator can issue a new one
+   from the Users card (the old one stops working immediately).
 3. Did the service restart? Restarts sign everyone out. Signing back in is the
    fix.
 4. Been more than 12 hours since they signed in? Sessions expire absolutely,
@@ -216,8 +222,12 @@ need both roles assigned.
 
 ### Someone has left and still has access
 
-Removing them needs a deployment change and a restart. **There is no instant
-revoke.** If it's urgent, say so explicitly when you raise it.
+**Deactivate them in the Users card on the Administration screen — it takes
+effect immediately.** Their current session ends on their very next action
+and their credential stops working. No deployment change, no restart, no
+waiting. (If the person who left is the administrator and nobody else can
+sign in to the Administration screen, contact GuideHerd — the account set up
+with GuideHerd at onboarding is the recovery route.)
 
 ---
 
@@ -252,8 +262,8 @@ durable deployment, an empty Operations Center means something else.
 ## When to contact GuideHerd
 
 Contact them for: repeated booking failures, `not-configured` notifications,
-anything affecting every receptionist, settings reverting, user changes, and
-anything you can't explain.
+anything affecting every receptionist, settings reverting, being locked out
+of the Administration screen, and anything you can't explain.
 
 **Have ready:**
 

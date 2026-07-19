@@ -72,7 +72,7 @@ role.
 | Reminders and their timings | You |
 | Logo, office contact block | You |
 | Console sign-in | Request |
-| Users and roles | Request — deployment change + restart |
+| Users and roles | You — Users card on the Administration screen (initial administrator set up with GuideHerd) |
 | Summary recipient mailbox | Request |
 | Sending email address | Request |
 
@@ -126,7 +126,6 @@ Things people reasonably expect, that GuideHerd does not have:
 - Cancellation or reschedule workflows, and their notifications
 - Single sign-on (Microsoft, Google, Okta)
 - Self-service password reset, invitations, multi-factor authentication
-- A user management screen
 - Minimum notice, appointment buffers, per-type durations
 - Enforcement of business hours
 - Application of scheduling preferences to real bookings

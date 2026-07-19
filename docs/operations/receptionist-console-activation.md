@@ -45,7 +45,19 @@ client release**. The same console build serves both postures.
 
 ## Step 1 — Provision receptionist users
 
-Users are provisioned as deployment configuration through the active user-auth
+**Preferred (#65):** provision users live through the Administration screen's
+Users card — no deployment change, no restart, credential issued and shown
+once at creation. This requires ONE administrator to exist first; that
+first administrator is bootstrapped as deployment configuration below.
+Deployment-provisioned (`GUIDEHERD_DEV_USERS`) users continue to work and
+remain the bootstrap/recovery path — both sources authenticate through the
+same provider, and **deployment wins**: a deployment-provisioned identity
+can never be governed, re-roled, deactivated, or shadowed from the
+Administration screen. Whatever happens in the user directory, the
+bootstrap administrator's credential keeps working — that identity is the
+recovery tier, changeable only by deployment configuration.
+
+Deployment bootstrap: users are provisioned through the active user-auth
 provider. Today that is `dev-user` (`GUIDEHERD_USER_AUTH_PROVIDER` defaults to
 `dev-user`).
 
@@ -226,8 +238,8 @@ manual work as future platform capability rather than permanent toil:
 
 | Manual work today | Future capability |
 |---|---|
-| Editing `GUIDEHERD_DEV_USERS` + restart to add/remove a receptionist | User management in the Administration Framework (ADR-0015) |
-| Credential rotation by editing environment configuration | Self-service credential rotation, or an enterprise IdP |
+| ~~Editing `GUIDEHERD_DEV_USERS` + restart to add/remove a receptionist~~ | **Shipped (#65):** user management in the Administration Framework — add/deactivate/roles live, immediate revocation |
+| ~~Credential rotation by editing environment configuration~~ | **Shipped (#65):** administrator-issued rotation from the Users card (enterprise IdP remains future) |
 | Out-of-band credential delivery | Invitation flow (explicitly out of scope in ADR-0013) |
 | Restart to change auth posture | Per-organization tighten-only console auth (deferred by ADR-0013 review) |
 

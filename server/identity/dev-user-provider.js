@@ -40,11 +40,29 @@ function sha256(value) {
 }
 
 /**
- * @param {{ devUsersJson?: string }} [options]
+ * @param {{ devUsersJson?: string, userDirectory?: object }} [options]
+ *   userDirectory — optional store-backed user source (#65): users
+ *   provisioned live through the Administration Framework authenticate
+ *   through the SAME provider contract. Env-var provisioning remains
+ *   supported as deployment bootstrap, and DEPLOYMENT WINS: a
+ *   deployment-provisioned subject is deployment-owned — the directory
+ *   can never govern, re-role, or revoke it (see isBootstrapSubject),
+ *   because the bootstrap identity is the deployment's recovery path.
  */
-function createDevUserProvider({ devUsersJson } = {}) {
+function createDevUserProvider({ devUsersJson, userDirectory = null } = {}) {
   /** @type {Map<string, object>} credential digest -> identity claim */
   const usersByKeyHash = new Map();
+  /**
+   * Deployment-provisioned (bootstrap) identities, keyed by
+   * organization + subject. These are the RECOVERY TIER: deployment
+   * configuration outranks database state, so nothing writable from the
+   * product surface (the User Directory / Administration) may govern,
+   * re-role, or revoke them. The session layer and the users
+   * administration area both consult this set (#65 review).
+   * @type {Set<string>}
+   */
+  const bootstrapSubjects = new Set();
+  const subjectKey = (organizationKey, subject) => `${organizationKey}\u0000${subject}`;
 
   const fail = (reason) => {
     throw new Error(`Development user provider configuration is invalid: ${reason}`);
@@ -72,15 +90,26 @@ function createDevUserProvider({ devUsersJson } = {}) {
         organizationKey: claim.organizationKey,
         roles: claim.roles,
       });
+      bootstrapSubjects.add(subjectKey(claim.organizationKey, claim.subject));
     });
   }
 
   return {
     providerKey: PROVIDER_KEY,
 
-    /** Number of configured users (observability/tests; never credentials). */
+    /** Number of sign-in-capable users (observability/tests; never credentials). */
     size() {
-      return usersByKeyHash.size;
+      return usersByKeyHash.size + (userDirectory ? userDirectory.countCredentialed() : 0);
+    },
+
+    /**
+     * Is this identity deployment-provisioned (bootstrap)? Bootstrap
+     * identities are deployment-owned: the User Directory can never
+     * govern them, and the users administration area refuses to create a
+     * colliding record. They are the deployment's recovery path.
+     */
+    isBootstrapSubject(organizationKey, subject) {
+      return bootstrapSubjects.has(subjectKey(organizationKey, subject));
     },
 
     /**
@@ -88,11 +117,24 @@ function createDevUserProvider({ devUsersJson } = {}) {
      * @returns {Promise<object>} identity claim (contract-validated upstream)
      */
     async authenticateUser({ credential } = {}) {
-      if (usersByKeyHash.size === 0) throw new IdentityNotConfiguredError();
+      const total = usersByKeyHash.size + (userDirectory ? userDirectory.countCredentialed() : 0);
+      if (total === 0) throw new IdentityNotConfiguredError();
       if (typeof credential !== 'string' || credential === '') throw new InvalidCredentialsError();
-      const claim = usersByKeyHash.get(sha256(credential));
-      if (!claim) throw new InvalidCredentialsError();
-      return { ...claim, roles: [...claim.roles] };
+      const digest = sha256(credential);
+      const claim = usersByKeyHash.get(digest);
+      if (claim) return { ...claim, roles: [...claim.roles] };
+      // Store-backed users (#65): same contract, same uniform failure —
+      // a deactivated user's credential fails exactly like an unknown one
+      // (no account-state oracle at the login boundary).
+      const record = userDirectory ? userDirectory.findByCredentialHash(digest) : null;
+      if (!record || !record.active) throw new InvalidCredentialsError();
+      return {
+        subject: record.subject,
+        type: 'user',
+        displayName: record.displayName,
+        organizationKey: record.organizationKey,
+        roles: [...record.roles],
+      };
     },
   };
 }

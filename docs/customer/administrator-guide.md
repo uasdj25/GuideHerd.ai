@@ -59,27 +59,34 @@ think about who needs what before provisioning anyone.
 
 ## User management
 
-**There is no user management screen.** This is the biggest gap in GuideHerd
-today, and you should plan around it rather than be surprised by it.
+**You manage your firm's users yourself, in the Administration screen** —
+the Users card under Access. No deployment changes, no restarts, no waiting.
 
-Users are defined in deployment configuration. **Adding a person, removing a
-person, or changing someone's role requires an environment change and a service
-restart** — performed by whoever runs your infrastructure, not by you in a
-browser.
+What you can do there:
 
-What that means practically:
+- **Add a person.** Choose their user ID, name, and roles. GuideHerd issues
+  their sign-in credential and shows it **exactly once** — copy it immediately
+  and hand it over securely (in person or through a channel you trust). It is
+  never shown again and nobody, including GuideHerd, can look it up later.
+- **Change roles.** Takes effect immediately, even on sessions that are
+  already signed in — no re-login needed.
+- **Deactivate someone.** Takes effect immediately: their current session ends
+  on their very next action, and their credential stops working. Offboarding
+  is instant. (Reactivating restores the same credential.)
+- **Issue a new credential** for someone who lost theirs. The old credential
+  stops working immediately; the new one is shown once, like at creation.
 
-- **Staff changes need lead time.** A new receptionist can't be set up in the
-  five minutes before their first shift. Batch them where you can.
-- **Offboarding is not instant.** Removing someone who has left requires the
-  same change-and-restart cycle. If it's urgent, say so — it needs a person, not
-  a form.
-- **A restart signs everyone out.** Harmless mid-shift — people sign back in —
-  but do it deliberately rather than during the Monday morning rush.
+Guardrails to know about:
+
+- **You cannot deactivate your own account**, and the last active
+  administrator cannot be deactivated or stripped of the administrator role —
+  the system will not let a firm lock itself out.
+- **Every user change is recorded** in the change history with who made it
+  and what changed. Credentials never appear there.
 
 There is no self-service password reset, no invitations, no self-registration,
 and no multi-factor authentication. Sign-in uses an issued credential rather
-than a password.
+than a password — if someone loses theirs, an administrator issues a new one.
 
 Single sign-on through Microsoft, Google, or Okta is **not available today.**
 The platform is built to accept it later without disruption, but nothing is
@@ -123,28 +130,23 @@ your receptionist has to map a real caller onto this list in seconds.
 scheduling groups, and each practice area routes to a group. That's how choosing
 "Family Law" produces the right list of names.
 
-Attorney **ordering** within a group is adjustable, and it's the one part of
-routing you can change yourself.
-
-> **Limitation:** practice areas and attorneys are **display-only** in the
-> Administration screen. You can see them; you cannot add or edit them there.
-> Changes go through whoever manages your deployment. Expect this to improve.
+Practice areas, attorneys, routing groups, and attorney **ordering** are all
+editable on the Administration screen — create, rename, activate/deactivate,
+and reassign routing yourself; changes take effect immediately.
 
 ### Consultation types
 
 The kinds of appointment your firm offers — new matter, follow-up, existing
 client. Firm-wide, not per practice area. Your receptionist must pick one on
-every call; there's no "unspecified" option.
-
-> **Limitation:** there is **no screen for consultation types.** They are set up
-> at deployment. Changing them requires your GuideHerd contact.
+every call; there's no "unspecified" option. Editable on the Administration
+screen like the rest of the catalog.
 
 ### Offices and business hours
 
-Locations and opening hours can be recorded through the underlying interface,
-but there is **no screen for either**, and — importantly — **business hours are
-stored but not currently used to decide anything.** Recording them does not stop
-an appointment being offered outside them.
+Offices and their opening hours are editable on the Administration screen.
+But — importantly — **business hours are stored but not currently used to
+decide anything.** Recording them does not stop an appointment being offered
+outside them.
 
 Don't rely on business hours as a control. If it matters that appointments only
 land in certain windows, raise it as a requirement rather than assuming the
@@ -229,8 +231,7 @@ Modest, and email-only. You can set:
 - **Sender name** — how your firm is named in the email
 - **Accent color** — a single line of color under the heading
 - **Footer text** — the closing line
-
-A logo and an office contact block are supported but have no screen yet.
+- **Logo** and an **office contact block** (phone, email, address)
 
 Two things to be clear about:
 
@@ -383,8 +384,8 @@ first and often don't think to report them.
 **Monthly:** check that practice areas, attorneys, and consultation types still
 match how the firm actually works. Firms drift; the list should follow.
 
-**Whenever staff change:** raise user changes early — they need a deployment
-change and a restart.
+**Whenever staff change:** make the user change in the Administration screen
+(Users card) — adding, deactivating, and role changes take effect immediately.
 
 ---
 

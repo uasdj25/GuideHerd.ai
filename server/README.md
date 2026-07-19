@@ -115,6 +115,12 @@ zero system software, while CI remains free to supply
 `GUIDEHERD_TEST_DATABASE_URL` from a service container — the two paths
 share the same suite.
 
+CI runs both paths on every PR and push to main
+(.github/workflows/test.yml): a fast memory-store job and a mandatory
+real-PostgreSQL job using this same `npm run test:pg` harness. Making the
+PostgreSQL job a REQUIRED merge check is a one-time repository-settings
+step (add "backend-postgres" to main's required status checks).
+
 ## Operational Store
 
 `operational/` is the durable home of operational conversation state

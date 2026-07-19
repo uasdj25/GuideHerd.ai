@@ -1,6 +1,6 @@
 # ADR-0006: Operational Store — Durable Handoff State in PostgreSQL
 
-**Status:** Proposed
+**Status:** Accepted — implemented and governing on `main`.
 **Date:** 2026-07-17
 **Relates to:** Operational Store Phase 1; ADR-0002 (session-based handoffs),
 ADR-0004 (embedded configuration store), ADR-0005 (GuideHerd Connect)

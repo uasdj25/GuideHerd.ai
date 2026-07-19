@@ -1,6 +1,6 @@
 # ADR-0016: The GuideHerd Customer Configuration Framework
 
-**Status:** Proposed
+**Status:** Accepted — implemented and governing on `main`.
 **Date:** 2026-07-18
 **Relates to:** GuideHerd Constitution (Principle 5 — behavior lives in
 configuration), ADR-0004 (Configuration Store — the substrate), ADR-0015

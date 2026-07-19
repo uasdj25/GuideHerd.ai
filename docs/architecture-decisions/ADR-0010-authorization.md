@@ -1,6 +1,6 @@
 # ADR-0010: GuideHerd Authorization
 
-**Status:** Proposed
+**Status:** Accepted — implemented and governing on `main` (`server/identity/authorization.js`); the role table below matches the shipped policy object exactly (drift corrected 2026-07-18, issue #71).
 **Date:** 2026-07-18
 **Relates to:** GuideHerd Constitution (Principles 2, 4, 10), ADR-0002
 (session-based handoffs / capability credentials), ADR-0007 (Extension
@@ -35,18 +35,24 @@ Eight permissions cover the current workflows — `handoff:create`,
 `conversation:complete`, `summary:read`, `configuration:read` — and the
 catalog grows only when a workflow does. The policy (GuideHerd-owned code,
 not configuration, not provider data) maps roles to
-`{ scope, permissions }`. One production role exists today:
+`{ scope, permissions }`. Four production roles exist (the shipped policy
+object in `server/identity/authorization.js`):
 
-| Role | Scope | Permissions |
-|---|---|---|
-| `scheduling-assistant` | organization | `conversation:connect`, `conversation:complete`, `summary:read` |
+| Role | Identity type | Scope | Permissions | Intended surface |
+|---|---|---|---|---|
+| `scheduling-assistant` | service (bearer credential, ADR-0009) | organization | `conversation:connect`, `conversation:complete`, `summary:read` | the assistant runtime reaching the demo bridge |
+| `receptionist` | user (session cookie, ADR-0013) | organization | `handoff:create`, `configuration:read` | the Reception Console (gate intentionally inactive; capability shipped) |
+| `operator` | user (session cookie, ADR-0013) | organization | `operations:read` | the Operations Center (read-only) |
+| `administrator` | user (session cookie, ADR-0013) | organization | `administration:read`, `administration:write` | the Administration Center |
+
+Roles do not nest: a person needing several surfaces holds several roles.
+No production role declares `scope: 'platform'`; a future GuideHerd-operator
+persona would be a separate, explicitly platform-scoped role.
 
 Identity providers assert GuideHerd **role names**; only the policy decides
 what a role permits. An IdP claim therefore can never directly become a
 business authorization decision — a compromised or misconfigured provider
 can at worst assert roles whose reach this policy already bounds.
-Future personas (receptionist logins, firm administrators, GuideHerd
-operators) are added to the policy when their workflows arrive.
 
 ### 3. Organization scope is enforced structurally; platform scope is explicit
 

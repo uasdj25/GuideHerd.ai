@@ -1,0 +1,77 @@
+# GuideHerd backend test workflow (GitLab #71).
+#
+# Two backend jobs on every PR and every push to main:
+#   backend-fast      the memory-store suite (seconds; the loud PG-pointer
+#                     skip is expected here by design)
+#   backend-postgres  the SAME complete suite with the real-PostgreSQL leg
+#                     via `npm run test:pg` — the exact-pinned embedded
+#                     PostgreSQL harness (see server/README.md). Chosen over
+#                     a service container because it is the identical path
+#                     developers run locally, needs no connection string or
+#                     credential anywhere in this file (the harness
+#                     generates a random process-local credential and never
+#                     prints it), runs the project's real migrations, and
+#                     the linux-x64 binaries are exact-pinned npm packages.
+#
+# A PostgreSQL failure fails CI. To make the check MANDATORY for merging,
+# add "backend-postgres" to the main branch's required status checks in
+# repository settings (a one-time GitHub settings step after this workflow
+# lands — settings are not representable in this file).
+#
+# External actions are pinned to immutable commit SHAs; workflow
+# permissions are least-privilege (read-only contents).
+
+name: Backend tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-fast:
+    name: Backend (memory stores)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install
+        working-directory: server
+        run: npm ci
+      - name: Run the memory-store suite
+        working-directory: server
+        run: npm test
+
+  backend-postgres:
+    name: Backend (real PostgreSQL leg)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install
+        working-directory: server
+        run: npm ci
+      - name: Run the complete suite against a disposable embedded PostgreSQL
+        working-directory: server
+        run: npm run test:pg

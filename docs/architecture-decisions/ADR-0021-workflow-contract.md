@@ -1,6 +1,6 @@
 # ADR-0021: The GuideHerd Workflow Contract
 
-**Status:** Proposed
+**Status:** Accepted — Implemented and merged (PR #35, main `13c37f3`); ships dark behind the `workflows` enablement domain.
 **Date:** 2026-07-18
 **Relates to:** GuideHerd Constitution (Principles 2, 4, 9), ADR-0007
 (Extension Framework), ADR-0011 (Notification Contract), ADR-0016

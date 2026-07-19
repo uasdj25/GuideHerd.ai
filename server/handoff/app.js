@@ -7,7 +7,7 @@ const { normalizeCreate, normalizeRedeem } = require('./validation');
 const { DEMO_FIRM_ID } = require('./demo-bridge');
 const { selectOfferedSlots } = require('../scheduling/selection');
 const { buildConsultationSummary, renderSummaryHtml } = require('./summary');
-const { NoCompletedSummaryError } = require('./errors');
+const { NoCompletedSummaryError , TooManyLoginAttemptsError } = require('./errors');
 const { createMailer } = require('./mailer');
 const { HandoffError, MalformedRequestError, UnauthorizedError, BridgeNotConfiguredError, ValidationError } = require('./errors');
 const { ConfigError } = require('../config/errors');
@@ -61,6 +61,42 @@ const { registerAppointmentReminders } = require('../scheduler/reminders');
 
 // Scheduling context is tiny; cap the body to reject oversized payloads early.
 const MAX_BODY_BYTES = 16 * 1024;
+
+// Login attempt limiting (#39): fixed-window, per client address, counting
+// ATTEMPTS (a successful login inside the window is unaffected unless the
+// address already exhausted it — failures and floods look identical to a
+// limiter, deliberately). Process-local: production runs one instance, and
+// durable sessions (#64) did not change that; a shared/durable limiter is
+// the recorded follow-up if the instance count ever grows. Memory is
+// bounded: the map resets when it grows past its cap.
+const LOGIN_WINDOW_MS = 10 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS_PER_WINDOW = 30;
+const LOGIN_LIMITER_MAX_ENTRIES = 10_000;
+function createLoginLimiter({ clock, windowMs = LOGIN_WINDOW_MS, maxAttempts = LOGIN_MAX_ATTEMPTS_PER_WINDOW }) {
+  const attempts = new Map(); // client -> { bucket, count }
+  return {
+    /** @returns {boolean} true when this attempt is allowed */
+    attempt(client) {
+      if (attempts.size > LOGIN_LIMITER_MAX_ENTRIES) attempts.clear();
+      const bucket = Math.floor(clock.now() / windowMs);
+      const current = attempts.get(client);
+      const next = current && current.bucket === bucket
+        ? { bucket, count: current.count + 1 }
+        : { bucket, count: 1 };
+      attempts.set(client, next);
+      return next.count <= maxAttempts;
+    },
+  };
+}
+
+/** Client address for limiting: the platform edge's forwarded chain, else the socket. */
+function clientAddressOf(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.trim() !== '') {
+    return forwarded.split(',')[0].trim().slice(0, 64);
+  }
+  return (req.socket && req.socket.remoteAddress) || 'unknown';
+}
 
 // Browser callers must be explicitly allowlisted. No wildcard is ever honored.
 const DEFAULT_CORS_ALLOWED_ORIGINS = ['https://guideherd.ai', 'http://localhost:8080'];
@@ -250,6 +286,8 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     : DEFAULT_POLICY;
   const authz = authorization || createAuthorization({ policy: activePolicy });
 
+  const loginLimiter = createLoginLimiter({ clock });
+
   const deps = {
     service,
     store,
@@ -266,6 +304,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     userAuthProviders,
     activeUserAuthProviderKey,
     consoleAuthMode,
+    loginLimiter,
   };
   deps.telemetry = observedTelemetry;
 
@@ -549,7 +588,7 @@ function corsHeadersFor(req, allowedOrigins) {
 }
 
 /** Build the raw Node http request handler. */
-function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode, operations, administration }) {
+function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode, operations, administration, loginLimiter }) {
   /**
    * Resolve the active Conversation Adapter for a firm. Provider selection
    * comes from the Configuration Store (connect/conversation-provider),
@@ -669,13 +708,15 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
       // required stores; no capability names or detail ever leave these
       // routes. The authenticated detail surface remains ADR-0014's
       // /api/v1/operations/health.
-      if (method === 'GET' && path === '/healthz') {
+      if ((method === 'GET' || method === 'HEAD') && path === '/healthz') {
         status = 200;
+        if (method === 'HEAD') { res.writeHead(status); return res.end(); }
         return sendJson(res, status, { status: 'ok' }, cors, correlationId);
       }
-      if (method === 'GET' && path === '/readyz') {
+      if ((method === 'GET' || method === 'HEAD') && path === '/readyz') {
         const ready = await operations.ready();
         status = ready ? 200 : 503;
+        if (method === 'HEAD') { res.writeHead(status); return res.end(); }
         return sendJson(res, status, { status: ready ? 'ready' : 'unavailable' }, cors, correlationId);
       }
 
@@ -798,6 +839,15 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
       // session presented with the login request). Provider tokens and
       // claims never reach the browser.
       if (method === 'POST' && path === '/api/v1/auth/login') {
+        // Bounded attempts BEFORE any credential work (#39): the limiter
+        // answers 429 uniformly and confirms nothing about credentials.
+        if (loginLimiter && !loginLimiter.attempt(clientAddressOf(req))) {
+          telemetry.event('authentication.login_failed', {
+            severity: 'warn', component: 'identity', operation: 'login',
+            correlationId, code: 'rate_limited',
+          });
+          throw new TooManyLoginAttemptsError();
+        }
         const body = await readJsonBody(req);
         const credential = body && typeof body.credential === 'string' ? body.credential.trim() : '';
         if (credential === '' || credential.length > 512) {
@@ -972,6 +1022,9 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
         res.writeHead(status, {
           'Content-Type': 'text/html; charset=utf-8',
           'Cache-Control': 'no-store',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY',
+          'Referrer-Policy': 'no-referrer',
           'X-GuideHerd-Correlation-Id': correlationId,
         });
         return res.end(html);
@@ -1175,6 +1228,13 @@ function sendJson(res, status, body, cors, correlationId) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
+    // Security review (#39): API responses are never sniffable, never
+    // framed, never leak referrers; HSTS pins the public TLS edge
+    // (browsers ignore it over plain-http local development).
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'no-referrer',
+    'Strict-Transport-Security': 'max-age=31536000',
     ...(correlationId ? { 'X-GuideHerd-Correlation-Id': correlationId } : {}),
     ...(cors || {}),
   });

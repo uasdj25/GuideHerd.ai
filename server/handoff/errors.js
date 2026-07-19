@@ -146,6 +146,15 @@ class TooManyPreparedSessionsError extends HandoffError {
   }
 }
 
+// Security review (#39): bounded login attempts. Deliberately generic —
+// the limiter never confirms whether a credential was valid.
+class TooManyLoginAttemptsError extends HandoffError {
+  constructor() {
+    super(429, 'rate_limited', 'Too many sign-in attempts. Wait a few minutes and try again.');
+    this.name = 'TooManyLoginAttemptsError';
+  }
+}
+
 class NoCompletedSummaryError extends HandoffError {
   constructor() {
     super(404, 'no_completed_summary', 'No completed Consultation Summary exists yet.');
@@ -180,4 +189,5 @@ module.exports = {
   BridgeNotConfiguredError,
   NoCompletedSummaryError,
   TooManyPreparedSessionsError,
+  TooManyLoginAttemptsError,
 };

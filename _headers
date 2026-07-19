@@ -1,0 +1,26 @@
+# Cloudflare Pages headers (security review #39). GitHub Pages ignores
+# this file harmlessly. The Cloudflare edge already adds nosniff and a
+# referrer policy; stating them here makes the posture explicit and
+# deployment-portable.
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+# The three product surfaces get a CSP: self-hosted everything (#51), API
+# calls to the one API origin, inline page scripts/styles (the pages'
+# architecture — so 'unsafe-inline' is required; the CSP still blocks
+# EXTERNAL script/style/font/image injection and framing). The marketing
+# site and training portal are deliberately not CSP'd here: the portal is
+# a separately deployed product with its own dependencies.
+
+/receptionist/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.guideherd.ai; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+
+/operations/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.guideherd.ai; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+
+/admin/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.guideherd.ai; frame-ancestors 'none'; base-uri 'self'; form-action 'self'

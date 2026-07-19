@@ -24,7 +24,9 @@ organization comes from the authenticated identity, never the body.
 }
 ```
 
-- `slots` — required array, at most 200. Unknown fields are dropped;
+- `slots` — required array, at most 200 — and the request must fit the
+  API's 16 KB body limit (roughly 100 typical slots; a week of real
+  availability sits far below either bound). Unknown fields are dropped;
   malformed slots are dropped and counted, never fatal.
 - `request` — the caller's own asks (outrank firm preferences in ranking).
 

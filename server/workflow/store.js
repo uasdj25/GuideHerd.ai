@@ -38,7 +38,7 @@ function createInMemoryWorkflowStore({ clock }) {
   const byKey = new Map();
   /** @type {Map<string, object>} stepKey -> step record */
   const steps = new Map();
-  /** @type {Map<string, Set<string>>} instanceId -> accepted signal ids */
+  /** @type {Map<string, Map<string, string>>} instanceId -> signalId -> outcome */
   const signals = new Map();
 
   const logical = (workflowType, instanceKey) => `${workflowType} ${instanceKey}`;
@@ -83,9 +83,15 @@ function createInMemoryWorkflowStore({ clock }) {
       return id ? publicInstance(instances.get(id)) : undefined;
     },
 
-    /** Has this instance already accepted this signal identity? */
+    /** Has this instance already CONSUMED this signal identity? */
     async hasSignal(instanceId, signalId) {
       return Boolean(signals.get(instanceId)?.has(signalId));
+    },
+
+    /** The consumption record (tests/introspection): identity + outcome only. */
+    async getSignal(instanceId, signalId) {
+      const outcome = signals.get(instanceId)?.get(signalId);
+      return outcome === undefined ? undefined : { signalId, outcome };
     },
 
     /**
@@ -96,14 +102,14 @@ function createInMemoryWorkflowStore({ clock }) {
      * duplicate regardless of state.
      * @returns {Promise<{ applied: boolean, duplicate?: boolean }>}
      */
-    async transition(instanceId, fromState, { toState, stateData, completedAtMs = null, steps: newSteps = [], signalId }) {
+    async transition(instanceId, fromState, { toState, stateData, completedAtMs = null, steps: newSteps = [], signalId, signalOutcome = 'transitioned' }) {
       const accepted = signals.get(instanceId);
       if (signalId && accepted && accepted.has(signalId)) return { applied: false, duplicate: true };
       const record = instances.get(instanceId);
       if (!record || record.state !== fromState) return { applied: false };
       if (signalId) {
-        if (!accepted) signals.set(instanceId, new Set([signalId]));
-        else accepted.add(signalId);
+        if (!accepted) signals.set(instanceId, new Map([[signalId, signalOutcome]]));
+        else accepted.set(signalId, signalOutcome);
       }
       record.state = toState;
       if (stateData !== undefined) record.stateData = { ...stateData };

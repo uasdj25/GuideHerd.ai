@@ -142,7 +142,28 @@ function createWorkflowEngine({ store, outbox, scheduler, configService = null, 
       return { applied: false, reason: 'terminal' };
     }
     const result = definition.transition(instance.state, signal, Object.freeze({ ...instance }));
-    if (!result) return { applied: false, reason: 'no-transition' };
+    if (!result) {
+      // A structurally valid signal the definition does not act on is
+      // CONSUMED, not dropped: its identity commits durably (a state-
+      // preserving CAS with zero steps) so a later replay can never become
+      // a new business action after the instance moves to a state where
+      // the stale delivery WOULD transition. If a concurrent transition
+      // changed the state mid-evaluation, the CAS loses, nothing is
+      // consumed, and redelivery re-evaluates against the new state —
+      // exactly the at-least-once semantics required.
+      const consumed = await store.transition(instanceId, instance.state, {
+        toState: instance.state,
+        stateData: instance.stateData,
+        completedAtMs: instance.completedAtMs,
+        steps: [],
+        signalId,
+        signalOutcome: 'ignored',
+      });
+      if (!consumed.applied) {
+        return { applied: false, reason: consumed.duplicate ? 'duplicate-signal' : 'lost-race' };
+      }
+      return { applied: false, reason: 'ignored' };
+    }
 
     const toState = result.nextState;
     const stateData = result.stateData !== undefined
@@ -221,9 +242,18 @@ function createWorkflowEngine({ store, outbox, scheduler, configService = null, 
     store,
     registry,
 
-    /** One definition + one registration per workflow type (ADR-0007). */
+    /** One definition + one registration per (workflowType, version) (ADR-0007). */
     register(definition) {
       return registry.register(definition);
+    },
+
+    /**
+     * Explicitly select the version that starts NEW instances of a type —
+     * the deliberate activation the version contract requires. Loud when
+     * the (type, version) is not registered.
+     */
+    activate(workflowType, version) {
+      return registry.activate(workflowType, version);
     },
 
     /**

@@ -145,6 +145,61 @@ function runWorkflowStoreContractSuite(label, makeStore) {
     await store.close();
   });
 
+  test(`workflow store [${label}]: an IGNORED signal is consumed durably — replay after the state becomes actionable changes nothing`, async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const { instance } = await store.createInstance(makeInstance({ state: 'a' }));
+    const id = instance.instanceId;
+
+    // 1. Signal X arrives in state A where it is IGNORED: consumption is a
+    //    state-preserving commit with zero steps, outcome 'ignored'.
+    const consumed = await store.transition(id, 'a', {
+      toState: 'a', stateData: instance.stateData, steps: [], signalId: 'event:X', signalOutcome: 'ignored',
+    });
+    assert.deepEqual(consumed, { applied: true });
+    assert.equal((await store.get(id)).state, 'a', 'ignored consumption changes no state');
+    assert.deepEqual(await store.getSignal(id, 'event:X'), { signalId: 'event:X', outcome: 'ignored' });
+
+    // 2. The instance later transitions to state B (a different signal),
+    //    where X WOULD have been actionable.
+    await store.transition(id, 'a', { toState: 'b', stateData: {}, steps: [], signalId: 'event:Y' });
+    assert.equal((await store.get(id)).state, 'b');
+
+    // 3–4. Replay X: refused forever; no transition, no steps, no state.
+    const replay = await store.transition(id, 'b', {
+      toState: 'c', stateData: {},
+      steps: [makeStep(id, `${id}:b->c:0`)],
+      signalId: 'event:X',
+    });
+    assert.deepEqual(replay, { applied: false, duplicate: true },
+      'stale history can never become a new business action');
+    assert.equal((await store.get(id)).state, 'b');
+    assert.equal(await store.getStep(`${id}:b->c:0`), undefined);
+    await store.close();
+  });
+
+  test(`workflow store [${label}]: an ignored-signal commit that loses its CAS consumes nothing and retries safely`, async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const { instance } = await store.createInstance(makeInstance({ state: 'a' }));
+    const id = instance.instanceId;
+
+    // A concurrent transition changed the state mid-evaluation: the
+    // ignored-consumption CAS (recorded against the evaluated state) loses,
+    // and the signal is NOT consumed — redelivery re-evaluates correctly.
+    const lost = await store.transition(id, 'stale-state', {
+      toState: 'stale-state', stateData: {}, steps: [], signalId: 'event:Z', signalOutcome: 'ignored',
+    });
+    assert.equal(lost.applied, false);
+    assert.equal(await store.hasSignal(id, 'event:Z'), false, 'rollback before commit consumes nothing');
+    const retry = await store.transition(id, 'a', {
+      toState: 'a', stateData: {}, steps: [], signalId: 'event:Z', signalOutcome: 'ignored',
+    });
+    assert.deepEqual(retry, { applied: true }, 'the delivery retried safely');
+    assert.deepEqual(await store.getSignal(id, 'event:Z'), { signalId: 'event:Z', outcome: 'ignored' });
+    await store.close();
+  });
+
   test(`workflow store [${label}]: signal records carry identity strings only`, async () => {
     const clock = fixedClock(T0);
     const store = await makeStore({ clock });
@@ -156,6 +211,9 @@ function runWorkflowStoreContractSuite(label, makeStore) {
     // exists to leak. (The PostgreSQL table stores instance_id + signal_id
     // + timestamp only, by schema.)
     assert.equal(await store.hasSignal(instance.instanceId, 'timeout:x:follow-up'), true);
+    assert.deepEqual(await store.getSignal(instance.instanceId, 'timeout:x:follow-up'),
+      { signalId: 'timeout:x:follow-up', outcome: 'transitioned' },
+      'the record is the identity and the evaluation outcome — nothing else');
     await store.close();
   });
 

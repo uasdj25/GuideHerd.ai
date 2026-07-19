@@ -112,18 +112,23 @@ function validateWorkflowDefinition(definition) {
  * Workflow definition registry — one definition + one registration per
  * (workflowType, version), zero engine changes (ADR-0007).
  *
- * The version contract: NEW instances start under the highest registered
- * version of their type (deterministic — versions are strictly-validated
- * positive integers); EXISTING instances resolve the exact (type, version)
- * they were created under, forever. Multiple versions register
- * concurrently during a migration window. Resolving a (type, version) that
- * is not registered — including a version removed by a deploy while
- * instances still reference it — fails loudly, never a silent
- * latest-substitution.
+ * The version contract: registration and ACTIVATION are separate,
+ * explicit operations. Registering a version never changes which version
+ * starts new instances; `activate(type, version)` is the deliberate
+ * selection, and it must name a registered definition or it fails loudly
+ * (composition refuses to assemble). There is NO highest-wins, semver,
+ * lexical, or numeric inference of any kind. EXISTING instances resolve
+ * the exact (type, version) they were created under, forever. Multiple
+ * versions register concurrently during a migration window — including
+ * old versions kept registered purely so in-flight instances can finish,
+ * without being startable. Resolving a (type, version) that is not
+ * registered fails loudly, never a silent substitution.
  */
 function createWorkflowDefinitionRegistry() {
   /** @type {Map<string, Map<number, object>>} type -> version -> definition */
   const byType = new Map();
+  /** @type {Map<string, number>} type -> explicitly activated start version */
+  const active = new Map();
   return {
     register(definition) {
       const valid = validateWorkflowDefinition(definition);
@@ -146,20 +151,41 @@ function createWorkflowDefinitionRegistry() {
       }
       return definition;
     },
-    /** The definition NEW instances of a type start under: highest version. */
+    /**
+     * Explicitly select the version that starts NEW instances of a type.
+     * The deliberate operation the version contract requires: registering
+     * a newer version changes nothing until this is called. Fails loudly
+     * when the (type, version) is not registered — composition refuses to
+     * assemble on a dangling activation.
+     */
+    activate(workflowType, version) {
+      this.resolve(workflowType, version); // loud when unregistered
+      active.set(workflowType, version);
+      return this.resolve(workflowType, version);
+    },
+    /** The explicitly activated start version of a type, or null. */
+    activeVersion(workflowType) {
+      return active.has(workflowType) ? active.get(workflowType) : null;
+    },
+    /**
+     * The definition NEW instances of a type start under: the explicitly
+     * ACTIVATED version. Loud when the type has no activation — a type
+     * registered without activation is resolution-only (a legitimate
+     * migration posture for winding down old versions), never startable.
+     */
     startDefinition(workflowType) {
-      const versions = byType.get(workflowType);
-      if (!versions || versions.size === 0) {
-        const err = new Error(`No workflow definition registered for ${workflowType}.`);
+      const version = active.get(workflowType);
+      if (version === undefined) {
+        const err = new Error(`No active version selected for workflow type ${workflowType}.`);
         err.code = 'workflow_definition_unavailable';
         err.category = 'permanent_internal_failure';
         throw err;
       }
-      return versions.get(Math.max(...versions.keys()));
+      return this.resolve(workflowType, version);
     },
-    /** One start definition per type (the consumer's start loop). */
+    /** One start definition per ACTIVATED type (the consumer's start loop). */
     startDefinitions() {
-      return [...byType.keys()].map((type) => this.startDefinition(type));
+      return [...active.keys()].map((type) => this.startDefinition(type));
     },
     types() {
       return [...byType.keys()];

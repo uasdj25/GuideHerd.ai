@@ -75,16 +75,36 @@ scheduler's own actionKey dedupe) — recorded per instance in the same
 transaction as the transition it caused (`workflow_signals`, primary-key
 arbitrated in PostgreSQL; a synchronous per-instance set in memory).
 
-Consequences, all proven by test on both stores: re-delivery of an
-accepted identity is a recorded no-op even after the instance re-enters
-the same state; concurrent delivery from multiple API instances applies
-exactly one transition; a pre-commit failure rolls back signal, state,
-and steps together, so the delivery retries safely; and the start path's
-initial intents ride the starting event's identity, closing the crash
-window between instance creation and intent recording (a redelivered
-event heals it exactly-once). Signal records hold identity strings only
-— never payloads or free text. Signals a definition ignores are NOT
-recorded: acceptance is coupled to effect.
+**The identity represents DELIVERY CONSUMPTION, not merely successful
+state change.** A structurally valid signal presented to an existing
+instance is consumed exactly once when its evaluation commits — whether
+it transitioned, self-transitioned, or was deliberately ignored because
+no transition applied. An ignored signal commits as a state-preserving
+CAS with zero steps and a recorded outcome (`ignored` vs
+`transitioned`), so stale history can never become a new business action
+after the instance later enters a state where the old delivery WOULD
+have transitioned. If a concurrent transition changes the state
+mid-evaluation, the consumption CAS loses, nothing is consumed, and
+redelivery re-evaluates against the new state — the correct
+at-least-once semantics.
+
+Explicitly NOT consumed, by rule: malformed signals rejected before
+evaluation (call-site TypeErrors); signals to unknown instances (no
+phantom instances are created to consume them — the delivery source's
+bounded retry owns them); signals to TERMINAL instances (the state can
+never change again, so replay is inert by construction); and any
+evaluation that fails or rolls back before commit, which retries safely.
+
+Consequences, all proven by test on both stores: replay of a consumed
+identity is a recorded no-op forever — including the
+ignored-in-A/actionable-in-B replay and after state recurrence;
+concurrent delivery (transitioning or ignored) from multiple API
+instances commits exactly once; a pre-commit failure rolls back signal,
+state, and steps together, so the delivery retries safely; and the start
+path's initial intents ride the starting event's identity, closing the
+crash window between instance creation and intent recording. Signal
+records hold identity strings and the outcome enum only — never payloads
+or free text.
 
 ### 4. The platform's reliability model, reused
 
@@ -112,15 +132,25 @@ positive integers, and registration identity is `(workflowType,
 version)`. Every instance **persists the version it began under**
 (`definition_version`) and every signal resolves that EXACT version —
 never latest, so deploying a newer definition cannot silently change the
-behavior of in-flight instances. Multiple versions register concurrently
-during a migration window; NEW instances start under the highest
-registered version (deterministic). A version removed by a deploy while
-instances still reference it **fails loudly** at signal time
-(`workflow_definition_unavailable`, naming `type@version`), leaving the
-instance untouched and the failure retried-bounded and telemetered by the
-signal source — never a silent latest-substitution. There is no migration
-DSL; moving an old instance forward is a deliberate future operation, not
-an accident of deployment.
+behavior of in-flight instances.
+
+**Registration and activation are separate, explicit operations.** The
+version that starts NEW instances is selected only by
+`activate(workflowType, version)` in composition — the smallest coherent
+mechanism, sitting beside registration itself. Registering V2 redirects
+nothing; there is **no highest-wins, semver, lexical, or numeric
+inference of any kind**. Activating an unregistered version fails loudly
+(composition refuses to assemble), and a type registered without any
+activation is resolution-only — a legitimate migration posture for
+winding down old versions whose in-flight instances must still finish.
+Multiple versions register concurrently during a migration window. A
+version removed by a deploy while instances still reference it **fails
+loudly** at signal time (`workflow_definition_unavailable`, naming
+`type@version`), leaving the instance untouched and the failure
+retried-bounded and telemetered by the signal source. Organization-level
+enablement (the `workflows` domain) remains a separate, dark-by-default
+layer. There is no migration DSL; moving an old instance forward is a
+deliberate future operation, not an accident of deployment.
 
 Intents are declarative, identifier-only descriptors dispatched to
 **intent executors** registered at composition. The engine knows no

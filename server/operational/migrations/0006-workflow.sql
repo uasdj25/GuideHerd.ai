@@ -47,16 +47,19 @@ CREATE INDEX workflow_steps_claimable
   ON workflow_steps (created_at)
   WHERE status = 'pending';
 
--- Durable signal identities (ADR-0021 §3a): one row per accepted signal per
--- instance, inserted IN THE SAME TRANSACTION as the transition it caused.
--- Re-delivery of the same signal identity conflicts on the primary key and
--- the whole transition rolls back — the idempotent no-op, even across
--- restarts and API instances, and even if the instance has since returned
--- to the same state. Rows carry identity strings only (event ids, timeout
--- names) — never payloads or free text.
+-- Durable signal CONSUMPTION (ADR-0021 §3a): one row per signal identity
+-- CONSUMED by an instance — whether the evaluation transitioned,
+-- self-transitioned, or deliberately ignored the signal (outcome records
+-- which). Inserted IN THE SAME TRANSACTION as the evaluation's commit, so
+-- re-delivery of the identity conflicts on the primary key and is the
+-- idempotent no-op forever — even across restarts and API instances, and
+-- even if the instance later enters a state where the stale delivery
+-- WOULD have been actionable. Rows carry identity strings and an outcome
+-- enum only — never payloads or free text.
 CREATE TABLE workflow_signals (
   instance_id  text NOT NULL,
   signal_id    text NOT NULL,
+  outcome      text NOT NULL CHECK (outcome IN ('transitioned','ignored')),
   accepted_at  timestamptz NOT NULL,
   PRIMARY KEY (instance_id, signal_id)
 );

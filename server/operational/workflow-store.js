@@ -94,7 +94,7 @@ function createPostgresWorkflowStore({ pool, clock }) {
       return rows.length ? rowToInstance(rows[0]) : undefined;
     },
 
-    /** Has this instance already accepted this signal identity? */
+    /** Has this instance already CONSUMED this signal identity? */
     async hasSignal(instanceId, signalId) {
       const { rows } = await pool.query(
         'SELECT 1 FROM workflow_signals WHERE instance_id = $1 AND signal_id = $2',
@@ -103,7 +103,16 @@ function createPostgresWorkflowStore({ pool, clock }) {
       return rows.length === 1;
     },
 
-    async transition(instanceId, fromState, { toState, stateData, completedAtMs = null, steps = [], signalId }) {
+    /** The consumption record (tests/introspection): identity + outcome only. */
+    async getSignal(instanceId, signalId) {
+      const { rows } = await pool.query(
+        'SELECT signal_id, outcome FROM workflow_signals WHERE instance_id = $1 AND signal_id = $2',
+        [instanceId, signalId],
+      );
+      return rows.length ? { signalId: rows[0].signal_id, outcome: rows[0].outcome } : undefined;
+    },
+
+    async transition(instanceId, fromState, { toState, stateData, completedAtMs = null, steps = [], signalId, signalOutcome = 'transitioned' }) {
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
@@ -113,10 +122,10 @@ function createPostgresWorkflowStore({ pool, clock }) {
           // re-delivered or concurrently-delivered identity conflicts here
           // and the WHOLE transition rolls back — the idempotent no-op.
           const { rowCount: signalInserted } = await client.query(
-            `INSERT INTO workflow_signals (instance_id, signal_id, accepted_at)
-             VALUES ($1, $2, $3)
+            `INSERT INTO workflow_signals (instance_id, signal_id, outcome, accepted_at)
+             VALUES ($1, $2, $3, $4)
              ON CONFLICT (instance_id, signal_id) DO NOTHING`,
-            [instanceId, signalId, now],
+            [instanceId, signalId, signalOutcome, now],
           );
           if (signalInserted !== 1) {
             await client.query('ROLLBACK');

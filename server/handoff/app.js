@@ -283,6 +283,9 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     telemetry: observedTelemetry,
   });
   workflow.register(createDemoWorkflowDefinition());
+  // Version activation is EXPLICIT (ADR-0021): registering a definition
+  // never selects it for new instances; this deliberate activation does.
+  workflow.activate('demo-follow-up', 1);
   registerStandardIntentExecutors({
     engine: workflow,
     scheduler,

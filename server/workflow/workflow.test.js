@@ -189,7 +189,7 @@ test('demo: enabling later never starts instances for historical events', async 
 
 // ── Definition versioning (ADR-0021) ────────────────────────────────────────
 
-test('versioning: an instance begun under V1 continues under V1 after V2 is registered; new instances start under V2', async () => {
+test('versioning: registration never redirects new instances — only explicit activation does; V1 instances stay V1', async () => {
   const { createWorkflowEngine } = require('./engine');
   const clock = fixedClock(T0);
   const store = createInMemoryWorkflowStore({ clock });
@@ -206,8 +206,9 @@ test('versioning: an instance begun under V1 continues under V1 after V2 is regi
     handoffStore: { get: async () => undefined }, integrationService: null, clock,
   });
 
-  // V1 registered; an instance starts and is bound to version 1.
+  // V1 registered AND explicitly activated; an instance is bound to V1.
   engine.register(createDemoWorkflowDefinition({ version: 1, followUpDelayMs: HOUR_MS }));
+  engine.activate(DEMO_WORKFLOW_TYPE, 1);
   const { instance: v1 } = await store.createInstance({
     instanceId: 'wf-v1', workflowType: DEMO_WORKFLOW_TYPE, definitionVersion: 1,
     instanceKey: 'sess-v1', organizationKey: FIRM, relatedEntityId: 'sess-v1',
@@ -221,14 +222,29 @@ test('versioning: an instance begun under V1 continues under V1 after V2 is regi
   engine.register(v2def);
   assert.deepEqual(engine.registry.versions(DEMO_WORKFLOW_TYPE), [1, 2], 'both versions registered concurrently');
 
+  // REGISTRATION REDIRECTS NOTHING: V1 remains the active start version.
+  assert.equal(engine.registry.startDefinition(DEMO_WORKFLOW_TYPE).version, 1,
+    'registering V2 does not touch the active selection');
+  assert.equal(engine.registry.activeVersion(DEMO_WORKFLOW_TYPE), 1);
+
   // The V1 instance's signal resolves V1 EXACTLY: it still completes.
   const applied = await engine.applySignal(v1.instanceId, { kind: 'timeout', name: 'follow-up' });
   assert.equal(applied.applied, true, 'V1 semantics governed the V1 instance');
   assert.equal((await store.get(v1.instanceId)).state, 'completed');
   assert.equal((await store.get(v1.instanceId)).definitionVersion, 1, 'binding never changes');
 
-  // NEW instances start under the highest version, deterministically.
+  // Explicit ACTIVATION — the deliberate operation — moves NEW instances
+  // (and only new instances) to V2.
+  engine.activate(DEMO_WORKFLOW_TYPE, 2);
   assert.equal(engine.registry.startDefinition(DEMO_WORKFLOW_TYPE).version, 2);
+  assert.equal((await store.get(v1.instanceId)).definitionVersion, 1,
+    'existing instances remain on their persisted version');
+
+  // Activating an UNREGISTERED version fails loudly — composition refuses.
+  assert.throws(() => engine.activate(DEMO_WORKFLOW_TYPE, 7),
+    (e) => e.code === 'workflow_definition_unavailable' && /@7/.test(e.message));
+  assert.throws(() => engine.activate('never-registered', 1),
+    (e) => e.code === 'workflow_definition_unavailable');
 });
 
 test('versioning: a version removed while instances still reference it fails LOUDLY — never silent latest-adoption', async () => {
@@ -322,6 +338,7 @@ test('signals: a duplicate outbox-derived event (same durable event id) starts n
     handoffStore: { get: async () => undefined }, integrationService: null, clock,
   });
   engine.register(createDemoWorkflowDefinition({ version: 1 }));
+  engine.activate(DEMO_WORKFLOW_TYPE, 1);
   engine.attach();
 
   const event = { id: 'evt-42', type: 'conversation.completed', organizationKey: FIRM,
@@ -353,6 +370,7 @@ test('signals: a crash between instance creation and intent recording is healed 
     handoffStore: { get: async () => undefined }, integrationService: null, clock,
   });
   engine.register(createDemoWorkflowDefinition({ version: 1 }));
+  engine.activate(DEMO_WORKFLOW_TYPE, 1);
   engine.attach();
 
   // Simulated crash: the instance was created but the process died before
@@ -368,6 +386,101 @@ test('signals: a crash between instance creation and intent recording is healed 
   assert.equal(scheduled.length, 1, 'the lost initial intent was recovered');
   await consumer.handle(event); // and a further redelivery is a no-op
   assert.equal(scheduled.length, 1, 'exactly once');
+});
+
+test('signals: an IGNORED signal is consumed — replayed after the state becomes actionable, it stays inert (engine)', async () => {
+  const { createWorkflowEngine } = require('./engine');
+  const clock = fixedClock(T0);
+  const store = createInMemoryWorkflowStore({ clock });
+  const engine = createWorkflowEngine({
+    store, outbox: { register: () => {} }, scheduler: { register: () => {}, schedule: async () => {} }, clock,
+  });
+  // In state A the event is IGNORED; in state B it WOULD transition to C.
+  engine.register({
+    workflowType: 'ignore-demo', version: 1,
+    startsOn: { eventType: 'never', instanceKeyOf: () => 'x' },
+    start: () => ({ state: 'a' }),
+    transition(state, signal) {
+      if (state === 'a' && signal.kind === 'timeout' && signal.name === 'advance') return { nextState: 'b' };
+      if (state === 'b' && signal.kind === 'event' && signal.name === 'doc.received') return { nextState: 'c' };
+      return null;
+    },
+    terminalStates: ['c'],
+  });
+  const { instance } = await store.createInstance({
+    instanceId: 'wf-ign', workflowType: 'ignore-demo', definitionVersion: 1,
+    instanceKey: 'x', organizationKey: FIRM, relatedEntityId: null, state: 'a', stateData: {},
+  });
+
+  // 1. X delivered in state A: structurally valid, no transition — CONSUMED.
+  const first = await engine.applySignal(instance.instanceId,
+    { kind: 'event', name: 'doc.received', event: { id: 'X' } });
+  assert.deepEqual(first, { applied: false, reason: 'ignored' });
+  assert.equal((await store.get(instance.instanceId)).state, 'a', 'no state change');
+  assert.deepEqual(await store.getSignal(instance.instanceId, 'event:X'),
+    { signalId: 'event:X', outcome: 'ignored' }, 'identity + outcome recorded durably');
+
+  // 2. The instance moves to B, where X WOULD be actionable.
+  await engine.applySignal(instance.instanceId, { kind: 'timeout', name: 'advance' });
+  assert.equal((await store.get(instance.instanceId)).state, 'b');
+
+  // 3–4. Replay X: refused forever — stale history is not a new action.
+  const replay = await engine.applySignal(instance.instanceId,
+    { kind: 'event', name: 'doc.received', event: { id: 'X' } });
+  assert.deepEqual(replay, { applied: false, reason: 'duplicate-signal' });
+  assert.equal((await store.get(instance.instanceId)).state, 'b');
+
+  // A FRESH delivery (new identity) in state B transitions normally.
+  const fresh = await engine.applySignal(instance.instanceId,
+    { kind: 'event', name: 'doc.received', event: { id: 'X2' } });
+  assert.equal(fresh.applied, true);
+  assert.equal((await store.get(instance.instanceId)).state, 'c');
+});
+
+test('signals: a duplicate IGNORED timeout and a duplicate IGNORED outbox-derived signal are both consumed exactly once', async () => {
+  const { createWorkflowEngine } = require('./engine');
+  const clock = fixedClock(T0);
+  const store = createInMemoryWorkflowStore({ clock });
+  let consumer;
+  const engine = createWorkflowEngine({
+    store,
+    outbox: { register: (r) => { consumer = r; } },
+    scheduler: { register: () => {}, schedule: async () => {} },
+    configService: (() => { const c = configServiceWithFirm();
+      c.settings.set(FIRM, 'workflow', 'enabled-types', { enabledTypes: ['quiet-demo'] }); return c; })(),
+    clock,
+  });
+  // A definition that reacts to an event type mid-flight but IGNORES it in
+  // its current state, and has no timeout transitions at all.
+  engine.register({
+    workflowType: 'quiet-demo', version: 1,
+    startsOn: { eventType: 'conversation.completed', instanceKeyOf: (e) => e.sessionId },
+    reactsTo: { 'conversation.connected': (e) => e.sessionId },
+    start: () => ({ state: 'waiting' }),
+    transition: () => null, // ignores everything
+    terminalStates: ['done'],
+  });
+  engine.activate('quiet-demo', 1);
+  engine.attach();
+  await consumer.handle({ id: 'evt-start', type: 'conversation.completed', organizationKey: FIRM,
+    sessionId: 'sess-q', correlationId: 'gh-q', payload: { status: 'booked' } });
+  const [instance] = await store.listInstances();
+
+  // Duplicate IGNORED timeout: consumed once, duplicate forever after.
+  const t1 = await engine.applySignal(instance.instanceId, { kind: 'timeout', name: 'ghost' });
+  assert.deepEqual(t1, { applied: false, reason: 'ignored' });
+  const t2 = await engine.applySignal(instance.instanceId, { kind: 'timeout', name: 'ghost' });
+  assert.deepEqual(t2, { applied: false, reason: 'duplicate-signal' });
+
+  // Duplicate IGNORED outbox-derived signal, through the real consumer seam.
+  const evt = { id: 'evt-mid', type: 'conversation.connected', organizationKey: FIRM,
+    sessionId: 'sess-q', correlationId: 'gh-q', payload: {} };
+  await consumer.handle(evt);
+  assert.deepEqual(await store.getSignal(instance.instanceId, 'event:evt-mid'),
+    { signalId: 'event:evt-mid', outcome: 'ignored' });
+  await consumer.handle(evt); // redelivery: already consumed, still inert
+  assert.equal((await store.get(instance.instanceId)).state, 'waiting');
+  assert.equal((await store.listInstances()).length, 1);
 });
 
 // ── Step reliability ────────────────────────────────────────────────────────

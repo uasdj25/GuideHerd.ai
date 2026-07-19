@@ -351,6 +351,34 @@ if (!PG_URL) {
     await poolB.end();
   });
 
+  test('[postgres] workflow signals: concurrent IGNORED delivery across two instances consumes exactly once', async () => {
+    const { createPostgresWorkflowStore } = require('./workflow-store');
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE workflow_signals, workflow_steps, workflow_instances');
+    const poolB = createOperationalPool({ connectionString: PG_URL });
+    const storeA = createPostgresWorkflowStore({ pool: sharedPool, clock });
+    const storeB = createPostgresWorkflowStore({ pool: poolB, clock });
+    await storeA.createInstance({
+      instanceId: 'wfpg-ign', workflowType: 'demo-follow-up', definitionVersion: 1,
+      instanceKey: 'sess-ign', organizationKey: 'org-a', relatedEntityId: null,
+      state: 'a', stateData: {},
+    });
+
+    // Two API instances evaluate the SAME structurally-valid-but-ignored
+    // signal concurrently: exactly one consumption commits.
+    const results = await Promise.all([
+      storeA.transition('wfpg-ign', 'a', { toState: 'a', stateData: {}, steps: [], signalId: 'event:ign-race', signalOutcome: 'ignored' }),
+      storeB.transition('wfpg-ign', 'a', { toState: 'a', stateData: {}, steps: [], signalId: 'event:ign-race', signalOutcome: 'ignored' }),
+    ]);
+    assert.equal(results.filter((r) => r.applied).length, 1, 'exactly one consumer');
+    const { rows } = await sharedPool.query(
+      "SELECT outcome FROM workflow_signals WHERE instance_id='wfpg-ign' AND signal_id='event:ign-race'");
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].outcome, 'ignored');
+    assert.equal((await storeA.get('wfpg-ign')).state, 'a', 'no state change either way');
+    await poolB.end();
+  });
+
   test('[postgres] workflow signals: a pre-commit failure rolls the WHOLE transition back — signal, state, and steps — and retries safely', async () => {
     const { createPostgresWorkflowStore } = require('./workflow-store');
     const clock = fixedClock(T0);

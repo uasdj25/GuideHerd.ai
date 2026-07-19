@@ -83,6 +83,11 @@ function mockConfig(overrides = {}) {
     },
     registeredIdentityProviders: ['static-token', 'dev-user'],
     configurationAuthority: { mode: 'live', seedOnBoot: false, lastBootImport: 'none' },
+    users: [
+      { subject: 'admin-ada', displayName: 'Ada Admin', roles: ['administrator'], active: true, hasCredential: true, createdAt: '2026-07-01T00:00:00.000Z', updatedAt: '2026-07-01T00:00:00.000Z' },
+      { subject: 'ricky-reception', displayName: 'Ricky Reception', roles: ['receptionist'], active: false, hasCredential: true, createdAt: '2026-07-01T00:00:00.000Z', updatedAt: '2026-07-01T00:00:00.000Z' },
+    ],
+    assignableRoles: ['scheduling-assistant', 'receptionist', 'operator', 'administrator'],
     ...overrides,
   };
 }
@@ -415,6 +420,71 @@ function newCalls() { return { session: [], login: [], logout: [], config: [], a
     ok('branding posts logoUrl and the office contact block',
       brand && brand.body.payload.logoUrl === 'https://guideherd.ai/logo.png'
       && brand.body.payload.office.phone === '+1 256 555 0100');
+    await ctx.close();
+  }
+
+  // ── User management (#65) ──────────────────────────────────────────
+  console.log('— User management —');
+  {
+    const calls = newCalls();
+    const applied = [];
+    const CRED = 'ghu-issued-once-abcdef0123456789';
+    const { page, ctx } = await freshPage({
+      apply(area, body) {
+        applied.push({ area, body });
+        const isIssue = area === 'users'
+          && (body.payload.action === 'create' || body.payload.action === 'rotate-credential');
+        return { status: 200, body: { version: 1, result: { subject: 'x' }, ...(isIssue ? { issuedCredential: CRED } : {}) } };
+      },
+    }, calls);
+    await page.waitForSelector('#app:not([hidden])');
+
+    // Roster renders with roles, status, and per-row actions.
+    ok('user roster lists subjects with mono ids', !!(await page.$('#user-list code.gh-mono')));
+    ok('user roster shows roles and inactive badge',
+      (await page.textContent('#user-list')).includes('administrator')
+      && (await page.$$eval('#user-list .gh-badge', (els) => els.map((e) => e.textContent.trim()))).includes('Inactive'));
+    ok('role choices come from the API vocabulary',
+      (await page.$$eval('#user-new-roles option', (o) => o.map((x) => x.value))).join(',')
+      === 'scheduling-assistant,receptionist,operator,administrator');
+    ok('roles editor preselects the chosen user’s roles',
+      (await page.$$eval('#user-roles-list option', (o) => o.filter((x) => x.selected).map((x) => x.value))).join(',') === 'administrator');
+
+    // Create: posts the payload, shows the credential exactly once.
+    await page.fill('#user-new-subject', 'olga-operator');
+    await page.fill('#user-new-name', 'Olga O.');
+    await page.selectOption('#user-new-roles', ['operator']);
+    await page.click('#user-add');
+    await page.waitForSelector('#issued-wrap:not([hidden])');
+    ok('create posts subject + roles to the users area',
+      applied.some((a) => a.area === 'users' && a.body.payload.action === 'create'
+        && a.body.payload.fields.subject === 'olga-operator'
+        && JSON.stringify(a.body.payload.fields.roles) === JSON.stringify(['operator'])));
+    ok('issued credential displayed once with its subject',
+      (await page.textContent('#issued-credential')) === CRED
+      && (await page.textContent('#issued-subject')) === 'olga-operator');
+    ok('credential is nowhere else in the DOM',
+      (await page.evaluate((c) => document.body.innerHTML.split(c).length - 1, CRED)) === 1);
+
+    // Per-row deactivate and rotate post their actions.
+    await page.click('#user-list button[data-user-action="deactivate"][data-subject="admin-ada"]');
+    await page.waitForTimeout(200);
+    ok('deactivate posts action + subject',
+      applied.some((a) => a.area === 'users' && a.body.payload.action === 'deactivate' && a.body.payload.subject === 'admin-ada'));
+    await page.click('#user-list button[data-user-action="rotate-credential"][data-subject="ricky-reception"]');
+    await page.waitForTimeout(200);
+    ok('rotate posts rotate-credential for the row’s subject',
+      applied.some((a) => a.area === 'users' && a.body.payload.action === 'rotate-credential' && a.body.payload.subject === 'ricky-reception'));
+
+    // Role change: select user, adjust roles, save.
+    await page.selectOption('#user-roles-subject', 'ricky-reception');
+    await page.selectOption('#user-roles-list', ['receptionist', 'operator']);
+    await page.click('#user-roles-save');
+    await page.waitForTimeout(200);
+    ok('set-roles posts the new role set',
+      applied.some((a) => a.area === 'users' && a.body.payload.action === 'set-roles'
+        && a.body.payload.subject === 'ricky-reception'
+        && JSON.stringify(a.body.payload.fields.roles) === JSON.stringify(['receptionist', 'operator'])));
     await ctx.close();
   }
 

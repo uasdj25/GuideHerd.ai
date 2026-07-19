@@ -82,6 +82,17 @@ cross-organization administration is structurally impossible. Every write
 is authorization-audited and telemetry-evented
 (`configuration.changed`).
 
+**Addendum (#65 — the users area.)** User management is an administration
+area with the framework's full guarantees: org-scoped CRUD, role
+assignment bounded to exactly the authorization policy's roles (ADR-0010
+— administration can never widen the vocabulary), activate/deactivate
+with immediate session effect (ADR-0013 addendum), and credential
+issuance/rotation where the raw credential exists only in the issuance
+response — assembled outside the audited transaction, so before/after
+snapshots structurally cannot contain credential material. Lockout
+guards: no self-deactivation, and the last active directory-managed
+administrator can be neither deactivated nor de-roled.
+
 ### 5. Live vs restart-required configuration
 
 **LIVE** (consumers read the Configuration Store per request — an

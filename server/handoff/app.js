@@ -47,6 +47,7 @@ const {
 const { createUserSessionService, SESSION_TOKEN_PREFIX } = require('../identity/user-sessions');
 const { createUserAuthProviderRegistry, resolveUserAuthProviderKey } = require('../identity/user-auth');
 const { createDevUserProvider } = require('../identity/dev-user-provider');
+const { createUserDirectory } = require('../identity/user-directory');
 const { DEFAULT_POLICY } = require('../identity/authorization');
 const { UnauthenticatedError: SessionRequiredError, InvalidCredentialsError: SessionForbiddenError } = require('../identity/errors');
 const { createOperationsCenter } = require('../operations/operations');
@@ -168,19 +169,56 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   if (!['anonymous', 'required'].includes(consoleAuthMode)) {
     throw new Error(`Unknown GUIDEHERD_CONSOLE_AUTH "${consoleAuthMode}" (expected "anonymous" or "required").`);
   }
+  // GuideHerd User Directory (#65): the store-backed user source behind
+  // the dev-user provider, managed live through the Administration
+  // Framework. Requires the Configuration Store database (migration
+  // 0003-users applies with the other config migrations); compositions
+  // without one (some tests) simply have no directory — env-var
+  // provisioning still works.
+  const userDirectory = configDb ? createUserDirectory({ db: configDb, clock }) : null;
   const userAuthProviders = createUserAuthProviderRegistry();
   userAuthProviders.register(createDevUserProvider({
     devUsersJson: devUsersJson !== undefined ? devUsersJson : process.env.GUIDEHERD_DEV_USERS,
+    userDirectory,
   }));
   const activeUserAuthProviderKey = userAuthProviderKey !== undefined
     ? userAuthProviderKey
     : resolveUserAuthProviderKey(process.env);
-  const userSessions = createUserSessionService({
+  const rawUserSessions = createUserSessionService({
     clock,
     ttlSeconds: userSessionTtlSeconds !== undefined
       ? userSessionTtlSeconds
       : Number(process.env.GUIDEHERD_USER_SESSION_TTL_SECONDS || 0) || undefined,
   });
+  // Live directory overlay (#65): every session validation consults the
+  // User Directory, so administration takes effect IMMEDIATELY —
+  // deactivating a user kills their active sessions on the next request
+  // (the stored session is invalidated, not just ignored), and role or
+  // display-name changes apply without re-login. Users without a
+  // directory record (env-var bootstrap users) pass through unchanged.
+  // This is enforcement at validation time, honoring the existing session
+  // store contract (create/get/delete — no enumeration required).
+  const userSessions = {
+    ...rawUserSessions,
+    async validate(token) {
+      const session = await rawUserSessions.validate(token);
+      if (!session || !userDirectory) return session;
+      const record = userDirectory.get(session.identity.organizationKey, session.identity.subject);
+      if (!record) return session;
+      if (!record.active) {
+        await rawUserSessions.invalidate(token);
+        return null;
+      }
+      return {
+        ...session,
+        identity: {
+          ...session.identity,
+          roles: [...record.roles],
+          displayName: record.displayName ?? session.identity.displayName,
+        },
+      };
+    },
+  };
 
   // GuideHerd Authorization (ADR-0010): the single decision point for "may
   // this principal perform this operation, in this organization, on this
@@ -385,6 +423,11 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
         // Surfaced in describe() so the Administration screen can state
         // whether its own writes are authoritative (ADR-0022).
         configurationAuthority: () => configAuthority,
+        // User management (#65): the directory the users area writes, and
+        // the closed role vocabulary it may assign — exactly the policy's
+        // roles (ADR-0010); administration can never widen it.
+        userDirectory,
+        assignableRoles: () => Object.keys(activePolicy.roles),
         // The full write-validation context (ADR-0016): every provider
         // registry this composition holds, so configured-but-unregistered
         // selections are rejected at ADMINISTRATION time — runtime

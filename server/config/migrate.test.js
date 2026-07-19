@@ -23,20 +23,21 @@ test('migrate applies the initial schema to a fresh database', () => {
   const db = openDatabase();
   const applied = migrate(db, { clock: fixedClock(T0) });
 
-  assert.deepEqual(applied, ['0001-initial', '0002-administration']);
+  assert.deepEqual(applied, ['0001-initial', '0002-administration', '0003-users']);
   const tables = tableNames(db);
   for (const expected of [
     'organizations', 'locations', 'office_hours', 'providers',
     'service_areas', 'consultation_types', 'routing_groups',
-    'routing_group_members', 'settings', 'schema_migrations',
+    'routing_group_members', 'settings', 'schema_migrations', 'users',
   ]) {
     assert.ok(tables.includes(expected), `missing table ${expected}`);
   }
 
   const recorded = db.prepare('SELECT version, applied_at FROM schema_migrations').all();
-  assert.equal(recorded.length, 2);
+  assert.equal(recorded.length, 3);
   assert.equal(recorded[0].version, '0001-initial');
   assert.equal(recorded[1].version, '0002-administration');
+  assert.equal(recorded[2].version, '0003-users');
   assert.equal(recorded[0].applied_at, new Date(T0).toISOString());
   db.close();
 });

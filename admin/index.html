@@ -274,6 +274,55 @@
       <button class="gh-btn gh-btn-primary" id="save-idp">Save identity provider</button>
       <p class="gh-alert" id="msg-identity-provider" role="status" aria-live="polite"></p>
     </div>
+
+    <!-- User management (#65): org-scoped users, live effect, audited.
+         Credentials appear exactly once, at issuance, and only here. -->
+    <div class="gh-card area-card">
+      <div class="area-head">
+        <h2 class="gh-section-title">Users</h2>
+        <span class="gh-badge gh-badge--ok">Live</span>
+      </div>
+      <div class="catalog-tables" id="user-list" aria-live="polite"></div>
+
+      <h3 class="area-sub">Add a user</h3>
+      <div class="field-row">
+        <div class="gh-field">
+          <label class="gh-label" for="user-new-subject">User ID</label>
+          <input class="gh-input" id="user-new-subject" placeholder="jane-doe" aria-describedby="user-new-subject-note">
+          <span class="gh-muted" id="user-new-subject-note" style="font-size:var(--fs-xs)">Lowercase letters, digits, hyphens.</span>
+        </div>
+        <div class="gh-field">
+          <label class="gh-label" for="user-new-name">Display name</label>
+          <input class="gh-input" id="user-new-name" placeholder="Jane Doe">
+        </div>
+      </div>
+      <div class="gh-field">
+        <label class="gh-label" for="user-new-roles">Roles</label>
+        <select class="gh-select" id="user-new-roles" multiple size="4" aria-describedby="user-new-roles-note"></select>
+        <span class="gh-muted" id="user-new-roles-note" style="font-size:var(--fs-xs)">Roles don't include each other — select every role the person needs.</span>
+      </div>
+      <button class="gh-btn gh-btn-primary" id="user-add">Add user</button>
+
+      <h3 class="area-sub">Change a user's roles</h3>
+      <div class="field-row">
+        <div class="gh-field">
+          <label class="gh-label" for="user-roles-subject">User</label>
+          <select class="gh-select" id="user-roles-subject"></select>
+        </div>
+        <div class="gh-field">
+          <label class="gh-label" for="user-roles-list">Roles</label>
+          <select class="gh-select" id="user-roles-list" multiple size="4"></select>
+        </div>
+      </div>
+      <button class="gh-btn gh-btn-primary" id="user-roles-save">Save roles</button>
+
+      <div class="gh-card" id="issued-wrap" hidden style="margin-top:var(--sp-2)">
+        <strong>Credential for <span id="issued-subject"></span></strong> — shown once, never again.
+        Copy it now and hand it over securely:
+        <div style="margin-top:var(--sp-1)"><code class="gh-mono" id="issued-credential"></code></div>
+      </div>
+      <p class="gh-alert" id="msg-users" role="status" aria-live="polite"></p>
+    </div>
   </section>
 
   <section class="gh-section">
@@ -559,6 +608,74 @@
     return change(area, entity, payload, msgId).then(function () { return boot(); });
   }
 
+  // ── User management (#65) ─────────────────────────────────────────
+  // Server-side the area is versioned and audited like everything else;
+  // the UI deliberately omits expectedVersion for user actions (activate/
+  // deactivate/rotate are idempotent state settings — last write wins).
+  // An issued credential exists only in the response and this one panel.
+  function usersTable(rows) {
+    if (!rows.length) return empty('No users yet — deployment-provisioned users are managed by GuideHerd.');
+    return '<div class="gh-table-wrap"><table class="gh-table"><thead><tr>'
+      + ['Name', 'User ID', 'Roles', 'Status', '', ''].map(function (h) { return '<th scope="col">' + esc(h) + '</th>'; }).join('')
+      + '</tr></thead><tbody>' + rows.map(function (u) {
+        return '<tr><td>' + esc(u.displayName || u.subject) + '</td>'
+          + '<td><code class="gh-mono">' + esc(u.subject) + '</code></td>'
+          + '<td>' + esc(u.roles.join(', ')) + '</td>'
+          + '<td>' + activeBadge(u.active) + '</td>'
+          + '<td><button type="button" class="gh-btn gh-btn-ghost" data-user-action="' + (u.active ? 'deactivate' : 'activate') + '" data-subject="' + esc(u.subject) + '">' + (u.active ? 'Deactivate' : 'Activate') + '</button></td>'
+          + '<td><button type="button" class="gh-btn gh-btn-ghost" data-user-action="rotate-credential" data-subject="' + esc(u.subject) + '">New credential</button></td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  function userChange(payload) {
+    var target = el('msg-users');
+    setAlert(target, null, 'Saving…');
+    return api('/api/v1/admin/users', {
+      method: 'POST', body: JSON.stringify({ payload: payload }),
+    }).then(function (out) {
+      setAlert(target, 'ok', 'Saved.');
+      if (out.issuedCredential) {
+        el('issued-subject').textContent = payload.subject || (payload.fields && payload.fields.subject) || '';
+        el('issued-credential').textContent = out.issuedCredential;
+        el('issued-wrap').hidden = false;
+      }
+      loadAudit();
+      return boot();
+    }).catch(function (err) {
+      setAlert(target, 'bad', err.message);
+    });
+  }
+
+  function selectedRoles(id) {
+    return Array.prototype.slice.call(el(id).selectedOptions).map(function (o) { return o.value; });
+  }
+
+  el('user-add').addEventListener('click', function () {
+    userChange({
+      action: 'create',
+      fields: {
+        subject: el('user-new-subject').value.trim(),
+        displayName: el('user-new-name').value.trim(),
+        roles: selectedRoles('user-new-roles'),
+      },
+    }).then(function () { el('user-new-subject').value = ''; el('user-new-name').value = ''; });
+  });
+
+  el('user-roles-save').addEventListener('click', function () {
+    userChange({
+      action: 'set-roles',
+      subject: el('user-roles-subject').value,
+      fields: { roles: selectedRoles('user-roles-list') },
+    });
+  });
+
+  // Per-row user actions (separate from the catalog handler's data-area).
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button[data-user-action]') : null;
+    if (!b) return;
+    userChange({ action: b.dataset.userAction, subject: b.dataset.subject });
+  });
+
   // One delegated handler covers every per-row activate/deactivate button.
   document.addEventListener('click', function (e) {
     var b = e.target.closest ? e.target.closest('button[data-area]') : null;
@@ -794,6 +911,25 @@
       el('idp').innerHTML = c.registeredIdentityProviders.map(function (p) {
         return '<option' + ((c.settings.identityProvider.value || {}).provider === p ? ' selected' : '') + '>' + esc(p) + '</option>';
       }).join('');
+
+      // User management (#65): the roster and the closed role vocabulary.
+      var users = c.users || [];
+      var roleNames = c.assignableRoles || [];
+      el('user-list').innerHTML = usersTable(users);
+      var roleOptions = roleNames.map(function (r) { return '<option value="' + esc(r) + '">' + esc(r) + '</option>'; }).join('');
+      el('user-new-roles').innerHTML = roleOptions;
+      el('user-roles-list').innerHTML = roleOptions;
+      el('user-roles-subject').innerHTML = users.map(function (u) {
+        return '<option value="' + esc(u.subject) + '">' + esc(u.displayName || u.subject) + '</option>';
+      }).join('');
+      var preselect = function () {
+        var current = users.filter(function (u) { return u.subject === el('user-roles-subject').value; })[0];
+        Array.prototype.forEach.call(el('user-roles-list').options, function (o) {
+          o.selected = !!current && current.roles.indexOf(o.value) !== -1;
+        });
+      };
+      el('user-roles-subject').onchange = preselect;
+      preselect();
 
       // Live vs restart-required classification, from the API's own facts.
       el('badge-scheduling-policy').innerHTML = liveBadge(c.settings.schedulingPolicy);

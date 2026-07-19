@@ -13,9 +13,10 @@
  * changes take effect live: consumers read configuration per request.
  *
  * ── Change areas (typed dispatch; unknown areas fail loudly) ───────────────
- * organization · practice-areas · attorneys · attorney-order ·
- * scheduling-policy · notification-branding · notifications · office ·
- * business-hours · identity-provider
+ * organization · practice-areas · attorneys · consultation-types ·
+ * routing-groups · attorney-order · office · business-hours · users (#65) ·
+ * every registered configuration domain (scheduling-policy,
+ * notification-branding, notifications, identity-provider, …)
  *
  * ── Validation ownership ───────────────────────────────────────────────────
  * Owned by the consuming subsystem wherever it exists and delegated to it:
@@ -39,8 +40,15 @@
  * rollback UI here).
  */
 
-const { ConfigError, ValidationError } = require('../config/errors');
+const crypto = require('node:crypto');
+
+const { ConfigError, ValidationError, UnknownEntityError } = require('../config/errors');
 const { validateDomain, domainDescriptors } = require('../configuration/framework');
+
+/** SHA-256 hex digest (credential hashing for the users area, #65). */
+function sha256Hex(value) {
+  return crypto.createHash('sha256').update(String(value), 'utf8').digest('hex');
+}
 
 /** A concurrent administrator changed this entity since it was read. */
 class ConfigurationConflictError extends ConfigError {
@@ -78,7 +86,7 @@ function isPlainObject(v) {
  *   telemetry?: { event: Function },
  * }} deps
  */
-function createAdministrationService({ configService, configDb, clock, identityProviderKeys = () => [], validationContext = () => ({}), configurationAuthority = () => ({ mode: 'live', seedOnBoot: false, lastBootImport: 'none' }), telemetry }) {
+function createAdministrationService({ configService, configDb, clock, identityProviderKeys = () => [], validationContext = () => ({}), configurationAuthority = () => ({ mode: 'live', seedOnBoot: false, lastBootImport: 'none' }), userDirectory = null, assignableRoles = () => [], telemetry }) {
   const nowIso = () => new Date(clock.now()).toISOString();
   const emit = telemetry ? telemetry.event.bind(telemetry) : () => {};
 
@@ -339,6 +347,103 @@ function createAdministrationService({ configService, configDb, clock, identityP
       },
     },
 
+    // User management (#65): organization-scoped users behind the dev-user
+    // provider, with the framework's full guarantees. Registered only when
+    // a User Directory exists (it does whenever administration does — both
+    // require the Configuration Store database).
+    //
+    // Credential discipline: raw credentials are generated server-side,
+    // returned ONCE in the apply response (`issuedCredential`, assembled
+    // OUTSIDE administer() so it can never reach an audit snapshot), and
+    // stored only as SHA-256 digests. Directory records structurally
+    // exclude the digest, so before/after audit snapshots cannot leak it.
+    ...(userDirectory ? { users: {
+      apply: (ctx, payload) => {
+        const { action, subject, fields } = payload || {};
+        const org = ctx.organizationKey;
+
+        const checkRoles = (roles) => {
+          const allowed = assignableRoles();
+          const bad = (Array.isArray(roles) ? roles : []).filter((r) => !allowed.includes(r));
+          if (bad.length > 0) {
+            throw new ValidationError('One or more roles are not assignable.',
+              bad.map((r) => ({ field: 'roles', message: `unknown role: ${r}` })));
+          }
+        };
+        // Lockout guards, both evaluated against DIRECTORY-managed users
+        // (deployment-bootstrap users are invisible here and act as an
+        // additional recovery path — erring conservative).
+        const requireAnotherAdministrator = (record, message) => {
+          const isActiveAdmin = record.active && record.roles.includes('administrator');
+          if (isActiveAdmin && userDirectory.countActiveAdministrators(org) <= 1) {
+            throw new ValidationError(message, [{ field: 'subject', message }]);
+          }
+        };
+        const issueCredential = () => 'ghu-' + crypto.randomBytes(24).toString('base64url');
+
+        if (action === 'create') {
+          const { roles, displayName } = fields || {};
+          checkRoles(roles);
+          const raw = issueCredential();
+          const out = administer({
+            ...ctx, entity: 'users', action: 'create',
+            change: () => userDirectory.create(org, { subject: fields && fields.subject, displayName, roles }, sha256Hex(raw)),
+          });
+          return { ...out, issuedCredential: raw };
+        }
+        if (typeof subject !== 'string' || subject === '') {
+          throw new ValidationError('users requires action create|update|set-roles|activate|deactivate|rotate-credential (and a subject for all but create).', []);
+        }
+        const before = userDirectory.get(org, subject);
+        if (!before) throw new UnknownEntityError('user');
+
+        if (action === 'update') {
+          return administer({
+            ...ctx, entity: `user:${subject}`, action: 'update', before,
+            change: () => userDirectory.update(org, subject, fields || {}),
+          });
+        }
+        if (action === 'set-roles') {
+          const roles = (fields || {}).roles;
+          checkRoles(roles);
+          if (!Array.isArray(roles) || !roles.includes('administrator')) {
+            requireAnotherAdministrator(before, 'Cannot remove the administrator role from the last active administrator.');
+          }
+          return administer({
+            ...ctx, entity: `user:${subject}`, action: 'set-roles', before,
+            change: () => userDirectory.setRoles(org, subject, roles),
+          });
+        }
+        if (action === 'deactivate') {
+          if (ctx.actor === subject) {
+            throw new ValidationError('Administrators cannot deactivate their own account.', [
+              { field: 'subject', message: 'self-deactivation is not permitted' },
+            ]);
+          }
+          requireAnotherAdministrator(before, 'Cannot deactivate the last active administrator.');
+          return administer({
+            ...ctx, entity: `user:${subject}`, action: 'deactivate', before,
+            change: () => userDirectory.setActive(org, subject, false),
+          });
+        }
+        if (action === 'activate') {
+          return administer({
+            ...ctx, entity: `user:${subject}`, action: 'activate', before,
+            change: () => userDirectory.setActive(org, subject, true),
+          });
+        }
+        if (action === 'rotate-credential') {
+          const raw = issueCredential();
+          const out = administer({
+            ...ctx, entity: `user:${subject}`, action: 'rotate-credential', before,
+            change: () => userDirectory.setCredentialHash(org, subject, sha256Hex(raw)),
+          });
+          return { ...out, issuedCredential: raw };
+        }
+        throw new ValidationError('users requires action create|update|set-roles|activate|deactivate|rotate-credential.', []);
+      },
+    } } : {}),
+
   };
 
   // Every registered configuration domain is administrable, generated
@@ -388,6 +493,10 @@ function createAdministrationService({ configService, configDb, clock, identityP
         // means yes; `seed-managed` means a recurring boot-time re-import
         // overwrites them, and the portal shows a warning banner.
         configurationAuthority: configurationAuthority(),
+        // User management (#65): directory records carry no credential
+        // material by construction. Absent directory → empty list.
+        users: userDirectory ? userDirectory.list(organizationKey) : [],
+        assignableRoles: assignableRoles(),
       };
     },
 

@@ -201,9 +201,12 @@ change it back by hand using that record.
 
 ### A receptionist can't sign in
 
-1. Have they been provisioned? Users are set up at deployment, not in a screen.
+1. Do they exist, and are they active? Check the Users card on the
+   Administration screen — a deactivated user's credential fails exactly like
+   a wrong one.
 2. Is the credential exactly right? It's an issued credential, not a password —
-   no reset, no self-service.
+   there's no self-service reset, but an administrator can issue a new one
+   from the Users card (the old one stops working immediately).
 3. Did the service restart? Restarts sign everyone out. Signing back in is the
    fix.
 4. Been more than 12 hours since they signed in? Sessions expire absolutely,

@@ -41,7 +41,7 @@ test('run migrates a fresh file database, imports the document, and is re-runnab
   try {
     const tree = JSON.parse(fs.readFileSync(EXAMPLE_FILE, 'utf8'));
     const first = run({ dbPath, filePath: EXAMPLE_FILE });
-    assert.deepEqual(first.migrationsApplied, ['0001-initial', '0002-administration']);
+    assert.deepEqual(first.migrationsApplied, ['0001-initial', '0002-administration', '0003-users']);
     assert.equal(first.organization, 'martinson-beason');
     assert.equal(first.counts.providers, tree.providers.length);
 

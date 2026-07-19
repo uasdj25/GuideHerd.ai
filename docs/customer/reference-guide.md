@@ -126,7 +126,6 @@ Things people reasonably expect, that GuideHerd does not have:
 - Cancellation or reschedule workflows, and their notifications
 - Single sign-on (Microsoft, Google, Okta)
 - Self-service password reset, invitations, multi-factor authentication
-- A user management screen
 - Minimum notice, appointment buffers, per-type durations
 - Enforcement of business hours
 - Application of scheduling preferences to real bookings

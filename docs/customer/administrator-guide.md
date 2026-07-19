@@ -59,27 +59,34 @@ think about who needs what before provisioning anyone.
 
 ## User management
 
-**There is no user management screen.** This is the biggest gap in GuideHerd
-today, and you should plan around it rather than be surprised by it.
+**You manage your firm's users yourself, in the Administration screen** —
+the Users card under Access. No deployment changes, no restarts, no waiting.
 
-Users are defined in deployment configuration. **Adding a person, removing a
-person, or changing someone's role requires an environment change and a service
-restart** — performed by whoever runs your infrastructure, not by you in a
-browser.
+What you can do there:
 
-What that means practically:
+- **Add a person.** Choose their user ID, name, and roles. GuideHerd issues
+  their sign-in credential and shows it **exactly once** — copy it immediately
+  and hand it over securely (in person or through a channel you trust). It is
+  never shown again and nobody, including GuideHerd, can look it up later.
+- **Change roles.** Takes effect immediately, even on sessions that are
+  already signed in — no re-login needed.
+- **Deactivate someone.** Takes effect immediately: their current session ends
+  on their very next action, and their credential stops working. Offboarding
+  is instant. (Reactivating restores the same credential.)
+- **Issue a new credential** for someone who lost theirs. The old credential
+  stops working immediately; the new one is shown once, like at creation.
 
-- **Staff changes need lead time.** A new receptionist can't be set up in the
-  five minutes before their first shift. Batch them where you can.
-- **Offboarding is not instant.** Removing someone who has left requires the
-  same change-and-restart cycle. If it's urgent, say so — it needs a person, not
-  a form.
-- **A restart signs everyone out.** Harmless mid-shift — people sign back in —
-  but do it deliberately rather than during the Monday morning rush.
+Guardrails to know about:
+
+- **You cannot deactivate your own account**, and the last active
+  administrator cannot be deactivated or stripped of the administrator role —
+  the system will not let a firm lock itself out.
+- **Every user change is recorded** in the change history with who made it
+  and what changed. Credentials never appear there.
 
 There is no self-service password reset, no invitations, no self-registration,
 and no multi-factor authentication. Sign-in uses an issued credential rather
-than a password.
+than a password — if someone loses theirs, an administrator issues a new one.
 
 Single sign-on through Microsoft, Google, or Okta is **not available today.**
 The platform is built to accept it later without disruption, but nothing is
@@ -383,8 +390,8 @@ first and often don't think to report them.
 **Monthly:** check that practice areas, attorneys, and consultation types still
 match how the firm actually works. Firms drift; the list should follow.
 
-**Whenever staff change:** raise user changes early — they need a deployment
-change and a restart.
+**Whenever staff change:** make the user change in the Administration screen
+(Users card) — adding, deactivating, and role changes take effect immediately.
 
 ---
 

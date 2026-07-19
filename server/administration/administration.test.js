@@ -395,3 +395,168 @@ test('HTTP: existing workflows are unchanged by the Administration Framework', a
     assert.equal((await post(base, '/api/v1/demo/connect', {}, { authorization: `Bearer ${SECRET}` })).status, 200);
   });
 });
+
+// ── User management (#65): the users area, end to end ───────────────────────
+
+const { createUserDirectory } = require('../identity/user-directory');
+
+const ALL_ROLES = ['scheduling-assistant', 'receptionist', 'operator', 'administrator'];
+
+function makeUserAdmin() {
+  const { db, configService } = fixture();
+  const directory = createUserDirectory({ db, clock: fixedClock(T0) });
+  const admin = createAdministrationService({
+    configService,
+    configDb: db,
+    clock: fixedClock(T0),
+    identityProviderKeys: () => ['dev-user'],
+    userDirectory: directory,
+    assignableRoles: () => ALL_ROLES,
+  });
+  return { db, configService, admin, directory };
+}
+
+test('users area: create issues a credential ONCE; nothing credential-shaped is stored, described, or audited', () => {
+  const { admin, directory } = makeUserAdmin();
+
+  const out = admin.apply('users', CTX, {
+    action: 'create',
+    fields: { subject: 'ricky-reception', displayName: 'Ricky Reception', roles: ['receptionist'] },
+  });
+  assert.ok(typeof out.issuedCredential === 'string' && out.issuedCredential.length >= 16, 'credential issued once');
+  assert.equal(out.result.subject, 'ricky-reception');
+  assert.equal(out.result.hasCredential, true);
+  assert.equal(JSON.stringify(out.result).includes(out.issuedCredential), false);
+
+  // Described records carry no credential material.
+  const described = admin.describe(FIRM);
+  assert.equal(described.users.length, 1);
+  assert.deepEqual(described.assignableRoles, ALL_ROLES);
+  const describedFlat = JSON.stringify(described);
+  assert.equal(describedFlat.includes(out.issuedCredential), false);
+  assert.equal(/credential_hash|credentialHash/.test(describedFlat), false);
+
+  // Audit has actor + after snapshot, but neither the credential nor its digest.
+  const crypto = require('node:crypto');
+  const digest = crypto.createHash('sha256').update(out.issuedCredential, 'utf8').digest('hex');
+  const auditFlat = JSON.stringify(admin.audit(FIRM));
+  assert.equal(auditFlat.includes('ricky-reception'), true);
+  assert.equal(auditFlat.includes(out.issuedCredential), false);
+  assert.equal(auditFlat.includes(digest), false);
+
+  // The directory holds only the digest; records never expose it.
+  assert.equal(directory.get(FIRM, 'ricky-reception').hasCredential, true);
+});
+
+test('users area: roles are policy-bounded — unknown roles are rejected before anything is written', () => {
+  const { admin } = makeUserAdmin();
+  assert.throws(
+    () => admin.apply('users', CTX, { action: 'create', fields: { subject: 'x-user', roles: ['superuser'] } }),
+    (e) => e.status === 400 && /not assignable/.test(e.message),
+  );
+  assert.equal(admin.describe(FIRM).users.length, 0, 'nothing written');
+});
+
+test('users area: last-administrator and self-deactivation protection', () => {
+  const { admin } = makeUserAdmin();
+  admin.apply('users', CTX, { action: 'create', fields: { subject: 'admin-one', roles: ['administrator'] } });
+
+  // Cannot deactivate or de-role the only active administrator.
+  assert.throws(
+    () => admin.apply('users', CTX, { action: 'deactivate', subject: 'admin-one' }),
+    (e) => e.status === 400 && /last active administrator/.test(e.message),
+  );
+  assert.throws(
+    () => admin.apply('users', CTX, { action: 'set-roles', subject: 'admin-one', fields: { roles: ['operator'] } }),
+    (e) => e.status === 400,
+  );
+
+  // With a second administrator, deactivation works — but never on yourself.
+  admin.apply('users', CTX, { action: 'create', fields: { subject: 'admin-two', roles: ['administrator'] } });
+  assert.throws(
+    () => admin.apply('users', { actor: 'admin-one', organizationKey: FIRM }, { action: 'deactivate', subject: 'admin-one' }),
+    (e) => e.status === 400 && /own account/.test(e.message),
+  );
+  const out = admin.apply('users', CTX, { action: 'deactivate', subject: 'admin-one' });
+  assert.equal(out.result.active, false);
+  // And now admin-two is the last: protected again.
+  assert.throws(() => admin.apply('users', CTX, { action: 'deactivate', subject: 'admin-two' }), (e) => e.status === 400);
+  // Reactivation is always allowed.
+  assert.equal(admin.apply('users', CTX, { action: 'activate', subject: 'admin-one' }).result.active, true);
+});
+
+test('users area: update, rotate-credential, unknown subject, and organization scoping', () => {
+  const { admin } = makeUserAdmin();
+  const created = admin.apply('users', CTX, { action: 'create', fields: { subject: 'olga-operator', roles: ['operator'] } });
+
+  const renamed = admin.apply('users', CTX, { action: 'update', subject: 'olga-operator', fields: { displayName: 'Olga O.' } });
+  assert.equal(renamed.result.displayName, 'Olga O.');
+
+  const rotated = admin.apply('users', CTX, { action: 'rotate-credential', subject: 'olga-operator' });
+  assert.ok(rotated.issuedCredential && rotated.issuedCredential !== created.issuedCredential);
+  assert.equal(JSON.stringify(admin.audit(FIRM)).includes(rotated.issuedCredential), false);
+
+  assert.throws(() => admin.apply('users', CTX, { action: 'update', subject: 'nobody', fields: {} }), (e) => e.status === 404);
+  // Another organization's context sees nothing of this firm's users.
+  assert.throws(
+    () => admin.apply('users', { actor: 'admin-oz', organizationKey: 'other-firm' }, { action: 'deactivate', subject: 'olga-operator' }),
+    (e) => e.status === 404,
+  );
+  assert.equal(admin.describe('other-firm').users.length, 0);
+});
+
+test('HTTP #65: provision → sign in → live role change → revoke → immediate 401, all without a restart', async () => {
+  await withServer({}, async (base) => {
+    const ada = await loginCookie(base, 'dev-key-admin-0123456789abcde');
+
+    // Provision a new user through the Administration API.
+    const createRes = await post(base, '/api/v1/admin/users', {
+      payload: { action: 'create', fields: { subject: 'ricky-reception', displayName: 'Ricky Reception', roles: ['receptionist'] } },
+    }, ada);
+    assert.equal(createRes.status, 200);
+    const created = await createRes.json();
+    assert.ok(created.issuedCredential, 'the credential is returned exactly once, at issuance');
+
+    // The new user signs in with the issued credential — no restart, no deploy.
+    const ricky = await loginCookie(base, created.issuedCredential);
+    const me = await (await fetch(`${base}/api/v1/auth/session`, { headers: ricky })).json();
+    assert.equal(me.subject, 'ricky-reception');
+    assert.deepEqual(me.roles, ['receptionist']);
+    assert.equal((await fetch(`${base}/api/v1/admin/configuration`, { headers: ricky })).status, 403, 'role boundaries hold');
+    assert.equal((await fetch(`${base}/api/v1/operations/overview`, { headers: ricky })).status, 403);
+
+    // Role change applies to the EXISTING session — no re-login.
+    await post(base, '/api/v1/admin/users', { payload: { action: 'set-roles', subject: 'ricky-reception', fields: { roles: ['receptionist', 'operator'] } } }, ada);
+    assert.equal((await fetch(`${base}/api/v1/operations/overview`, { headers: ricky })).status, 200, 'live role grant, same session');
+
+    // Revocation: the very next request on the existing session is 401.
+    const deact = await post(base, '/api/v1/admin/users', { payload: { action: 'deactivate', subject: 'ricky-reception' } }, ada);
+    assert.equal(deact.status, 200);
+    assert.equal((await fetch(`${base}/api/v1/auth/session`, { headers: ricky })).status, 401, 'immediate session invalidation');
+    assert.equal((await fetch(`${base}/api/v1/operations/overview`, { headers: ricky })).status, 401);
+
+    // And the credential itself fails uniformly at login.
+    const loginAgain = await post(base, '/api/v1/auth/login', { credential: created.issuedCredential });
+    assert.equal(loginAgain.status, 403, 'deactivated credential is indistinguishable from an invalid one');
+
+    // Reactivate: the credential works again (a fresh session).
+    await post(base, '/api/v1/admin/users', { payload: { action: 'activate', subject: 'ricky-reception' } }, ada);
+    const ricky2 = await loginCookie(base, created.issuedCredential);
+    assert.equal((await fetch(`${base}/api/v1/auth/session`, { headers: ricky2 })).status, 200);
+
+    // Rotation: the old credential dies, the new one signs in.
+    const rotated = await (await post(base, '/api/v1/admin/users', { payload: { action: 'rotate-credential', subject: 'ricky-reception' } }, ada)).json();
+    assert.equal((await post(base, '/api/v1/auth/login', { credential: created.issuedCredential })).status, 403);
+    const ricky3 = await loginCookie(base, rotated.issuedCredential);
+    assert.equal((await fetch(`${base}/api/v1/auth/session`, { headers: ricky3 })).status, 200);
+
+    // The audit trail shows every user change with its actor — and no credential.
+    const audit = await (await fetch(`${base}/api/v1/admin/audit`, { headers: ada })).json();
+    const userEntries = audit.audit.filter((a) => a.entity === 'users' || a.entity.startsWith('user:'));
+    assert.ok(userEntries.length >= 5, 'create/set-roles/deactivate/activate/rotate all audited');
+    assert.ok(userEntries.every((a) => a.actor === 'admin-ada'));
+    const auditFlat = JSON.stringify(audit);
+    assert.equal(auditFlat.includes(created.issuedCredential), false);
+    assert.equal(auditFlat.includes(rotated.issuedCredential), false);
+  });
+});

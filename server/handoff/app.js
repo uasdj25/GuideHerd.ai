@@ -84,7 +84,13 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, workflowStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, workflowStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore, configurationAuthority } = {}) {
+  // Configuration authority (ADR-0022): who owns configuration truth in this
+  // deployment. server.js computes the real descriptor from the seed mode;
+  // the default describes every other composition (tests, dev, demos), where
+  // the store is written live and no boot-time seed runs.
+  const configAuthority = configurationAuthority
+    || { mode: 'live', seedOnBoot: false, lastBootImport: 'none' };
   // Operational Store (ADR-0006): the handoff repository is injectable. The
   // in-memory implementation remains the default; server.js selects the
   // durable PostgreSQL implementation via GUIDEHERD_OPERATIONAL_PROVIDER.
@@ -353,6 +359,13 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
           return provider.size() > 0 ? 'available' : 'not-configured';
         },
       },
+      {
+        // Who owns configuration truth (ADR-0022): `live` = the store,
+        // written through Administration, is authoritative; `seed-managed`
+        // = an explicit recurring re-import overwrites it at every boot.
+        capability: 'configuration-authority',
+        check: () => configAuthority.mode,
+      },
     ],
   });
   opsObserver = (name, fields) => operations.observe(name, fields);
@@ -369,6 +382,9 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
         clock,
         telemetry: observedTelemetry,
         identityProviderKeys: () => userAuthProviders.keys(),
+        // Surfaced in describe() so the Administration screen can state
+        // whether its own writes are authoritative (ADR-0022).
+        configurationAuthority: () => configAuthority,
         // The full write-validation context (ADR-0016): every provider
         // registry this composition holds, so configured-but-unregistered
         // selections are rejected at ADMINISTRATION time — runtime

@@ -76,15 +76,25 @@ from a firm's own domain requires a firm-specific mailbox here.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `GUIDEHERD_SEED_FILE` | unset | Seed document re-imported **at every boot** |
+| `GUIDEHERD_SEED_FILE` | unset | Seed document, applied per `GUIDEHERD_SEED_MODE` |
+| `GUIDEHERD_SEED_MODE` | `bootstrap` | `bootstrap` = one-time import (skip once the organization exists); `always` = explicit every-boot re-import (`seed-managed`) |
 
-**Mutually exclusive with live administration.** When set, the seed document is
-re-imported on every boot and **silently reverts changes made through the
-Administration screen**. Choose one mode per deployment:
+**The persistent configuration store is the source of truth (ADR-0022).** In
+the default `bootstrap` mode a seed file is a one-time import: once its
+organization exists in the store, boot skips the import loudly and
+administration edits win — a stale seed document can never overwrite them.
+`GUIDEHERD_SEED_MODE=always` keeps the historical git-as-source-of-truth
+behavior as an explicit opt-in: the document is re-imported at every boot, a
+warning is logged, and the deployment reports `configuration-authority:
+seed-managed` on the Operations Center health list and a warning banner on the
+Administration screen. An unknown mode value refuses to start.
 
-- **Persistent disk, no seed file** → administration edits persist. Seed once.
-- **Ephemeral filesystem + seed file** → the file is the source of truth;
-  administration edits are temporary.
+- **Persistent disk (volume) + `bootstrap`** → administration edits persist;
+  the seed file (if still set) is inert after first import.
+- **Ephemeral filesystem + seed file** → the store is empty at each boot, so
+  even `bootstrap` re-imports each time; administration edits are temporary.
+  Making them durable requires a volume — see
+  [`configuration-authority-cutover.md`](configuration-authority-cutover.md).
 
 An ephemeral filesystem with *no* seed file leaves a firm with no practice
 areas, attorneys, or consultation types after a restart — every receptionist
@@ -134,12 +144,20 @@ on it.
 | Replicas | **1** (region `sfo`) |
 | `GUIDEHERD_OPERATIONAL_PROVIDER` | `postgres` — operational data is durable |
 | `GUIDEHERD_CONSOLE_AUTH` | unset → `anonymous` |
-| `GUIDEHERD_SEED_FILE` | **set** → seed re-imported at every boot |
+| `GUIDEHERD_SEED_FILE` | **set** → seed applied per `GUIDEHERD_SEED_MODE` |
+| `GUIDEHERD_SEED_MODE` | unset (pre-cutover this meant every-boot re-import; after ADR-0022 ships, unset = `bootstrap`) |
 | `MS_*` / `SUMMARY_*` | **unset** → email delivery disabled |
 
 Two of these deserve attention:
 
-1. **The seed file is set**, so administration changes do not survive a restart
-   in production today.
+1. **The configuration store lives on an ephemeral filesystem** (no volume
+   attached), so administration changes still do not survive a restart in
+   production today — even in `bootstrap` mode, because the store itself is
+   wiped. The cutover runbook
+   ([`configuration-authority-cutover.md`](configuration-authority-cutover.md))
+   attaches a volume and completes the switch; until it is executed, the
+   deployment re-imports at every boot and reports
+   `configuration-authority: bootstrap-imported` (a warning that never
+   clears to `live`, because no restart ever finds a populated store).
 2. **No mail credentials are configured**, so no notification — including the
    consultation summary — is being delivered.

@@ -195,6 +195,9 @@ test('administration: attorney ordering, branding, business hours, and describe 
   assert.equal(described.organization.version, 0, 'untouched entities report version 0');
   assert.deepEqual(described.settings.notifications.value, null);
   assert.ok(described.registeredIdentityProviders.includes('entra'));
+  // Configuration authority (ADR-0022): the default descriptor says this
+  // service's writes are authoritative; server.js overrides with reality.
+  assert.deepEqual(described.configurationAuthority, { mode: 'live', seedOnBoot: false, lastBootImport: 'none' });
   assert.throws(() => admin.apply('business-hours', CTX, { locationKey: 'main', officeHours: [{ dayOfWeek: 9, opens: '08:00', closes: '17:00' }] }), (e) => e.status === 400);
 });
 
@@ -258,7 +261,19 @@ test('HTTP: administration requires a session and administrative permissions', a
     const admin = await loginCookie(base, 'dev-key-admin-0123456789abcde');
     const described = await fetch(`${base}/api/v1/admin/configuration`, { headers: admin });
     assert.equal(described.status, 200);
-    assert.equal((await described.json()).organization.key, FIRM);
+    const payload = await described.json();
+    assert.equal(payload.organization.key, FIRM);
+    // Configuration authority (ADR-0022) reaches the portal payload.
+    assert.equal(payload.configurationAuthority.mode, 'live');
+  });
+});
+
+test('HTTP: a seed-managed deployment tells its administrators so (ADR-0022)', async () => {
+  const authority = { mode: 'seed-managed', seedOnBoot: true, lastBootImport: 'imported' };
+  await withServer({ configurationAuthority: authority }, async (base) => {
+    const admin = await loginCookie(base, 'dev-key-admin-0123456789abcde');
+    const payload = await (await fetch(`${base}/api/v1/admin/configuration`, { headers: admin })).json();
+    assert.deepEqual(payload.configurationAuthority, authority);
   });
 });
 

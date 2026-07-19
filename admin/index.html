@@ -50,6 +50,9 @@
   /* Alerts double as per-area save status; empty alerts collapse. */
   .gh-alert:empty { display: none; }
 
+  /* Configuration-authority banner (ADR-0022): one line above the areas. */
+  .authority-banner { display: flex; align-items: baseline; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+
   .catalog-tables { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
 </style>
 </head>
@@ -94,6 +97,12 @@
   </div>
 </header>
 <main class="gh-container gh-container--reading admin-main" id="main">
+
+  <!-- Configuration authority (ADR-0022): answers "which mode am I in". -->
+  <div id="authority-banner" class="gh-card authority-banner" role="status" hidden>
+    <span class="gh-badge" id="authority-badge"></span>
+    <span id="authority-text"></span>
+  </div>
 
   <section class="gh-section">
     <div class="gh-eyebrow"><span class="gh-eyebrow-dot" aria-hidden="true"></span><span>Firm identity</span></div>
@@ -726,6 +735,31 @@
       return api('/api/v1/admin/configuration');
     }).then(function (c) {
       showApp();
+
+      // Configuration authority (ADR-0022): say whether edits made here
+      // stick. `live` = this screen is the source of truth; `seed-managed`
+      // = a deployment-managed import overwrites edits at every restart.
+      var authority = c.configurationAuthority || { mode: 'live' };
+      var banner = el('authority-banner');
+      var badge = el('authority-badge');
+      if (authority.mode === 'seed-managed') {
+        badge.className = 'gh-badge gh-badge--warn';
+        badge.textContent = 'Seed-managed';
+        el('authority-text').textContent =
+          'This deployment re-imports its configuration file at every restart: changes saved here will be overwritten. Contact GuideHerd support before editing.';
+      } else if (authority.mode === 'bootstrap-imported') {
+        badge.className = 'gh-badge gh-badge--warn';
+        badge.textContent = 'Just imported';
+        el('authority-text').textContent =
+          'Configuration was imported from a file when the system started. If that was not the very first start, changes saved here may not survive a restart — confirm with GuideHerd support before editing.';
+      } else {
+        badge.className = 'gh-badge gh-badge--ok';
+        badge.textContent = 'Live';
+        el('authority-text').textContent =
+          'Configuration mode: changes saved here are the source of truth and survive restarts and deployments.';
+      }
+      banner.hidden = false;
+
       versions.organization = c.organization.version;
       el('org-name').value = c.organization.name || '';
       el('org-display').value = c.organization.displayName || '';

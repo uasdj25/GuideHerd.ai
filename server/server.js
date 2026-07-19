@@ -5,7 +5,7 @@ const { createApp } = require('./handoff/app');
 const { openDatabase } = require('./config/db');
 const { migrate: migrateConfig } = require('./config/migrate');
 const { createConfigService } = require('./config/service');
-const { loadSeedDocument } = require('./config/seed');
+const { resolveSeedMode, seedOnBoot, describeAuthority } = require('./config/bootstrap');
 const { ConfigError } = require('./config/errors');
 const { systemClock } = require('./handoff/clock');
 const { createOutboxPoller, DEFAULT_POLL_INTERVAL_MS } = require('./outbox/outbox');
@@ -42,32 +42,39 @@ async function main() {
   const migrationsApplied = migrateConfig(configDb);
   const configService = createConfigService({ db: configDb });
 
-  // Optional seed-on-boot: a "git as source of truth" deployment mode for
-  // hosts with an ephemeral or unseeded filesystem (e.g. Railway without a
-  // volume). Off by default — opt in per-deployment with GUIDEHERD_SEED_FILE
-  // pointing at a config document (see config/data/*.example.json).
-  //
-  // This re-imports (upserts) the document on every boot, so it MUST NOT be
-  // enabled once a firm's configuration is edited through a live channel a
-  // git deploy doesn't know about (e.g. a future Administration Portal) —
-  // doing so would silently roll live edits back to whatever is in git on the
-  // next deploy. Until that exists, git-as-source-of-truth is intentional.
+  // Configuration authority (ADR-0022): the persistent configuration store,
+  // written through the Administration Framework, is the source of truth.
+  // GUIDEHERD_SEED_FILE is a one-time bootstrap by default — imported only
+  // when its organization is absent, skipped loudly once live configuration
+  // exists. GUIDEHERD_SEED_MODE=always keeps the historical every-boot
+  // re-import (git as source of truth) as an explicit, loudly-warned opt-in;
+  // it is surfaced as `seed-managed` on the health and administration
+  // surfaces. Intentional re-import of a live store is the operator CLI
+  // (`npm run config:seed`), never startup.
   const SEED_FILE_PATH = process.env.GUIDEHERD_SEED_FILE;
+  let seedMode = null;
   let seedResult = null;
-  if (SEED_FILE_PATH) {
-    try {
-      const tree = loadSeedDocument(SEED_FILE_PATH);
-      seedResult = configService.importOrganization(tree);
-    } catch (err) {
-      // Fail fast: starting with a partially- or un-seeded store would serve
-      // a console that 404s on scheduling-options. Surface the failure loudly
-      // (visible in Railway's crash/restart logs) rather than booting broken.
-      fatal('Startup seed failed; refusing to start.', {
-        seedFile: SEED_FILE_PATH,
-        error: err instanceof ConfigError ? err.toBody() : { message: String(err.message || err) },
-      });
-    }
+  try {
+    seedMode = resolveSeedMode(process.env.GUIDEHERD_SEED_MODE);
+    seedResult = seedOnBoot({
+      configService,
+      filePath: SEED_FILE_PATH,
+      mode: seedMode,
+      log: (entry) => console.log(JSON.stringify(entry)),
+    });
+  } catch (err) {
+    // Fail fast: starting with a partially- or un-seeded store would serve
+    // a console that 404s on scheduling-options; an unknown seed mode is a
+    // deployment mistake. Surface the failure loudly (visible in Railway's
+    // crash/restart logs) rather than booting broken.
+    fatal('Startup seed failed; refusing to start.', {
+      seedFile: SEED_FILE_PATH,
+      error: err instanceof ConfigError ? err.toBody() : { message: String(err.message || err) },
+    });
   }
+  const configurationAuthority = describeAuthority({
+    filePath: SEED_FILE_PATH, mode: seedMode, result: seedResult,
+  });
 
   // ── Operational Store provider selection (ADR-0006) ──────────────────────
   // GUIDEHERD_OPERATIONAL_PROVIDER:
@@ -117,7 +124,7 @@ async function main() {
 
   // Browser origins are allowlisted via CORS_ALLOWED_ORIGINS (comma-separated).
   // Defaults to https://guideherd.ai and http://localhost:8080. Never `*`.
-  const app = createApp({ configService, configDb, handoffStore, notificationDeliveryStore, integrationDeliveryStore, workflowStore, outboxStore, scheduledActionStore });
+  const app = createApp({ configService, configDb, handoffStore, notificationDeliveryStore, integrationDeliveryStore, workflowStore, outboxStore, scheduledActionStore, configurationAuthority });
   const { handler } = app;
   const server = http.createServer(handler);
 
@@ -152,7 +159,11 @@ async function main() {
       configDb: CONFIG_DB_PATH,
       configMigrationsApplied: migrationsApplied,
       seedFile: SEED_FILE_PATH || null,
-      seeded: seedResult ? { organization: seedResult.organization, counts: seedResult.counts } : null,
+      seedMode,
+      seeded: seedResult && seedResult.action !== 'none'
+        ? { action: seedResult.action, organization: seedResult.organization || null, counts: seedResult.counts || null }
+        : null,
+      configurationAuthority,
       operationalProvider: OPERATIONAL_PROVIDER,
       operationalMigrationsApplied,
       outboxPollIntervalMs: OUTBOX_POLL_INTERVAL_MS,

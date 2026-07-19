@@ -171,12 +171,12 @@ GuideHerd.
 
 ### My settings reverted on their own
 
-**Almost certainly the deployment reloads its setup from a file at startup.** In
-that mode the file wins and Administration changes are silently reverted on
-restart.
+**Check the banner at the top of the Administration screen.** If it isn't a
+green "Live" badge, this deployment reloads its setup from a file (or doesn't
+keep durable storage), and Administration changes don't survive a restart.
 
-Ask GuideHerd which mode you're in. If it's file mode, changes must go into the
-file.
+Contact GuideHerd support with what the banner says — in those modes, changes
+have to be made on their side until the deployment is switched over.
 
 ### "The configuration was changed by someone else"
 

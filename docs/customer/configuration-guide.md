@@ -153,6 +153,7 @@ When you're setting something, be clear which of the three you mean. "We're open
 | Appointment confirmation to the caller | **Self-service** | **Off** |
 | Appointment reminders | **Self-service** | **Off** |
 | Reminder timings | **Self-service** | 24 hours and 1 hour before |
+| Failure alerts to an administrator | **Self-service** | **Off** — enable once email delivery is active; one email per problem per window |
 | Cancellation / reschedule notifications | **Not available** | Doesn't exist |
 
 **Email only.** No SMS or text messaging anywhere in GuideHerd.

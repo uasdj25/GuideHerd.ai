@@ -47,6 +47,9 @@ const NOTIFICATION_TYPES = Object.freeze([
   'appointment-rescheduled',
   'appointment-reminder',
   'consultation-summary',
+  // Failure alerting (#68): administrator-facing operational alerts ride
+  // the same contract and claim machinery as every customer notification.
+  'operational-alert',
 ]);
 
 /**
@@ -57,7 +60,7 @@ const NOTIFICATION_TYPES = Object.freeze([
  * summary mailbox (owned by the delivery boundary), so `recipient` is
  * optional for it.
  */
-const MODEL_TYPES = Object.freeze(['consultation-summary']);
+const MODEL_TYPES = Object.freeze(['consultation-summary', 'operational-alert']);
 
 const REQUEST_KEYS = Object.freeze(['type', 'organizationKey', 'notificationKey', 'recipient', 'appointment', 'locale', 'model']);
 const RECIPIENT_KEYS = Object.freeze(['name', 'email']);

@@ -229,3 +229,21 @@ delivered outside this contract anymore.
 - Reminder notifications additionally need a scheduler (no timer
   infrastructure exists in the platform); that arrives with its own
   ticket.
+
+
+## Addendum (#68): the `operational-alert` type
+
+Failure alerting rides this contract rather than inventing a sibling: an
+alert is a model-type notification whose idempotency key encodes the
+condition and its time window (`operational-alert:<condition>:<org>:<window>`),
+so the claim machine makes one-alert-per-condition-window STRUCTURAL — a
+storm is impossible by construction. Conditions are observed from existing
+seams (the durable `conversation.completed` outbox event with threshold
+aggregation; the telemetry seam for exhausted deliveries, excluding the
+alert type itself; poller-driven capability-degradation edges with a
+baseline-then-edge discipline and observable recovery). Every raised
+condition emits `alert.raised` telemetry BEFORE any delivery attempt, so an
+alert about the mail system never depends on the mail system. Recipients
+are per-organization customer configuration (`operational-alerts` domain,
+default off); alert content is condition names, counts, and identifiers —
+never caller PII.

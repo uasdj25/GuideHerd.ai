@@ -128,7 +128,12 @@ Worth knowing so you don't hunt for it:
 ## Using it well
 
 **Daily, especially early on:** check failed handoffs and failed notifications.
-Both fail silently. Looking is the only detection mechanism there is.
+Both fail silently unless **operational alerts** are enabled (Administration
+screen → Operational alerts): with a recipient configured, failed
+deliveries, repeated failed handoffs, and degraded capabilities email your
+administrator — at most one email per condition per window, and raised
+alerts also appear in the activity feed below as `alert.raised`. With
+alerts off (the default), looking here is the only detection there is.
 
 **When someone complains:** search the session or correlation ID, check what the
 status says, and check whether the notification went out. Most complaints resolve

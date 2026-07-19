@@ -31,6 +31,8 @@ const { createNotificationProviderRegistry } = require('../notifications/contrac
 const { createGraphEmailProvider } = require('../notifications/graph-email-provider');
 const { createInMemoryNotificationDeliveryStore } = require('../notifications/delivery-store');
 const { createNotificationService } = require('../notifications/service');
+require('../notifications/alert-notification'); // registers the operational-alert renderer (#68)
+const { createAlertingService } = require('../operations/alerting');
 const { createIntegrationProviderRegistry, INTEGRATION_TYPES } = require('../integrations/contract');
 const { createIntegrationService } = require('../integrations/service');
 const { createInMemoryIntegrationDeliveryStore } = require('../integrations/delivery-store');
@@ -103,10 +105,12 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   // exists below; the facade lets every earlier consumer share one
   // telemetry surface without ordering acrobatics.
   let opsObserver = () => {};
+  let alertObserver = () => {};
   const observedTelemetry = {
     event(name, fields) {
       tel.event(name, fields);
       opsObserver(name, fields);
+      alertObserver(name, fields);
     },
   };
   // Durable Event Outbox (ADR-0017): the repositories publish domain
@@ -420,10 +424,39 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
         capability: 'configuration-authority',
         check: () => configAuthority.mode,
       },
+      {
+        // Failure alerting (#68): available once at least one
+        // organization enabled it with a recipient; dark by default.
+        capability: 'failure-alerting',
+        check: () => {
+          if (!configService) return 'not-configured';
+          const { readDomain } = require('../configuration/framework');
+          const anyEnabled = configService.organizations.list().some((o) => {
+            const { value } = readDomain(configService, 'operational-alerts', o.key);
+            return value && value.enabled && value.recipient;
+          });
+          return anyEnabled ? 'available' : 'not-configured';
+        },
+      },
     ],
   });
   opsObserver = (name, fields) => operations.observe(name, fields);
   deps.operations = operations;
+
+  // Failure alerting (#68): conditions observed from existing seams; the
+  // alert itself is an ordinary notification, so the claim machine makes
+  // one-alert-per-condition-window structural. Loud telemetry always —
+  // an alert about the mail system never depends on the mail system.
+  const alerting = createAlertingService({
+    notifications: notificationService,
+    configService: configService || null,
+    clock,
+    telemetry: observedTelemetry,
+    healthReport: () => operations.healthReport(),
+  });
+  outbox.register(alerting.outboxConsumer());
+  alertObserver = (name, fields) => alerting.observe(name, fields);
+  deps.alerting = alerting;
 
   // GuideHerd Administration (ADR-0015): one producer over the same
   // Configuration Store every subsystem consumes — validated, versioned,
@@ -468,7 +501,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   events.on('conversation.connected', () => outbox.drainSoon());
   const handler = makeHandler(deps);
   return {
-    handler, store, service, clock, allowedOrigins,
+    handler, store, service, clock, allowedOrigins, alerting,
     mailer: deps.mailer, events, adapters, conversations: deps.conversations,
     identity: { registry: identityProviders, service: identityService },
     authorization: authz,

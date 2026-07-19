@@ -80,6 +80,7 @@ function mockConfig(overrides = {}) {
       conversationProvider: { value: { provider: 'elevenlabs' }, version: 0, live: true },
       notificationProvider: { value: { provider: 'graph-email' }, version: 0, live: true },
       appointmentReminders: { value: { enabled: false }, version: 0, live: true },
+      operationalAlerts: { value: { enabled: false, recipient: null }, version: 0, live: true },
     },
     registeredIdentityProviders: ['static-token', 'dev-user'],
     configurationAuthority: { mode: 'live', seedOnBoot: false, lastBootImport: 'none' },
@@ -410,6 +411,15 @@ function newCalls() { return { session: [], login: [], logout: [], config: [], a
     ok('reminders save posts enabled + offsets including the new slot',
       rem && rem.body.payload.enabled === true
       && rem.body.payload.offsets.some((o) => o.slot === '2h' && o.minutesBefore === 120));
+
+    // Operational alerts (#68): enable + recipient post to the domain area.
+    await page.check('#alert-enabled');
+    await page.fill('#alert-recipient', 'ops@firm.example');
+    await page.click('#save-alerts');
+    await page.waitForTimeout(300);
+    ok('operational alerts save posts enabled + recipient',
+      applied.some((a) => a.area === 'operational-alerts' && a.body.payload.enabled === true
+        && a.body.payload.recipient === 'ops@firm.example'));
 
     // Branding: logo + office contact block ride the payload.
     await page.fill('#brand-logo', 'https://guideherd.ai/logo.png');

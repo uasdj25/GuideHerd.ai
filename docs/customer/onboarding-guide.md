@@ -415,10 +415,14 @@ Go-live is a decision, not an event. When acceptance is signed off:
 
 ## 12. First-week support
 
-One fact shapes the whole first week: **nothing alerts you.** A failed
-booking or a failed email is recorded, not announced. **Checking the
-Operations Center is the only detection there is** — make it a fixed daily
-habit in week one, ideally twice a day.
+One decision shapes the whole first week: **turn on failure alerts** (an
+**Administrator action**, in the notifications area of the Administration
+screen — needs email delivery active, which phase 10 proved). With alerts
+on, failed handoffs, failed deliveries, and degraded capabilities email
+your administrator, at most once per problem per window. Alerts complement
+the Operations Center; they don't replace it — **keep the daily check as a
+fixed habit in week one anyway**, because alerts announce known failure
+kinds, not everything worth noticing.
 
 ![The Operations Center overview](images/operations-center-overview.png)
 

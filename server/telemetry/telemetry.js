@@ -71,6 +71,10 @@ const EVENTS = Object.freeze([
   // governing real offers, and the loud everything-excluded case.
   'scheduling.slots_selected',
   'scheduling.slots_exhausted',
+  // Failure alerting (#68): raised conditions are ALWAYS loud here,
+  // independent of whether (or how) the alert email is delivered.
+  'alert.raised',
+  'alert.recovered',
   'scheduler.action_scheduled',
   'scheduler.action_completed',
   'scheduler.action_failed',
@@ -115,10 +119,12 @@ const ALLOWED_FIELDS = Object.freeze([
   'provider',
   'providerRequestId',
   'sessionId',
-  // Slot-selection counts (#66): small numbers, never slot content.
+  // Slot-selection counts (#66) + alert occurrence count (#68): small
+  // numbers, never slot content or caller data.
   'receivedCount',
   'offeredCount',
   'removedCount',
+  'count',
   'code',
   'notificationType',
   'notificationKey',

@@ -112,6 +112,44 @@ function registerProductionDomains(framework) {
     },
   });
 
+  // Failure alerting (#68) — who hears about operational failures.
+  // DEFAULT OFF: nothing emails anyone until a firm names a recipient and
+  // enables it. The recipient is the firm's administrator mailbox —
+  // customer configuration, never a secret.
+  framework.register({
+    id: 'operational-alerts',
+    title: 'Operational alerts',
+    owner: 'operations',
+    namespace: 'operations',
+    key: 'alerts',
+    live: true,
+    schemaVersion: 1,
+    normalize(raw) {
+      const dark = { enabled: false, recipient: null };
+      if (raw === null || raw === undefined) return { value: dark, issues: [] };
+      const issues = [];
+      if (!isPlainObject(raw)) {
+        return { value: dark, issues: ['must be an object like { "enabled": true, "recipient": "ops@firm.example" }'] };
+      }
+      for (const k of Object.keys(raw)) {
+        if (!['enabled', 'recipient'].includes(k)) issues.push(`unknown field: ${k}`);
+      }
+      if (typeof raw.enabled !== 'boolean') issues.push('enabled must be a boolean');
+      let recipient = null;
+      if (raw.recipient !== null && raw.recipient !== undefined) {
+        if (typeof raw.recipient !== 'string' || raw.recipient.length > 254
+          || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw.recipient.trim())) {
+          issues.push('recipient must be an email address');
+        } else {
+          recipient = raw.recipient.trim();
+        }
+      }
+      if (raw.enabled === true && !recipient) issues.push('enabling alerts requires a recipient');
+      const enabled = raw.enabled === true && recipient !== null && issues.length === 0;
+      return { value: { enabled, recipient }, issues };
+    },
+  });
+
   // Appointment reminder scheduling — validator owned by the Scheduler
   // (ADR-0018). DISABLED BY DEFAULT: today's production behavior is
   // preserved until a firm explicitly enables reminders. The offsets

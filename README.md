@@ -29,3 +29,5 @@ reading for contributors. In one line:
 - [docs/architecture-decisions/](docs/architecture-decisions/) — architecture decision records
 - [docs/customer/](docs/customer/) — customer documentation (administrator, receptionist,
   operations, configuration, troubleshooting, reference)
+- [docs/developer/](docs/developer/) — developer documentation (architecture overview,
+  local development, extension points, testing standards)

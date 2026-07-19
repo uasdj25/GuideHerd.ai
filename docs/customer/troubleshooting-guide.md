@@ -219,8 +219,12 @@ need both roles assigned.
 
 ### Someone has left and still has access
 
-Removing them needs a deployment change and a restart. **There is no instant
-revoke.** If it's urgent, say so explicitly when you raise it.
+**Deactivate them in the Users card on the Administration screen — it takes
+effect immediately.** Their current session ends on their very next action
+and their credential stops working. No deployment change, no restart, no
+waiting. (If the person who left is the administrator and nobody else can
+sign in to the Administration screen, contact GuideHerd — the account set up
+with GuideHerd at onboarding is the recovery route.)
 
 ---
 
@@ -255,8 +259,8 @@ durable deployment, an empty Operations Center means something else.
 ## When to contact GuideHerd
 
 Contact them for: repeated booking failures, `not-configured` notifications,
-anything affecting every receptionist, settings reverting, user changes, and
-anything you can't explain.
+anything affecting every receptionist, settings reverting, being locked out
+of the Administration screen, and anything you can't explain.
 
 **Have ready:**
 

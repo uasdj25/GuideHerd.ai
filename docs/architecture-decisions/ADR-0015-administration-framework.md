@@ -90,8 +90,13 @@ with immediate session effect (ADR-0013 addendum), and credential
 issuance/rotation where the raw credential exists only in the issuance
 response — assembled outside the audited transaction, so before/after
 snapshots structurally cannot contain credential material. Lockout
-guards: no self-deactivation, and the last active directory-managed
-administrator can be neither deactivated nor de-roled.
+guards: no self-deactivation; the last active directory-managed
+administrator can be neither deactivated nor de-roled; and
+deployment-provisioned (bootstrap) identities are entirely outside this
+area's reach — they cannot be shadowed by a same-subject directory
+record, and no directory state governs their sessions (ADR-0013
+addendum: deployment wins). There is consequently NO sequence of
+administration actions that removes the deployment's recovery path.
 
 ### 5. Live vs restart-required configuration
 

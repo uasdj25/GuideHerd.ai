@@ -192,7 +192,7 @@ The consultation summary to your firm stays GuideHerd-branded regardless.
 | Setting | Status | Default |
 |---|---|---|
 | Reception Console sign-in | **Request** | **Off** |
-| Users and their roles | **Request** | Deployment change + restart |
+| Users and their roles | **Self-service** | Users card on the Administration screen — immediate, incl. deactivation. The initial administrator account is set up with GuideHerd |
 | Session length | **Request** | 12 hours, absolute |
 | Single sign-on (Microsoft / Google / Okta) | **Not available** | |
 

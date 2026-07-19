@@ -560,3 +560,55 @@ test('HTTP #65: provision → sign in → live role change → revoke → immedi
     assert.equal(auditFlat.includes(rotated.issuedCredential), false);
   });
 });
+
+test('HTTP #65 review: DEPLOYMENT WINS — a directory record can never govern or revoke a bootstrap identity', async () => {
+  // The reviewed scenario: GUIDEHERD_DEV_USERS has admin-ada as
+  // administrator, and the directory holds a SHADOW record for the same
+  // subject — deactivated, and down-roled to receptionist for good
+  // measure. The deployment identity must be completely unaffected.
+  const { db, configService } = fixture();
+  const shadowDirectory = createUserDirectory({ db, clock: fixedClock(T0) });
+  shadowDirectory.create(FIRM, { subject: 'admin-ada', displayName: 'Shadow', roles: ['receptionist'] });
+  shadowDirectory.setActive(FIRM, 'admin-ada', false);
+
+  await withServer({ configService, configDb: db }, async (base) => {
+    // Recovery works: the env credential signs in and STAYS signed in.
+    const ada = await loginCookie(base, 'dev-key-admin-0123456789abcde');
+    const me = await fetch(`${base}/api/v1/auth/session`, { headers: ada });
+    assert.equal(me.status, 200, 'bootstrap session survives an inactive shadow record');
+    const identity = await me.json();
+    assert.deepEqual(identity.roles, ['administrator'],
+      'roles come from the DEPLOYMENT, not the shadow record');
+    assert.equal((await fetch(`${base}/api/v1/admin/configuration`, { headers: ada })).status, 200,
+      'the bootstrap administrator can administer — the recovery path holds');
+
+    // And the shadowed state cannot be CREATED through the product surface:
+    const collide = await post(base, '/api/v1/admin/users', {
+      payload: { action: 'create', fields: { subject: 'admin-ada', roles: ['receptionist'] } },
+    }, ada);
+    assert.equal(collide.status, 400);
+    assert.ok((await collide.json()).error.message.includes('deployment configuration'),
+      'creating a record that shadows a bootstrap identity is refused with a clear message');
+  });
+});
+
+test('HTTP #65 review: directory administrators still cannot remove the recovery path', async () => {
+  await withServer({}, async (base) => {
+    const ada = await loginCookie(base, 'dev-key-admin-0123456789abcde'); // bootstrap admin
+    // A directory administrator exists and is fully manageable…
+    const created = await (await post(base, '/api/v1/admin/users', {
+      payload: { action: 'create', fields: { subject: 'dir-admin', roles: ['administrator'] } },
+    }, ada)).json();
+    const dirAdmin = await loginCookie(base, created.issuedCredential);
+    // …but no action of theirs can touch the bootstrap identity: it has no
+    // directory record to act on (404), and one cannot be created (400).
+    for (const action of ['deactivate', 'set-roles', 'rotate-credential']) {
+      const res = await post(base, '/api/v1/admin/users', {
+        payload: { action, subject: 'admin-ada', fields: { roles: ['receptionist'] } },
+      }, dirAdmin);
+      assert.equal(res.status, 404, `${action} on a bootstrap identity finds nothing to act on`);
+    }
+    // The bootstrap admin keeps working regardless.
+    assert.equal((await fetch(`${base}/api/v1/admin/configuration`, { headers: ada })).status, 200);
+  });
+});

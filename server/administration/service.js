@@ -86,7 +86,7 @@ function isPlainObject(v) {
  *   telemetry?: { event: Function },
  * }} deps
  */
-function createAdministrationService({ configService, configDb, clock, identityProviderKeys = () => [], validationContext = () => ({}), configurationAuthority = () => ({ mode: 'live', seedOnBoot: false, lastBootImport: 'none' }), userDirectory = null, assignableRoles = () => [], telemetry }) {
+function createAdministrationService({ configService, configDb, clock, identityProviderKeys = () => [], validationContext = () => ({}), configurationAuthority = () => ({ mode: 'live', seedOnBoot: false, lastBootImport: 'none' }), userDirectory = null, assignableRoles = () => [], isBootstrapSubject = () => false, telemetry }) {
   const nowIso = () => new Date(clock.now()).toISOString();
   const emit = telemetry ? telemetry.event.bind(telemetry) : () => {};
 
@@ -383,6 +383,16 @@ function createAdministrationService({ configService, configDb, clock, identityP
 
         if (action === 'create') {
           const { roles, displayName } = fields || {};
+          // Bootstrap identities are deployment-owned (#65 review): a
+          // directory record sharing a deployment-provisioned subject
+          // could otherwise shadow the deployment's recovery identity.
+          const requestedSubject = fields && typeof fields.subject === 'string' ? fields.subject.trim() : '';
+          if (requestedSubject && isBootstrapSubject(org, requestedSubject)) {
+            throw new ValidationError(
+              'This user ID is provisioned in deployment configuration (bootstrap) and cannot be managed here. Choose a different user ID, or change the deployment configuration.',
+              [{ field: 'subject', message: 'collides with a deployment-provisioned identity' }],
+            );
+          }
           checkRoles(roles);
           const raw = issueCredential();
           const out = administer({

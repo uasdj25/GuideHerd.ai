@@ -44,13 +44,25 @@ function sha256(value) {
  *   userDirectory — optional store-backed user source (#65): users
  *   provisioned live through the Administration Framework authenticate
  *   through the SAME provider contract. Env-var provisioning remains
- *   supported as deployment bootstrap; when a subject exists in both, the
- *   directory record governs sessions (live roles/active state overlay at
- *   the session layer).
+ *   supported as deployment bootstrap, and DEPLOYMENT WINS: a
+ *   deployment-provisioned subject is deployment-owned — the directory
+ *   can never govern, re-role, or revoke it (see isBootstrapSubject),
+ *   because the bootstrap identity is the deployment's recovery path.
  */
 function createDevUserProvider({ devUsersJson, userDirectory = null } = {}) {
   /** @type {Map<string, object>} credential digest -> identity claim */
   const usersByKeyHash = new Map();
+  /**
+   * Deployment-provisioned (bootstrap) identities, keyed by
+   * organization + subject. These are the RECOVERY TIER: deployment
+   * configuration outranks database state, so nothing writable from the
+   * product surface (the User Directory / Administration) may govern,
+   * re-role, or revoke them. The session layer and the users
+   * administration area both consult this set (#65 review).
+   * @type {Set<string>}
+   */
+  const bootstrapSubjects = new Set();
+  const subjectKey = (organizationKey, subject) => `${organizationKey}\u0000${subject}`;
 
   const fail = (reason) => {
     throw new Error(`Development user provider configuration is invalid: ${reason}`);
@@ -78,6 +90,7 @@ function createDevUserProvider({ devUsersJson, userDirectory = null } = {}) {
         organizationKey: claim.organizationKey,
         roles: claim.roles,
       });
+      bootstrapSubjects.add(subjectKey(claim.organizationKey, claim.subject));
     });
   }
 
@@ -87,6 +100,16 @@ function createDevUserProvider({ devUsersJson, userDirectory = null } = {}) {
     /** Number of sign-in-capable users (observability/tests; never credentials). */
     size() {
       return usersByKeyHash.size + (userDirectory ? userDirectory.countCredentialed() : 0);
+    },
+
+    /**
+     * Is this identity deployment-provisioned (bootstrap)? Bootstrap
+     * identities are deployment-owned: the User Directory can never
+     * govern them, and the users administration area refuses to create a
+     * colliding record. They are the deployment's recovery path.
+     */
+    isBootstrapSubject(organizationKey, subject) {
+      return bootstrapSubjects.has(subjectKey(organizationKey, subject));
     },
 
     /**

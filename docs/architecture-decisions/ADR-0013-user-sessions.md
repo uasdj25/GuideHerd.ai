@@ -82,9 +82,15 @@ provider) on every request: a deactivated user's session is invalidated
 at its next validation — immediate revocation without extending the
 session-store contract (no enumeration added) — and role/display-name
 changes overlay live onto existing sessions, no re-login. Users without a
-directory record (deployment-bootstrap `GUIDEHERD_DEV_USERS` entries)
-pass through unchanged; where a subject exists in both sources, the
-directory record governs the session.
+directory record pass through unchanged — and **deployment wins**:
+a deployment-provisioned (bootstrap) identity is the deployment's
+RECOVERY TIER, so the overlay never applies to it and the users
+administration area refuses to create a directory record sharing its
+subject. Deployment configuration outranks database state; nothing
+writable from the product surface can govern, re-role, or revoke a
+bootstrap identity. (The rejected alternative — directory-governs-both —
+would have let two legitimate administrator actions lock the bootstrap
+administrator out of their own deployment.)
 
 ### 4. Console protection is deployment configuration
 

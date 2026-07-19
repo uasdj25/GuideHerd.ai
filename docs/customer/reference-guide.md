@@ -72,7 +72,7 @@ role.
 | Reminders and their timings | You |
 | Logo, office contact block | You |
 | Console sign-in | Request |
-| Users and roles | Request — deployment change + restart |
+| Users and roles | You — Users card on the Administration screen (initial administrator set up with GuideHerd) |
 | Summary recipient mailbox | Request |
 | Sending email address | Request |
 

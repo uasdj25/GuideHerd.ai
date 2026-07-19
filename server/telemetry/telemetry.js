@@ -51,6 +51,11 @@ const EVENTS = Object.freeze([
   'authentication.login',
   'authentication.login_failed',
   'authentication.logout',
+  // Administration Framework (ADR-0015 §4): emitted on every administered
+  // write since the framework shipped, but missing from this catalog until
+  // the #65 review — the documented event was being dropped as
+  // unknown_event on every configuration change.
+  'configuration.changed',
   'outbox.delivered',
   'outbox.delivery_failed',
   'outbox.abandoned',

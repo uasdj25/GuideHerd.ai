@@ -177,10 +177,11 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   // provisioning still works.
   const userDirectory = configDb ? createUserDirectory({ db: configDb, clock }) : null;
   const userAuthProviders = createUserAuthProviderRegistry();
-  userAuthProviders.register(createDevUserProvider({
+  const devUserProvider = createDevUserProvider({
     devUsersJson: devUsersJson !== undefined ? devUsersJson : process.env.GUIDEHERD_DEV_USERS,
     userDirectory,
-  }));
+  });
+  userAuthProviders.register(devUserProvider);
   const activeUserAuthProviderKey = userAuthProviderKey !== undefined
     ? userAuthProviderKey
     : resolveUserAuthProviderKey(process.env);
@@ -195,15 +196,23 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   // deactivating a user kills their active sessions on the next request
   // (the stored session is invalidated, not just ignored), and role or
   // display-name changes apply without re-login. Users without a
-  // directory record (env-var bootstrap users) pass through unchanged.
-  // This is enforcement at validation time, honoring the existing session
-  // store contract (create/get/delete — no enumeration required).
+  // directory record pass through unchanged. This is enforcement at
+  // validation time, honoring the existing session store contract
+  // (create/get/delete — no enumeration required).
+  //
+  // DEPLOYMENT WINS (#65 review): a deployment-provisioned (bootstrap)
+  // identity is the recovery tier — deployment configuration outranks
+  // database state, so the overlay NEVER applies to it. Without this, a
+  // directory record sharing the bootstrap administrator's subject could
+  // deactivate the deployment's own recovery path.
   const userSessions = {
     ...rawUserSessions,
     async validate(token) {
       const session = await rawUserSessions.validate(token);
       if (!session || !userDirectory) return session;
-      const record = userDirectory.get(session.identity.organizationKey, session.identity.subject);
+      const { organizationKey, subject } = session.identity;
+      if (devUserProvider.isBootstrapSubject(organizationKey, subject)) return session;
+      const record = userDirectory.get(organizationKey, subject);
       if (!record) return session;
       if (!record.active) {
         await rawUserSessions.invalidate(token);
@@ -425,9 +434,11 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
         configurationAuthority: () => configAuthority,
         // User management (#65): the directory the users area writes, and
         // the closed role vocabulary it may assign — exactly the policy's
-        // roles (ADR-0010); administration can never widen it.
+        // roles (ADR-0010); administration can never widen it. Bootstrap
+        // identities are deployment-owned and cannot be shadowed.
         userDirectory,
         assignableRoles: () => Object.keys(activePolicy.roles),
+        isBootstrapSubject: (org, subject) => devUserProvider.isBootstrapSubject(org, subject),
         // The full write-validation context (ADR-0016): every provider
         // registry this composition holds, so configured-but-unregistered
         // selections are rejected at ADMINISTRATION time — runtime

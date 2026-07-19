@@ -4,7 +4,8 @@
  *
  * Proves, on demand, that both stores can actually be restored: the
  * configuration store via a live `VACUUM INTO` snapshot served by a real
- * server boot, and the operational store via a logical dump restored into
+ * server boot, and the operational store via an application-level
+ * logical export/import (NOT pg_dump — see the runbook) restored into
  * a FRESH embedded PostgreSQL through the application's own migration
  * path (with sequence repair, proven by a post-restore write).
  *
@@ -100,7 +101,7 @@ async function configStoreRehearsal(dir) {
 }
 
 async function operationalStoreRehearsal(dir) {
-  console.log('── Operational store (PostgreSQL): logical dump → fresh instance → app reads');
+  console.log('── Operational store (PostgreSQL): application-level logical export → fresh instance → app reads');
   const { createRequire } = require('node:module');
   const serverRequire = createRequire(path.join(SERVER, 'package.json'));
   const EmbeddedPostgresModule = serverRequire('embedded-postgres');
@@ -141,8 +142,9 @@ async function operationalStoreRehearsal(dir) {
     }
     const sizeA = await storeA.size();
 
-    // BACKUP: logical dump of every public table (the local stand-in for
-    // pg_dump, which is not available on this machine — see runbook).
+    // BACKUP: application-level logical export of every public table —
+    // row-by-row through the pg driver, the local stand-in for pg_dump
+    // (which is not available on this machine — see runbook §6).
     let t0 = Date.now();
     const tables = (await A.pool.query(
       "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename",
@@ -151,7 +153,7 @@ async function operationalStoreRehearsal(dir) {
     for (const t of tables) dump[t] = (await A.pool.query(`SELECT * FROM "${t}"`)).rows;
     const backupFile = path.join(dir, 'operational-backup.json');
     fs.writeFileSync(backupFile, JSON.stringify(dump));
-    record(`operational backup (logical dump, ${tables.length} tables, ${Object.values(dump).reduce((n, r) => n + r.length, 0)} rows): ${ms(t0)}; size ${fs.statSync(backupFile).size} bytes`);
+    record(`operational backup (application-level logical export, ${tables.length} tables, ${Object.values(dump).reduce((n, r) => n + r.length, 0)} rows): ${ms(t0)}; size ${fs.statSync(backupFile).size} bytes`);
 
     // RESTORE into a FRESH instance: schema from the application's own
     // migration path, then data, then sequence repair.

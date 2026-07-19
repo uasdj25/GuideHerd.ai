@@ -10,7 +10,7 @@ answer are called out explicitly in §2 and §7.
 
 | Store | Technology | Where it lives in production | Loss impact | Backup approach |
 |---|---|---|---|---|
-| Operational store | PostgreSQL | Railway template Postgres service, data on volume `postgres-volume` (mounted `/var/lib/postgresql/data`, 157 MB/5 GB used at time of writing) | Handoff sessions, delivery/claim records, outbox, workflow state — operational history and in-flight work | Railway **volume backups** + periodic logical dump (§3) |
+| Operational store | PostgreSQL | Railway template Postgres service, data on volume `postgres-volume` (mounted `/var/lib/postgresql/data`, 157 MB/5 GB used at time of writing) | Handoff sessions, delivery/claim records, outbox, workflow state — operational history and in-flight work | Railway **volume backups** + periodic `pg_dump` logical backup (§3) |
 | Configuration store | SQLite file | **Ephemeral today** (no app volume; rebuilt from the seed file at every boot). Post-cutover (#59 runbook): a file on an app volume | Firm configuration + administration audit trail | `VACUUM INTO` snapshot + off-host copy (§4); until the cutover, git's seed document IS the recovery source |
 | User sessions | In-memory | Process memory | Everyone signs in again | **None, by design** — re-login is the documented recovery |
 | Code, seed documents, static site | git | GitHub | — | git is its own backup |
@@ -47,7 +47,7 @@ WAL-G to object storage) — a decision, not a checkbox.
 - **Primary mechanism:** Railway volume backups of `postgres-volume`.
   Proposed cadence: **daily**, retention **7 daily + 4 weekly** (adjust to
   the plan's limits once confirmed in the dashboard).
-- **Secondary (platform-independent) mechanism:** a periodic logical dump
+- **Secondary (platform-independent) mechanism:** a periodic logical backup
   taken with `pg_dump` from any machine with PostgreSQL client tools,
   stored off-Railway (encrypted at rest, access limited to the owner):
   `pg_dump --format=custom --file=guideherd-YYYYMMDD.dump "$DATABASE_URL"`
@@ -113,7 +113,8 @@ embedded PostgreSQL instances on random localhost ports, torn down after.
   file and served scheduling options (200, 8 practice areas) in 238 ms**;
   the post-seed administration edit survived the cycle.
 - Operational store: real migrations + 5 synthetic sessions written through
-  the app's own PostgreSQL store → logical dump of all 10 public tables
+  the app's own PostgreSQL store → application-level logical export of
+  all 10 public tables (row-by-row through the driver — NOT `pg_dump`)
   (**5 ms**, 11 rows) → restore into a FRESH instance (application
   migration path + data + sequence repair, **48 ms**) → the app's store
   layer read back all 5 sessions **and accepted new writes** (sequence
@@ -123,7 +124,8 @@ embedded PostgreSQL instances on random localhost ports, torn down after.
   schema-shaped change, and paste its `REHEARSAL RECORD` block here.
 - Caveat recorded honestly: no `pg_dump` binary exists on this machine (the
   embedded-postgres dev package ships only initdb/pg_ctl/postgres), so the
-  local rehearsal used an equivalent logical dump/restore. The production
+  local rehearsal used an application-level logical export/import
+  instead. The production
   procedure in §3 uses real `pg_dump`/`pg_restore`; the first production-
   shaped rehearsal (volume snapshot → new service) is a dashboard action —
   §7.

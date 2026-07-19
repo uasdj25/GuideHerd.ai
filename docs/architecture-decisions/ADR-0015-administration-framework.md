@@ -1,6 +1,6 @@
 # ADR-0015: The GuideHerd Administration Framework
 
-**Status:** Proposed
+**Status:** Accepted — implemented and governing on `main`.
 **Date:** 2026-07-18
 **Relates to:** GuideHerd Constitution (Principles 3, 5), ADR-0004
 (Configuration Store — the substrate), ADR-0010/0013 (authorization and

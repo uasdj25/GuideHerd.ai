@@ -1,6 +1,6 @@
 # ADR-0019: The GuideHerd Product Design System
 
-**Status:** Proposed
+**Status:** Accepted — Shipped with the Design System (`assets/guideherd.css`); consumed by the Operations Center, Reception Console (PR #30), and Administration Center (PR #33).
 **Date:** 2026-07-18
 **Relates to:** ADR-0014 (Operations Center — the reference
 implementation), ADR-0007 (extension discipline, applied to

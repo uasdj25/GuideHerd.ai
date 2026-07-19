@@ -1,6 +1,6 @@
 # ADR-0017: The GuideHerd Durable Event Outbox
 
-**Status:** Proposed
+**Status:** Accepted — implemented and governing on `main`.
 **Date:** 2026-07-18
 **Relates to:** ADR-0005 (conversation lifecycle — the events now made
 durable), ADR-0006 (Operational Store — the substrate and the deferred

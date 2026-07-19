@@ -1,6 +1,6 @@
 # ADR-0011: The GuideHerd Notification Contract
 
-**Status:** Proposed
+**Status:** Accepted — implemented and governing on `main`.
 **Date:** 2026-07-18
 **Relates to:** GuideHerd Constitution (Principles 2, 4, 5, 9, 10),
 ADR-0004 (configuration store), ADR-0005 (conversation events — the

@@ -1,6 +1,6 @@
 # ADR-0014: The GuideHerd Operations Center
 
-**Status:** Proposed
+**Status:** Accepted — implemented and governing on `main`.
 **Date:** 2026-07-18
 **Relates to:** GuideHerd Constitution (Principles 1, 4, 10), ADR-0006
 (Operational Store), ADR-0005 (conversation events), Issue #8 (telemetry —

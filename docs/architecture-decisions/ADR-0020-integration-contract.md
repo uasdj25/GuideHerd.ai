@@ -1,6 +1,6 @@
 # ADR-0020: The GuideHerd Integration Contract
 
-**Status:** Proposed
+**Status:** Accepted — Implemented and merged (PR #34, main `c5c4b6e`); ships dark behind the per-capability `integration-providers` domain.
 **Date:** 2026-07-18
 **Relates to:** GuideHerd Constitution (Principles 2, 4, 9), ADR-0003 (vendor
 dependencies behind GuideHerd services), ADR-0007 (Extension Framework),

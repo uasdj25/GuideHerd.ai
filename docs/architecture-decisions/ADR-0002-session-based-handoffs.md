@@ -1,5 +1,7 @@
 # ADR-0002: Use Session-Based Handoffs
 
+**Status:** Accepted — implemented and governing on `main`.
+
 ## Status
 
 Accepted

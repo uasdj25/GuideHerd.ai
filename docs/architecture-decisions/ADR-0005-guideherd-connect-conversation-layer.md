@@ -1,6 +1,6 @@
 # ADR-0005: GuideHerd Connect — the Conversation Layer Above Telephony
 
-**Status:** Proposed
+**Status:** Accepted — implemented and governing on `main`.
 **Date:** 2026-07-16
 **Relates to:** ADR-0002 (session-based handoffs), ADR-0003 (hide vendor
 dependencies behind GuideHerd services), ADR-0004 (configuration store)

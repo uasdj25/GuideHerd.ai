@@ -1,6 +1,6 @@
 # ADR-0009: The GuideHerd Identity Contract
 
-**Status:** Proposed
+**Status:** Accepted — implemented and governing on `main`.
 **Date:** 2026-07-18
 **Relates to:** GuideHerd Constitution (Principles 2, 4, 9, 10), ADR-0002
 (session-based handoffs), ADR-0007 (Extension Framework — which reserves

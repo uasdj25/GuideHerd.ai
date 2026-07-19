@@ -1,6 +1,6 @@
 # ADR-0004: Embedded SQLite Configuration Store
 
-**Status:** Proposed
+**Status:** Accepted — implemented and governing on `main`.
 **Date:** 2026-07-14
 **Relates to:** issue #26 (GuideHerd Configuration Store)
 

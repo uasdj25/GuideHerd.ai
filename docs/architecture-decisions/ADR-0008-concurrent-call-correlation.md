@@ -1,6 +1,6 @@
 # ADR-0008: Concurrent Call Correlation
 
-**Status:** Proposed
+**Status:** Accepted — implemented and governing on `main`.
 **Date:** 2026-07-18
 **Relates to:** GuideHerd Constitution (Principles 2, 4, 9), ADR-0002
 (session-based handoffs), ADR-0005 (GuideHerd Connect), ADR-0006

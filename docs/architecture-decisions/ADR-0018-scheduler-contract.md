@@ -1,6 +1,6 @@
 # ADR-0018: The GuideHerd Scheduler Contract
 
-**Status:** Proposed
+**Status:** Accepted — implemented and governing on `main`.
 **Date:** 2026-07-18
 **Relates to:** ADR-0017 (Durable Event Outbox — the reliability model
 this reuses and the event source it consumes), ADR-0011 (Notification

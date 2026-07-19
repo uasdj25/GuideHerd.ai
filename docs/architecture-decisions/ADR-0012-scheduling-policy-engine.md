@@ -1,6 +1,9 @@
 # ADR-0012: The GuideHerd Scheduling Policy Engine
 
-**Status:** Proposed
+**Status:** Proposed — the policy engine and its configuration domain are
+implemented and administrable, but no production booking path consumes the
+engine yet (availability remains provider-side); activation is tracked by
+issue #66. Accepted only once the engine governs live booking.
 **Date:** 2026-07-18
 **Relates to:** GuideHerd Constitution (Principles 3, 4, 5, 10), ADR-0004
 (configuration store), ADR-0007 (Extension Framework — Scheduling is a

@@ -1,6 +1,12 @@
 # ADR-0013: GuideHerd User Sessions
 
-**Status:** Proposed
+**Status:** Accepted — shared user authentication is shipped and governing:
+Operations Center and Administration Center authentication are ACTIVE in
+production, and the receptionist authentication capability is shipped
+(console login UI, 12h sessions, runbook — PR #31). The Reception Console
+gate itself (`GUIDEHERD_CONSOLE_AUTH=required`) remains INTENTIONALLY
+inactive until after the Martinson & Beason demo; the activation addendum
+will be written when the flip actually happens.
 **Date:** 2026-07-18
 **Relates to:** GuideHerd Constitution (Principles 2, 4, 9), ADR-0009
 (Identity Contract), ADR-0010 (Authorization — which recorded receptionist

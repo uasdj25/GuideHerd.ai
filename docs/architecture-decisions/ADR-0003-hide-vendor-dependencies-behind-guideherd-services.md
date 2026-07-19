@@ -1,5 +1,7 @@
 # ADR-0003: Hide Vendor Dependencies Behind GuideHerd Services
 
+**Status:** Accepted — implemented and governing on `main`.
+
 ## Status
 
 Accepted

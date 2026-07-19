@@ -1,5 +1,7 @@
 # ADR-0001: Customer Experience Owns the Architecture
 
+**Status:** Accepted — implemented and governing on `main`.
+
 ## Status
 
 Accepted

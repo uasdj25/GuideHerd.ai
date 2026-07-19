@@ -130,28 +130,23 @@ your receptionist has to map a real caller onto this list in seconds.
 scheduling groups, and each practice area routes to a group. That's how choosing
 "Family Law" produces the right list of names.
 
-Attorney **ordering** within a group is adjustable, and it's the one part of
-routing you can change yourself.
-
-> **Limitation:** practice areas and attorneys are **display-only** in the
-> Administration screen. You can see them; you cannot add or edit them there.
-> Changes go through whoever manages your deployment. Expect this to improve.
+Practice areas, attorneys, routing groups, and attorney **ordering** are all
+editable on the Administration screen — create, rename, activate/deactivate,
+and reassign routing yourself; changes take effect immediately.
 
 ### Consultation types
 
 The kinds of appointment your firm offers — new matter, follow-up, existing
 client. Firm-wide, not per practice area. Your receptionist must pick one on
-every call; there's no "unspecified" option.
-
-> **Limitation:** there is **no screen for consultation types.** They are set up
-> at deployment. Changing them requires your GuideHerd contact.
+every call; there's no "unspecified" option. Editable on the Administration
+screen like the rest of the catalog.
 
 ### Offices and business hours
 
-Locations and opening hours can be recorded through the underlying interface,
-but there is **no screen for either**, and — importantly — **business hours are
-stored but not currently used to decide anything.** Recording them does not stop
-an appointment being offered outside them.
+Offices and their opening hours are editable on the Administration screen.
+But — importantly — **business hours are stored but not currently used to
+decide anything.** Recording them does not stop an appointment being offered
+outside them.
 
 Don't rely on business hours as a control. If it matters that appointments only
 land in certain windows, raise it as a requirement rather than assuming the
@@ -236,8 +231,7 @@ Modest, and email-only. You can set:
 - **Sender name** — how your firm is named in the email
 - **Accent color** — a single line of color under the heading
 - **Footer text** — the closing line
-
-A logo and an office contact block are supported but have no screen yet.
+- **Logo** and an **office contact block** (phone, email, address)
 
 Two things to be clear about:
 

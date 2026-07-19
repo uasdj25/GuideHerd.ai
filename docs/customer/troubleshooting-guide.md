@@ -187,8 +187,11 @@ Reload, re-apply your change, save again.
 
 ### I can't edit practice areas or attorneys
 
-Expected. They're display-only in Administration today. Changes go through
-GuideHerd.
+They're editable on the Administration screen — practice areas, attorneys,
+consultation types, routing, offices, and hours all have editors. If the
+editors aren't visible, you're likely not signed in with an administrator
+account; if a save is refused, see the entry above about someone else
+changing the configuration.
 
 ### I need to undo a change
 

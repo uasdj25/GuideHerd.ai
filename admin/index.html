@@ -204,8 +204,52 @@
           <input class="gh-input" id="brand-footer">
         </div>
       </div>
+      <div class="field-row">
+        <div class="gh-field">
+          <label class="gh-label" for="brand-logo">Logo URL (https)</label>
+          <input class="gh-input" id="brand-logo" placeholder="https://…/logo.png">
+        </div>
+        <div class="gh-field">
+          <label class="gh-label" for="brand-phone">Office phone</label>
+          <input class="gh-input" id="brand-phone">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="gh-field">
+          <label class="gh-label" for="brand-email">Office email</label>
+          <input class="gh-input" id="brand-email">
+        </div>
+        <div class="gh-field">
+          <label class="gh-label" for="brand-address">Office address</label>
+          <input class="gh-input" id="brand-address">
+        </div>
+      </div>
       <button class="gh-btn gh-btn-primary" id="save-branding">Save branding</button>
       <p class="gh-alert" id="msg-notification-branding" role="status" aria-live="polite"></p>
+
+      <div class="area-head" style="margin-top:var(--sp-3)">
+        <h3 class="area-sub" style="margin:0">Appointment reminders</h3>
+        <span id="badge-appointment-reminders"></span>
+      </div>
+      <label class="gh-check" style="margin-top:var(--sp-2)">
+        <input type="checkbox" id="rem-enabled">
+        <span>Send appointment reminders
+          <span class="gh-check-note">Only appointments booked after enabling get reminders; disabling stops already-scheduled ones.</span></span>
+      </label>
+      <div class="catalog-tables" id="rem-offsets"></div>
+      <div class="field-row">
+        <div class="gh-field">
+          <label class="gh-label" for="rem-new-slot">Add slot</label>
+          <input class="gh-input" id="rem-new-slot" placeholder="24h">
+        </div>
+        <div class="gh-field">
+          <label class="gh-label" for="rem-new-minutes">Minutes before</label>
+          <input class="gh-input" id="rem-new-minutes" type="number" min="1" max="40320">
+        </div>
+      </div>
+      <button class="gh-btn gh-btn-outline" id="rem-add">Add offset</button>
+      <button class="gh-btn gh-btn-primary" id="save-reminders">Save reminders</button>
+      <p class="gh-alert" id="msg-appointment-reminders" role="status" aria-live="polite"></p>
     </div>
   </section>
 
@@ -228,9 +272,171 @@
   <section class="gh-section">
     <div class="gh-eyebrow"><span class="gh-eyebrow-dot" aria-hidden="true"></span><span>Configured catalog</span></div>
     <div class="gh-card area-card">
-      <h2 class="gh-section-title">Practice areas, attorneys, routing &amp; locations</h2>
-      <div class="catalog-tables" id="catalog" aria-live="polite"></div>
-      <p class="gh-muted" style="margin-top:var(--sp-2);font-size:var(--fs-sm)">Create and edit via the JSON areas below in this first client; richer forms arrive with the portal polish pass.</p>
+      <div class="area-head">
+        <h2 class="gh-section-title">Practice areas</h2>
+        <span class="gh-badge gh-badge--ok">Live</span>
+      </div>
+      <div class="catalog-tables" id="pa-list" aria-live="polite"></div>
+      <div class="field-row">
+        <div class="gh-field">
+          <label class="gh-label" for="pa-new-key">New key</label>
+          <input class="gh-input" id="pa-new-key" placeholder="family-law">
+        </div>
+        <div class="gh-field">
+          <label class="gh-label" for="pa-new-name">New name</label>
+          <input class="gh-input" id="pa-new-name" placeholder="Family Law">
+        </div>
+      </div>
+      <button class="gh-btn gh-btn-primary" id="pa-create">Add practice area</button>
+      <div class="field-row">
+        <div class="gh-field">
+          <label class="gh-label" for="pa-edit-key">Rename</label>
+          <select class="gh-select" id="pa-edit-key"></select>
+        </div>
+        <div class="gh-field">
+          <label class="gh-label" for="pa-edit-name">New name</label>
+          <input class="gh-input" id="pa-edit-name">
+        </div>
+      </div>
+      <button class="gh-btn gh-btn-outline" id="pa-rename">Rename</button>
+      <p class="gh-alert" id="msg-practice-areas" role="status" aria-live="polite"></p>
+    </div>
+
+    <div class="gh-card area-card">
+      <div class="area-head">
+        <h2 class="gh-section-title">Attorneys</h2>
+        <span class="gh-badge gh-badge--ok">Live</span>
+      </div>
+      <div class="catalog-tables" id="att-list" aria-live="polite"></div>
+      <div class="field-row">
+        <div class="gh-field">
+          <label class="gh-label" for="att-new-key">New key</label>
+          <input class="gh-input" id="att-new-key" placeholder="raina-baugher">
+        </div>
+        <div class="gh-field">
+          <label class="gh-label" for="att-new-name">New name</label>
+          <input class="gh-input" id="att-new-name" placeholder="Raina Baugher">
+        </div>
+      </div>
+      <button class="gh-btn gh-btn-primary" id="att-create">Add attorney</button>
+      <div class="field-row">
+        <div class="gh-field">
+          <label class="gh-label" for="att-edit-key">Rename</label>
+          <select class="gh-select" id="att-edit-key"></select>
+        </div>
+        <div class="gh-field">
+          <label class="gh-label" for="att-edit-name">New name</label>
+          <input class="gh-input" id="att-edit-name">
+        </div>
+      </div>
+      <button class="gh-btn gh-btn-outline" id="att-rename">Rename</button>
+      <p class="gh-alert" id="msg-attorneys" role="status" aria-live="polite"></p>
+    </div>
+
+    <div class="gh-card area-card">
+      <div class="area-head">
+        <h2 class="gh-section-title">Consultation types</h2>
+        <span class="gh-badge gh-badge--ok">Live</span>
+      </div>
+      <div class="catalog-tables" id="ct-list" aria-live="polite"></div>
+      <div class="field-row">
+        <div class="gh-field">
+          <label class="gh-label" for="ct-new-key">New key</label>
+          <input class="gh-input" id="ct-new-key" placeholder="case-review">
+        </div>
+        <div class="gh-field">
+          <label class="gh-label" for="ct-new-name">New name</label>
+          <input class="gh-input" id="ct-new-name" placeholder="Case Review">
+        </div>
+      </div>
+      <button class="gh-btn gh-btn-primary" id="ct-create">Add consultation type</button>
+      <div class="field-row">
+        <div class="gh-field">
+          <label class="gh-label" for="ct-edit-key">Rename</label>
+          <select class="gh-select" id="ct-edit-key"></select>
+        </div>
+        <div class="gh-field">
+          <label class="gh-label" for="ct-edit-name">New name</label>
+          <input class="gh-input" id="ct-edit-name">
+        </div>
+      </div>
+      <button class="gh-btn gh-btn-outline" id="ct-rename">Rename</button>
+      <p class="gh-alert" id="msg-consultation-types" role="status" aria-live="polite"></p>
+    </div>
+
+    <div class="gh-card area-card">
+      <div class="area-head">
+        <h2 class="gh-section-title">Routing groups</h2>
+        <span class="gh-badge gh-badge--ok">Live</span>
+      </div>
+      <div class="catalog-tables" id="rg-list" aria-live="polite"></div>
+      <div class="field-row">
+        <div class="gh-field">
+          <label class="gh-label" for="rg-new-key">New key</label>
+          <input class="gh-input" id="rg-new-key" placeholder="family-team">
+        </div>
+        <div class="gh-field">
+          <label class="gh-label" for="rg-new-name">New name</label>
+          <input class="gh-input" id="rg-new-name" placeholder="Family Team">
+        </div>
+      </div>
+      <div class="gh-field">
+        <label class="gh-label" for="rg-new-area">Serves practice area</label>
+        <select class="gh-select" id="rg-new-area"></select>
+      </div>
+      <button class="gh-btn gh-btn-primary" id="rg-create">Add routing group</button>
+      <div class="field-row">
+        <div class="gh-field">
+          <label class="gh-label" for="rg-edit-key">Reassign group</label>
+          <select class="gh-select" id="rg-edit-key"></select>
+        </div>
+        <div class="gh-field">
+          <label class="gh-label" for="rg-edit-area">To practice area</label>
+          <select class="gh-select" id="rg-edit-area"></select>
+        </div>
+      </div>
+      <button class="gh-btn gh-btn-outline" id="rg-reassign">Reassign</button>
+      <p class="gh-alert" id="msg-routing-groups" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <section class="gh-section">
+    <div class="gh-eyebrow"><span class="gh-eyebrow-dot" aria-hidden="true"></span><span>Offices &amp; hours</span></div>
+    <div class="gh-card area-card">
+      <div class="area-head">
+        <h2 class="gh-section-title">Offices</h2>
+        <span class="gh-badge gh-badge--ok">Live</span>
+      </div>
+      <div class="catalog-tables" id="loc-list" aria-live="polite"></div>
+      <div class="field-row">
+        <div class="gh-field">
+          <label class="gh-label" for="loc-new-key">New key</label>
+          <input class="gh-input" id="loc-new-key" placeholder="huntsville">
+        </div>
+        <div class="gh-field">
+          <label class="gh-label" for="loc-new-name">New name</label>
+          <input class="gh-input" id="loc-new-name" placeholder="Huntsville Office">
+        </div>
+      </div>
+      <div class="gh-field">
+        <label class="gh-label" for="loc-new-tz">Timezone</label>
+        <input class="gh-input" id="loc-new-tz" placeholder="America/Chicago">
+      </div>
+      <button class="gh-btn gh-btn-primary" id="loc-create">Add office</button>
+      <p class="gh-alert" id="msg-office" role="status" aria-live="polite"></p>
+
+      <div class="area-head" style="margin-top:var(--sp-3)">
+        <h3 class="area-sub" style="margin:0">Business hours</h3>
+        <span class="gh-badge gh-badge--ok">Live</span>
+      </div>
+      <div class="gh-field" style="margin-top:var(--sp-2)">
+        <label class="gh-label" for="bh-location">Office</label>
+        <select class="gh-select" id="bh-location"></select>
+      </div>
+      <div class="catalog-tables" id="bh-days"></div>
+      <p class="gh-muted" style="font-size:var(--fs-xs)">Leave a day blank to mark it closed. Times are 24-hour HH:MM. (Split shifts are API-only in this first editor.) Hours are stored for future scheduling enforcement; recording them does not yet constrain bookings.</p>
+      <button class="gh-btn gh-btn-primary" id="bh-save">Save business hours</button>
+      <p class="gh-alert" id="msg-business-hours" role="status" aria-live="polite"></p>
     </div>
   </section>
 
@@ -319,6 +525,42 @@
     });
   }
 
+  var lastConfig = null; // the latest describe() snapshot, for editors
+
+  /** Catalog table with per-row Activate/Deactivate actions. */
+  function catalogTable(rows, sectionId, area, entityPrefix, extraCol) {
+    if (!rows.length) return empty('Nothing configured yet.');
+    var head = ['Name', 'Key'].concat(extraCol ? [extraCol[0]] : []).concat(['Status', '']);
+    return '<div class="gh-table-wrap"><table class="gh-table"><thead><tr>'
+      + head.map(function (h) { return '<th scope="col">' + esc(h) + '</th>'; }).join('')
+      + '</tr></thead><tbody>' + rows.map(function (r) {
+        return '<tr><td>' + esc(r.displayName || r.name) + '</td><td><code class="gh-mono">' + esc(r.key) + '</code></td>'
+          + (extraCol ? '<td><code class="gh-mono">' + esc(extraCol[1](r)) + '</code></td>' : '')
+          + '<td>' + activeBadge(r.active) + '</td>'
+          + '<td><button type="button" class="gh-btn gh-btn-ghost" data-area="' + esc(area) + '" data-entity="' + esc(entityPrefix + ':' + r.key) + '" data-key="' + esc(r.key) + '" data-active="' + (r.active ? '1' : '') + '">' + (r.active ? 'Deactivate' : 'Activate') + '</button></td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  function options(rows, selected) {
+    return rows.map(function (r) {
+      return '<option value="' + esc(r.key) + '"' + (r.key === selected ? ' selected' : '') + '>' + esc(r.name) + '</option>';
+    }).join('');
+  }
+
+  /** A change that alters entity lists re-reads the whole configuration. */
+  function changeAndReload(area, entity, payload, msgId) {
+    return change(area, entity, payload, msgId).then(function () { return boot(); });
+  }
+
+  // One delegated handler covers every per-row activate/deactivate button.
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button[data-area]') : null;
+    if (!b || !b.dataset.key) return;
+    changeAndReload(b.dataset.area, b.dataset.entity, {
+      action: 'update', key: b.dataset.key, fields: { active: !b.dataset.active },
+    }, b.dataset.area);
+  });
+
   function showLogin() { el('login-wrap').hidden = false; el('app').hidden = true; }
   function showApp() { el('login-wrap').hidden = true; el('app').hidden = false; }
 
@@ -364,10 +606,108 @@
     if (el('brand-sender').value.trim()) branding.senderName = el('brand-sender').value.trim();
     if (el('brand-accent').value.trim()) branding.accentColor = el('brand-accent').value.trim();
     if (el('brand-footer').value.trim()) branding.footerText = el('brand-footer').value.trim();
+    if (el('brand-logo').value.trim()) branding.logoUrl = el('brand-logo').value.trim();
+    var office = {};
+    if (el('brand-phone').value.trim()) office.phone = el('brand-phone').value.trim();
+    if (el('brand-email').value.trim()) office.email = el('brand-email').value.trim();
+    if (el('brand-address').value.trim()) office.address = el('brand-address').value.trim();
+    if (Object.keys(office).length) branding.office = office;
     change('notification-branding', 'setting:notifications/branding', branding);
   });
   el('save-idp').addEventListener('click', function () {
     change('identity-provider', 'setting:identity/provider', { provider: el('idp').value });
+  });
+
+  function catalogHandlers(prefix, area, entityPrefix) {
+    el(prefix + '-create').addEventListener('click', function () {
+      var fields = { key: el(prefix + '-new-key').value.trim(), name: el(prefix + '-new-name').value.trim() };
+      if (area === 'routing-groups') fields.serviceArea = el('rg-new-area').value;
+      changeAndReload(area, area, { action: 'create', fields: fields }, area);
+    });
+    var renameBtn = el(prefix + '-rename');
+    if (renameBtn) {
+      renameBtn.addEventListener('click', function () {
+        var key = el(prefix + '-edit-key').value;
+        changeAndReload(area, entityPrefix + ':' + key, {
+          action: 'update', key: key, fields: { name: el(prefix + '-edit-name').value.trim() },
+        }, area);
+      });
+    }
+  }
+  catalogHandlers('pa', 'practice-areas', 'practice-area');
+  catalogHandlers('att', 'attorneys', 'attorney');
+  catalogHandlers('ct', 'consultation-types', 'consultation-type');
+  catalogHandlers('rg', 'routing-groups', 'routing-group');
+  el('rg-reassign').addEventListener('click', function () {
+    var key = el('rg-edit-key').value;
+    changeAndReload('routing-groups', 'routing-group:' + key, {
+      action: 'update', key: key, fields: { serviceArea: el('rg-edit-area').value },
+    }, 'routing-groups');
+  });
+
+  el('loc-create').addEventListener('click', function () {
+    changeAndReload('office', 'locations', {
+      action: 'create',
+      fields: { key: el('loc-new-key').value.trim(), name: el('loc-new-name').value.trim(), timezone: el('loc-new-tz').value.trim() },
+    }, 'office');
+  });
+
+  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  function renderHoursEditor() {
+    var locKey = el('bh-location').value;
+    var loc = (lastConfig && lastConfig.locations || []).filter(function (l) { return l.key === locKey; })[0];
+    var byDay = {};
+    ((loc && loc.officeHours) || []).forEach(function (h) { byDay[h.dayOfWeek] = h; });
+    el('bh-days').innerHTML = '<div class="gh-table-wrap"><table class="gh-table"><thead><tr><th scope="col">Day</th><th scope="col">Opens</th><th scope="col">Closes</th></tr></thead><tbody>'
+      + DAYS.map(function (d, i) {
+        var h = byDay[i] || {};
+        return '<tr><td>' + d + '</td>'
+          + '<td><input class="gh-input" id="bh-open-' + i + '" aria-label="' + d + ' opens" value="' + esc(h.opens || '') + '" placeholder="09:00"></td>'
+          + '<td><input class="gh-input" id="bh-close-' + i + '" aria-label="' + d + ' closes" value="' + esc(h.closes || '') + '" placeholder="17:00"></td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+  el('bh-location').addEventListener('change', renderHoursEditor);
+  el('bh-save').addEventListener('click', function () {
+    var locKey = el('bh-location').value;
+    var officeHours = [];
+    DAYS.forEach(function (_, i) {
+      var opens = el('bh-open-' + i).value.trim();
+      var closes = el('bh-close-' + i).value.trim();
+      if (opens && closes) officeHours.push({ dayOfWeek: i, opens: opens, closes: closes });
+    });
+    changeAndReload('business-hours', 'location:' + locKey + ':hours',
+      { locationKey: locKey, officeHours: officeHours }, 'business-hours');
+  });
+
+  var reminderOffsets = [];
+  function renderOffsets() {
+    el('rem-offsets').innerHTML = reminderOffsets.length
+      ? '<div class="gh-table-wrap"><table class="gh-table"><thead><tr><th scope="col">Slot</th><th scope="col">Minutes before</th><th scope="col"></th></tr></thead><tbody>'
+        + reminderOffsets.map(function (o, i) {
+          return '<tr><td><code class="gh-mono">' + esc(o.slot) + '</code></td><td class="gh-num">' + esc(o.minutesBefore) + '</td>'
+            + '<td><button type="button" class="gh-btn gh-btn-ghost" data-offset="' + i + '">Remove</button></td></tr>';
+        }).join('') + '</tbody></table></div>'
+      : empty('No reminder offsets configured; defaults apply when enabled.');
+  }
+  el('rem-offsets').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button[data-offset]') : null;
+    if (!b) return;
+    reminderOffsets.splice(Number(b.dataset.offset), 1);
+    renderOffsets();
+  });
+  el('rem-add').addEventListener('click', function () {
+    var slot = el('rem-new-slot').value.trim();
+    var minutes = Number(el('rem-new-minutes').value);
+    if (!slot || !minutes) return;
+    reminderOffsets.push({ slot: slot, minutesBefore: minutes });
+    el('rem-new-slot').value = ''; el('rem-new-minutes').value = '';
+    renderOffsets();
+  });
+  el('save-reminders').addEventListener('click', function () {
+    change('appointment-reminders', 'setting:scheduler/appointment-reminders', {
+      enabled: el('rem-enabled').checked,
+      offsets: reminderOffsets,
+    }, 'appointment-reminders');
   });
 
   function loadAudit() {
@@ -429,28 +769,44 @@
       el('badge-notification-branding').innerHTML = liveBadge(c.settings.notificationBranding);
       el('badge-identity-provider').innerHTML = liveBadge(c.settings.identityProvider);
 
-      var parts = [];
-      parts.push(c.practiceAreas.length
-        ? table(['Practice area', 'Status'], c.practiceAreas.map(function (a) {
-            return '<tr><td>' + esc(a.name) + '</td><td>' + activeBadge(a.active) + '</td></tr>';
+      lastConfig = c;
+
+      // Catalog editors: lists with per-row activate/deactivate, plus the
+      // create/rename selects.
+      el('pa-list').innerHTML = catalogTable(c.practiceAreas, 'pa', 'practice-areas', 'practice-area');
+      el('pa-edit-key').innerHTML = options(c.practiceAreas);
+      el('att-list').innerHTML = catalogTable(c.attorneys, 'att', 'attorneys', 'attorney');
+      el('att-edit-key').innerHTML = options(c.attorneys);
+      el('ct-list').innerHTML = catalogTable(c.consultationTypes || [], 'ct', 'consultation-types', 'consultation-type');
+      el('ct-edit-key').innerHTML = options(c.consultationTypes || []);
+      el('rg-list').innerHTML = catalogTable(c.routingGroups, 'rg', 'routing-groups', 'routing-group',
+        ['Serves', function (g) { return g.serviceArea || '—'; }]);
+      el('rg-edit-key').innerHTML = options(c.routingGroups);
+      el('rg-new-area').innerHTML = options(c.practiceAreas);
+      el('rg-edit-area').innerHTML = options(c.practiceAreas);
+
+      // Offices & business hours.
+      el('loc-list').innerHTML = (c.locations || []).length
+        ? table(['Office', 'Key', 'Timezone'], c.locations.map(function (l) {
+            return '<tr><td>' + esc(l.name || l.key) + '</td><td><code class="gh-mono">' + esc(l.key) + '</code></td><td>' + esc(l.timezone || '—') + '</td></tr>';
           }))
-        : empty('No practice areas configured yet.'));
-      parts.push(c.attorneys.length
-        ? table(['Attorney', 'Key', 'Status'], c.attorneys.map(function (a) {
-            return '<tr><td>' + esc(a.displayName || a.name) + '</td><td><code class="gh-mono">' + esc(a.key) + '</code></td><td>' + activeBadge(a.active) + '</td></tr>';
-          }))
-        : empty('No attorneys configured yet.'));
-      parts.push(c.routingGroups.length
-        ? table(['Routing group', 'Attorneys (ordered)'], c.routingGroups.map(function (g) {
-            return '<tr><td>' + esc(g.name) + '</td><td><code class="gh-mono">' + esc(g.providers.join(', ')) + '</code></td></tr>';
-          }))
-        : empty('No routing groups configured yet.'));
-      parts.push((c.locations || []).length
-        ? table(['Location', 'Timezone'], c.locations.map(function (l) {
-            return '<tr><td>' + esc(l.name || l.key) + '</td><td>' + esc(l.timezone || '—') + '</td></tr>';
-          }))
-        : empty('No locations configured yet.'));
-      el('catalog').innerHTML = parts.join('');
+        : empty('No offices configured yet.');
+      el('bh-location').innerHTML = options(c.locations || []);
+      renderHoursEditor();
+
+      // Appointment reminders (settings domain).
+      var reminders = (c.settings.appointmentReminders && c.settings.appointmentReminders.value) || {};
+      versions['setting:scheduler/appointment-reminders'] = (c.settings.appointmentReminders || {}).version || 0;
+      el('badge-appointment-reminders').innerHTML = liveBadge(c.settings.appointmentReminders);
+      el('rem-enabled').checked = Boolean(reminders.enabled);
+      reminderOffsets = (reminders.offsets || []).map(function (o) { return { slot: o.slot, minutesBefore: o.minutesBefore }; });
+      renderOffsets();
+
+      // Branding extended fields.
+      el('brand-logo').value = branding.logoUrl || '';
+      el('brand-phone').value = (branding.office && branding.office.phone) || '';
+      el('brand-email').value = (branding.office && branding.office.email) || '';
+      el('brand-address').value = (branding.office && branding.office.address) || '';
 
       loadAudit();
     }).catch(function () {});

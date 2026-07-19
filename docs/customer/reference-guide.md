@@ -66,11 +66,11 @@ role.
 | Appointment confirmation on/off | You |
 | Sender name, accent color, footer text | You |
 | Scheduling preferences | You — but **not yet applied to bookings** |
-| Practice areas, attorneys, routing | Request |
-| Consultation types | Request |
-| Offices, business hours | Request — and **not yet enforced** |
-| Reminders and their timings | Request |
-| Logo, office contact block | Request |
+| Practice areas, attorneys, routing | You |
+| Consultation types | You |
+| Offices, business hours | You — but hours are **not yet enforced** |
+| Reminders and their timings | You |
+| Logo, office contact block | You |
 | Console sign-in | Request |
 | Users and roles | Request — deployment change + restart |
 | Summary recipient mailbox | Request |

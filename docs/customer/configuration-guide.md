@@ -55,11 +55,11 @@ an afternoon configuring, then watch it vanish without warning.
 
 | Setting | Status | Notes |
 |---|---|---|
-| Practice areas | **Request** | Visible in Administration but not editable |
-| Attorneys | **Request** | Visible but not editable |
-| Which attorneys serve which practice area | **Request** | Routing groups |
+| Practice areas | **Self-service** | Create, rename, deactivate |
+| Attorneys | **Self-service** | Create, rename, deactivate |
+| Which attorneys serve which practice area | **Self-service** | Routing groups: create, assign, membership & order |
 | Attorney order within a group | **Self-service** | |
-| Consultation types | **Request** | No screen at all |
+| Consultation types | **Self-service** | Create, rename, deactivate |
 
 **Practice areas** are what your receptionist chooses from. Make them match how
 your firm actually talks about its work — the receptionist has to map a real
@@ -83,7 +83,7 @@ short — every extra option is a decision on a live call.
 | Preferred days of week | **Stored only** | |
 | Morning / afternoon preference | **Stored only** | |
 | Preferred appointment length | **Stored only** | |
-| Business hours | **Stored only** | Recorded, but enforced by nothing |
+| Business hours | **Self-service** to edit — but **stored only**: enforced by nothing yet |
 | Minimum notice before an appointment | **Not available** | Doesn't exist |
 | Buffer between appointments | **Not available** | Doesn't exist |
 | Per-type appointment lengths | **Not available** | Doesn't exist |
@@ -136,8 +136,8 @@ When you're setting something, be clear which of the three you mean. "We're open
 |---|---|---|
 | Consultation summary to your firm | **Request** | **On** |
 | Appointment confirmation to the caller | **Self-service** | **Off** |
-| Appointment reminders | **Request** | **Off** |
-| Reminder timings | **Request** | 24 hours and 1 hour before |
+| Appointment reminders | **Self-service** | **Off** |
+| Reminder timings | **Self-service** | 24 hours and 1 hour before |
 | Cancellation / reschedule notifications | **Not available** | Doesn't exist |
 
 **Email only.** No SMS or text messaging anywhere in GuideHerd.
@@ -166,8 +166,8 @@ isn't already doing it.
 | Sender name | **Self-service** | Appears *in* emails |
 | Accent color | **Self-service** | A single colored line |
 | Footer text | **Self-service** | Closing line |
-| Logo | **Request** | Must be an HTTPS address |
-| Office contact block | **Request** | Phone, email, address |
+| Logo | **Self-service** | Must be an HTTPS address |
+| Office contact block | **Self-service** | Phone, email, address |
 
 Two limits worth stating plainly:
 

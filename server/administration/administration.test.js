@@ -83,6 +83,53 @@ test('administration: changes apply, version, and audit with before/after snapsh
   assert.equal(audit[0].at, '2026-07-12T15:15:00.000Z');
 });
 
+test('administration: consultation types and routing groups are fully administrable areas (#67)', () => {
+  const { admin, configService } = makeAdmin();
+  const ctx = { actor: 'admin-ada', organizationKey: FIRM };
+
+  // Consultation types: create, rename, deactivate — audited, versioned.
+  const created = admin.apply('consultation-types', ctx, {
+    action: 'create', fields: { key: 'case-review', name: 'Case Review', displayOrder: 2 },
+  });
+  assert.equal(created.result.key, 'case-review');
+  assert.deepEqual(configService.consultationTypes.list(FIRM, {}).map((t) => t.key).sort(),
+    ['case-review', 'initial-consultation']);
+  const renamed = admin.apply('consultation-types', ctx, {
+    action: 'update', key: 'case-review', fields: { name: 'Case Review Session' },
+  });
+  assert.equal(renamed.result.name, 'Case Review Session');
+  const deactivated = admin.apply('consultation-types', ctx, {
+    action: 'update', key: 'case-review', fields: { active: false },
+  }, renamed.version);
+  assert.equal(deactivated.result.active, false);
+
+  // Routing groups: create with practice-area assignment; reassign.
+  configService.serviceAreas.create(FIRM, { key: 'family-law', name: 'Family Law', displayOrder: 2 });
+  const group = admin.apply('routing-groups', ctx, {
+    action: 'create', fields: { key: 'family-team', name: 'Family Team', serviceArea: 'family-law' },
+  });
+  assert.equal(group.result.serviceArea, 'family-law');
+  const moved = admin.apply('routing-groups', ctx, {
+    action: 'update', key: 'family-team', fields: { serviceArea: 'personal-injury' },
+  });
+  assert.equal(moved.result.serviceArea, 'personal-injury');
+
+  // Both areas fail loudly on nonsense; validation writes nothing.
+  assert.throws(() => admin.apply('consultation-types', ctx, { action: 'destroy' }),
+    (e) => e.name === 'ValidationError' || e.code === 'validation_error');
+  assert.throws(() => admin.apply('routing-groups', ctx,
+    { action: 'create', fields: { key: 'x', name: 'X', serviceArea: 'no-such-area' } }));
+
+  // describe() now surfaces consultation types for the portal.
+  const view = admin.describe(FIRM);
+  assert.ok(view.consultationTypes.some((t) => t.key === 'case-review'));
+
+  // The audit trail carries the new entities.
+  const audit = admin.audit(FIRM, { limit: 20 });
+  assert.ok(audit.some((a) => a.entity === 'consultation-types' && a.action === 'create'));
+  assert.ok(audit.some((a) => a.entity === 'routing-group:family-team'));
+});
+
 test('administration: optimistic concurrency — a stale expectedVersion is an explicit 409 and writes nothing', () => {
   const { admin, configService } = makeAdmin();
   admin.apply('organization', CTX, { displayName: 'Version One' }); // v1

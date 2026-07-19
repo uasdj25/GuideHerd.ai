@@ -226,9 +226,14 @@ revoke.** If it's urgent, say so explicitly when you raise it.
 **Always true, in every deployment:**
 
 - **Booked appointments are unaffected** — they're in your calendar system.
-- **Your firm's configuration is unaffected** — it's stored durably.
 - **Everyone is signed out.** Login sessions are held in memory. People sign
   back in; nothing is lost.
+
+**Your firm's configuration:** unaffected **when the Administration screen's
+banner is green ("Live")** — that badge is the durability guarantee. If the
+banner is yellow, configuration is rebuilt from a file at startup and
+Administration changes do not survive a restart (see "My settings reverted
+on their own" above).
 
 **Depends on your deployment:** whether operational history — prepared sessions,
 notification records, pending reminders, recent Operations Center activity —

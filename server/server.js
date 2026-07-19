@@ -91,6 +91,7 @@ async function main() {
   let notificationDeliveryStore; // undefined -> in-memory default (ADR-0011)
   let integrationDeliveryStore; // undefined -> in-memory default (ADR-0020)
   let workflowStore; // undefined -> in-memory default (ADR-0021)
+  let userSessionStore; // undefined -> in-memory default (ADR-0013 / #64)
   let outboxStore; // undefined -> in-memory default (ADR-0017)
   let scheduledActionStore; // undefined -> in-memory default (ADR-0018)
   let operationalMigrationsApplied = null;
@@ -101,6 +102,7 @@ async function main() {
     const { createPostgresNotificationDeliveryStore } = require('./operational/notification-deliveries');
     const { createPostgresIntegrationDeliveryStore } = require('./operational/integration-deliveries');
     const { createPostgresWorkflowStore } = require('./operational/workflow-store');
+    const { createPostgresUserSessionStore } = require('./operational/user-session-store');
     const { createPostgresOutboxStore } = require('./operational/outbox-store');
     const { createPostgresScheduledActionStore } = require('./operational/scheduled-actions');
     try {
@@ -112,6 +114,9 @@ async function main() {
       notificationDeliveryStore = createPostgresNotificationDeliveryStore({ pool, clock: systemClock() });
       integrationDeliveryStore = createPostgresIntegrationDeliveryStore({ pool, clock: systemClock() });
       workflowStore = createPostgresWorkflowStore({ pool, clock: systemClock() });
+      // Durable login sessions (#64): restarts no longer sign users out,
+      // and sessions are valid across instances.
+      userSessionStore = createPostgresUserSessionStore({ pool, clock: systemClock() });
     } catch (err) {
       fatal('Operational Store (postgres) is unavailable; refusing to start.', {
         error: { message: String(err.message || err) },
@@ -124,7 +129,7 @@ async function main() {
 
   // Browser origins are allowlisted via CORS_ALLOWED_ORIGINS (comma-separated).
   // Defaults to https://guideherd.ai and http://localhost:8080. Never `*`.
-  const app = createApp({ configService, configDb, handoffStore, notificationDeliveryStore, integrationDeliveryStore, workflowStore, outboxStore, scheduledActionStore, configurationAuthority });
+  const app = createApp({ configService, configDb, handoffStore, notificationDeliveryStore, integrationDeliveryStore, workflowStore, outboxStore, scheduledActionStore, configurationAuthority, userSessionStore });
   const { handler } = app;
   const server = http.createServer(handler);
 
@@ -165,6 +170,7 @@ async function main() {
         : null,
       configurationAuthority,
       operationalProvider: OPERATIONAL_PROVIDER,
+      userSessionStore: userSessionStore ? 'postgres' : 'memory',
       operationalMigrationsApplied,
       outboxPollIntervalMs: OUTBOX_POLL_INTERVAL_MS,
     }));

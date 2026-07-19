@@ -380,3 +380,8 @@ test('HTTP: service (bridge) authentication is untouched by user sessions', asyn
     assert.equal((await res.json()).error.code, 'no_prepared_session');
   });
 });
+
+// ── Shared lifecycle suite (#64): memory is the reference implementation ────
+const { runUserSessionLifecycleSuite } = require('./user-session-contract-suite');
+const { createInMemoryUserSessionStore } = require('./user-sessions');
+runUserSessionLifecycleSuite('memory', ({ clock }) => createInMemoryUserSessionStore({ clock }), test);

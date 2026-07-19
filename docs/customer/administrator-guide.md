@@ -108,7 +108,7 @@ Sign-in can be switched on. When it is:
   by activity. Chosen so a normal shift never hits the boundary mid-call, since
   someone may sign in before their shift and shifts plus lunch and overtime
   routinely exceed eight hours
-- A service restart signs everyone out
+- On the standard production setup, a restart no longer signs people out
 
 **Switching this on is a planned change, not a setting you flip.** Every
 receptionist must be provisioned and individually verified first, because the
@@ -304,9 +304,11 @@ that matters most, and it holds in every configuration.
 **Your firm's configuration survives.** Practice areas, attorneys, settings, and
 the change history are stored durably, not in memory.
 
-**Everyone is signed out.** Login sessions are held in memory in every current
-deployment. People sign back in; nothing is lost. This is the one restart effect
-that is the same everywhere.
+**Signed-in sessions now survive restarts** on GuideHerd's standard
+production setup — operators and administrators stay signed in through a
+restart or update. (On non-standard setups that keep sessions in memory, a
+restart signs people out and they simply sign back in; nothing is lost
+either way.)
 
 **Consultation summaries are never stored.** The email that was delivered is the
 only copy — there is no second copy to lose or to leak.

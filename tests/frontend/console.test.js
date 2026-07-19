@@ -1072,6 +1072,20 @@ async function fillRequired(page, name = 'David Jones', email = 'david.jones@exa
     await page.close();
   }
 
+  // ── ADR-0019 consumption contract (#53) ────────────────────────────
+  // The console composes the Design System and owns NO standalone
+  // styling: no token block, no custom properties, no colors, no fonts.
+  console.log('— ADR-0019 consumption contract —');
+  {
+    const html = fs.readFileSync(path.join(ROOT, 'receptionist', 'index.html'), 'utf8');
+    const styleBlock = (html.match(/<style>([\s\S]*?)<\/style>/) || [])[1] || '';
+    ok('page links the shared stylesheet', html.includes('assets/guideherd.css'));
+    ok('page defines no :root token block', !styleBlock.includes(':root'));
+    ok('page defines no custom-property tokens', !/^\s*--[a-z-]+\s*:/m.test(styleBlock));
+    ok('page sets no font-family except via shared tokens', !/font-family\s*:(?![^;]*var\(--)/.test(styleBlock));
+    ok('page declares no colors of its own', !/#[0-9a-fA-F]{3,8}\b|rgb\(/.test(styleBlock));
+  }
+
   await browser.close();
   server.close();
   console.log(`\nRESULT: ${passed} passed, ${failed} failed`);

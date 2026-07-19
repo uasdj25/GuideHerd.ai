@@ -30,6 +30,10 @@ const { createNotificationProviderRegistry } = require('../notifications/contrac
 const { createGraphEmailProvider } = require('../notifications/graph-email-provider');
 const { createInMemoryNotificationDeliveryStore } = require('../notifications/delivery-store');
 const { createNotificationService } = require('../notifications/service');
+const { createIntegrationProviderRegistry, INTEGRATION_TYPES } = require('../integrations/contract');
+const { createIntegrationService } = require('../integrations/service');
+const { createInMemoryIntegrationDeliveryStore } = require('../integrations/delivery-store');
+const { createDemoIntegrationProvider } = require('../integrations/demo-provider');
 const { registerNotificationTriggers } = require('../notifications/triggers');
 const {
   SUMMARY_TYPE, SUMMARY_PROVIDER_KEY,
@@ -76,7 +80,7 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore } = {}) {
   // Operational Store (ADR-0006): the handoff repository is injectable. The
   // in-memory implementation remains the default; server.js selects the
   // durable PostgreSQL implementation via GUIDEHERD_OPERATIONAL_PROVIDER.
@@ -237,6 +241,22 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     configService: configService || null, clock,
   });
 
+  // The Integration Contract (ADR-0020): the system-to-system sibling of
+  // the Notification Contract. The demonstration provider is registered on
+  // every deployment (proving the extension seam) but the capability ships
+  // DARK: no organization has a provider until the integration-provider
+  // configuration domain names one. server.js supplies the PostgreSQL
+  // delivery store; the in-memory reference is the default.
+  const integrationProviders = createIntegrationProviderRegistry();
+  integrationProviders.register(createDemoIntegrationProvider({ telemetry: tel }));
+  const integrationsDeliveryStore = integrationDeliveryStore || createInMemoryIntegrationDeliveryStore({ clock });
+  const integrationService = createIntegrationService({
+    registry: integrationProviders,
+    deliveryStore: integrationsDeliveryStore,
+    configService: configService || null,
+    telemetry: observedTelemetry,
+  });
+
   deps.conversations = createConversationService({
     service, store, summaryNotifier, events, clock, telemetry: observedTelemetry,
   });
@@ -263,6 +283,13 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
       // Booking runs provider-side today (ADR-0011 §7); honest status
       // until the first Scheduling extension lands (ADR-0012 §5).
       { capability: 'scheduling-provider', check: () => 'not-integrated' },
+      {
+        // The deployment CAN perform integrations when providers are
+        // registered; per-organization enablement is configuration
+        // (ADR-0020 — dark by default).
+        capability: 'integration-provider',
+        check: () => (integrationProviders.keys().length > 0 ? 'available' : 'not-configured'),
+      },
       {
         capability: 'user-authentication',
         check: () => {
@@ -295,6 +322,17 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
         clock,
         telemetry: observedTelemetry,
         identityProviderKeys: () => userAuthProviders.keys(),
+        // The full write-validation context (ADR-0016): every provider
+        // registry this composition holds, so configured-but-unregistered
+        // selections are rejected at ADMINISTRATION time — runtime
+        // resolution remains loud as defense in depth.
+        validationContext: () => ({
+          identityProviderKeys: userAuthProviders.keys(),
+          conversationProviderKeys: adapters.keys(),
+          notificationProviderKeys: notificationProviders.keys(),
+          integrationProviderKeys: integrationProviders.keys(),
+          integrationTypes: Object.keys(INTEGRATION_TYPES),
+        }),
       })
     : null;
   deps.administration = administration;
@@ -314,6 +352,11 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
       registry: notificationProviders,
       service: notificationService,
       deliveryStore: notificationsDeliveryStore,
+    },
+    integrations: {
+      registry: integrationProviders,
+      service: integrationService,
+      deliveryStore: integrationsDeliveryStore,
     },
     users: {
       registry: userAuthProviders,

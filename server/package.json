@@ -2,7 +2,7 @@
   "name": "guideherd-handoff-api",
   "version": "0.1.0",
   "private": true,
-  "description": "GuideHerd Context Handoff API (v1) — passes short-lived caller context from the GuideHerd Console to the Scheduling Assistant.",
+  "description": "GuideHerd Context Handoff API (v1) \u2014 passes short-lived caller context from the GuideHerd Console to the Scheduling Assistant.",
   "type": "commonjs",
   "engines": {
     "node": ">=22.5"
@@ -11,9 +11,13 @@
     "start": "node --experimental-sqlite server.js",
     "test": "node --experimental-sqlite --test",
     "config:seed": "node --experimental-sqlite config/seed.js",
-    "test:frontend": "npm --prefix ../tests/frontend install --no-audit --no-fund && npm --prefix ../tests/frontend test"
+    "test:frontend": "npm --prefix ../tests/frontend install --no-audit --no-fund && npm --prefix ../tests/frontend test",
+    "test:pg": "node scripts/test-pg.js"
   },
   "dependencies": {
     "pg": "8.16.3"
+  },
+  "devDependencies": {
+    "embedded-postgres": "17.10.0-beta.17"
   }
 }

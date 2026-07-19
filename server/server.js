@@ -82,6 +82,7 @@ async function main() {
   const OPERATIONAL_PROVIDER = (process.env.GUIDEHERD_OPERATIONAL_PROVIDER || 'memory').trim().toLowerCase();
   let handoffStore; // undefined -> createApp uses the in-memory default
   let notificationDeliveryStore; // undefined -> in-memory default (ADR-0011)
+  let integrationDeliveryStore; // undefined -> in-memory default (ADR-0020)
   let outboxStore; // undefined -> in-memory default (ADR-0017)
   let scheduledActionStore; // undefined -> in-memory default (ADR-0018)
   let operationalMigrationsApplied = null;
@@ -90,6 +91,7 @@ async function main() {
     const { migrate: migrateOperational } = require('./operational/migrate');
     const { createPostgresHandoffStore } = require('./operational/session-repository');
     const { createPostgresNotificationDeliveryStore } = require('./operational/notification-deliveries');
+    const { createPostgresIntegrationDeliveryStore } = require('./operational/integration-deliveries');
     const { createPostgresOutboxStore } = require('./operational/outbox-store');
     const { createPostgresScheduledActionStore } = require('./operational/scheduled-actions');
     try {
@@ -99,6 +101,7 @@ async function main() {
       scheduledActionStore = createPostgresScheduledActionStore({ pool, clock: systemClock() });
       handoffStore = createPostgresHandoffStore({ pool, clock: systemClock(), outbox: outboxStore });
       notificationDeliveryStore = createPostgresNotificationDeliveryStore({ pool, clock: systemClock() });
+      integrationDeliveryStore = createPostgresIntegrationDeliveryStore({ pool, clock: systemClock() });
     } catch (err) {
       fatal('Operational Store (postgres) is unavailable; refusing to start.', {
         error: { message: String(err.message || err) },
@@ -111,7 +114,7 @@ async function main() {
 
   // Browser origins are allowlisted via CORS_ALLOWED_ORIGINS (comma-separated).
   // Defaults to https://guideherd.ai and http://localhost:8080. Never `*`.
-  const app = createApp({ configService, configDb, handoffStore, notificationDeliveryStore, outboxStore, scheduledActionStore });
+  const app = createApp({ configService, configDb, handoffStore, notificationDeliveryStore, integrationDeliveryStore, outboxStore, scheduledActionStore });
   const { handler } = app;
   const server = http.createServer(handler);
 

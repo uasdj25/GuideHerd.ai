@@ -202,6 +202,68 @@ function registerProductionDomains(framework) {
     defaultProvider: 'graph-email',
     registeredKeysContext: 'notificationProviderKeys',
   }));
+
+  // Integration provider selection (ADR-0020) — PER CAPABILITY. The value
+  // maps each integration TYPE to the provider that serves it, so a firm
+  // can route practice-management records, calendars, and billing to
+  // DIFFERENT systems at once, and one provider may serve several types.
+  // DARK BY DEFAULT: the default map is empty, and an unmapped type is the
+  // controlled 'not-configured' result — never an error. Writes stay
+  // strict when the producer supplies context (ADR-0007 §6): every mapped
+  // type must be a registered integration capability, and every mapped
+  // provider must be registered on the deployment.
+  framework.register({
+    id: 'integration-providers',
+    title: 'Integration provider selection',
+    owner: 'integrations',
+    namespace: 'integrations',
+    key: 'providers',
+    live: true,
+    schemaVersion: 1,
+    normalize(raw) {
+      if (raw === null || raw === undefined) return { value: { providers: {} }, issues: [] };
+      if (!isPlainObject(raw)) {
+        return { value: { providers: {} }, issues: ['must be an object like { "providers": { "<type>": "<provider>" } }'] };
+      }
+      const issues = [];
+      for (const k of Object.keys(raw)) {
+        if (k !== 'providers') issues.push(`unknown field: ${k}`);
+      }
+      const providers = {};
+      if (raw.providers !== undefined) {
+        if (!isPlainObject(raw.providers)) {
+          issues.push('providers must map integration types to provider keys');
+        } else {
+          for (const [type, provider] of Object.entries(raw.providers)) {
+            if (typeof type !== 'string' || type.trim() === '') {
+              issues.push('integration type keys must be nonblank strings');
+              continue;
+            }
+            if (typeof provider !== 'string' || provider.trim() === '') {
+              issues.push(`provider for ${type} must be a nonblank string`);
+              continue;
+            }
+            providers[type.trim()] = provider.trim();
+          }
+        }
+      }
+      return { value: { providers }, issues };
+    },
+    validate(value, context) {
+      const issues = [];
+      const types = context && context.integrationTypes;
+      const registered = context && context.integrationProviderKeys;
+      for (const [type, provider] of Object.entries(value.providers)) {
+        if (Array.isArray(types) && !types.includes(type)) {
+          issues.push(`unknown integration type: ${type} (known: ${types.join(', ')})`);
+        }
+        if (Array.isArray(registered) && !registered.includes(provider)) {
+          issues.push(`provider for ${type} must be one of: ${registered.join(', ')}`);
+        }
+      }
+      return issues;
+    },
+  });
 }
 
 /**

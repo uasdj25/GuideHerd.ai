@@ -123,6 +123,20 @@ API instance is required. See the runbook's session-store operating boundary.
 
 ---
 
+## Health probes (#38)
+
+| Route | Auth | Meaning |
+|---|---|---|
+| `GET /healthz` | none | Liveness: the process serves HTTP. Checks nothing else, by design. |
+| `GET /readyz` | none | Readiness: `200 {"status":"ready"}` when the operational and configuration stores answer within a bounded timeout; `503` otherwise. One word, no detail. |
+| `GET /api/v1/operations/health` | session + `operations:read` | The full capability report (ADR-0014): overall `status` (`healthy`/`degraded`/`unavailable`), `checkedAt`, per-capability list. |
+
+Recommended platform healthcheck target: **`/readyz`** (Railway:
+`healthcheckPath`). Point uptime monitors at `/healthz` (a database blip
+should page as degraded, not restart the process). Setting the Railway
+healthcheck path is a production change — do it deliberately, not as part of
+a deploy.
+
 ## Other
 
 | Variable | Default | Purpose |

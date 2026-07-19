@@ -73,6 +73,16 @@ diagnostic — telemetry today, the future integration-health drill-down
 module later — and never becomes the primary health model. New
 integrations register a capability check at composition, additively.
 
+**Addendum (#38):** the health surface gained bounded, parallel checks
+(per-check timeout; a hung dependency reports `unavailable` instead of
+hanging the endpoint), an overall rollup (`healthy` / `degraded` /
+`unavailable` — deliberate dark states like `not-configured` and
+`not-integrated` do not degrade), and two PUBLIC process-level probes,
+`GET /healthz` (liveness; checks nothing by design) and `GET /readyz`
+(readiness; one bounded boolean over the required stores, no detail).
+The authenticated capability report remains this ADR's single health
+model — the probes expose booleans, never capabilities.
+
 ### 5. Protected by GuideHerd sessions and authorization
 
 Operations routes ALWAYS require an authenticated user session (never

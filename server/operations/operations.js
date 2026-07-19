@@ -50,6 +50,9 @@ const { systemClock } = require('../handoff/clock');
 
 const DEFAULT_EVENT_BUFFER = 500;
 
+/** The stores the platform cannot serve without (#38 readiness/rollup). */
+const REQUIRED_CAPABILITIES = ['operational-store', 'configuration-store'];
+
 /** Session status groupings for the dashboard views. */
 const STATUS_GROUPS = Object.freeze({
   pending: Object.freeze(['awaiting-transfer']),
@@ -107,6 +110,10 @@ function createOperationsCenter({
   capabilities = [],
   clock = systemClock(),
   eventBufferSize = DEFAULT_EVENT_BUFFER,
+  // Health checks are bounded (#38): a hanging store or capability check
+  // reports `unavailable` instead of hanging the endpoint. Injectable so
+  // tests exercise the timeout without waiting on it.
+  healthCheckTimeoutMs = 1500,
 }) {
   /** @type {Array<object>} newest last; bounded. */
   const eventFeed = [];
@@ -198,10 +205,12 @@ function createOperationsCenter({
       for (const record of notifications) {
         notificationCounts[record.status] = (notificationCounts[record.status] || 0) + 1;
       }
+      const report = await api.healthReport();
       return {
         sessions: { byStatus, groups },
         notifications: notificationCounts,
-        health: await api.health(),
+        health: report.health,
+        healthStatus: report.status,
       };
     },
 
@@ -308,33 +317,65 @@ function createOperationsCenter({
 
     /** GuideHerd capability health — capabilities, not infrastructure. */
     async health() {
-      const results = [];
-      // Operational Store: can the platform read its own state?
-      try {
-        await store.size();
-        results.push({ capability: 'operational-store', status: 'available' });
-      } catch {
-        results.push({ capability: 'operational-store', status: 'unavailable' });
-      }
-      // Configuration Store: is firm configuration readable?
-      if (!configService) {
-        results.push({ capability: 'configuration-store', status: 'not-configured' });
-      } else {
+      return (await api.healthReport()).health;
+    },
+
+    /**
+     * Full health report (#38): every check runs CONCURRENTLY under a
+     * per-check timeout — a hung dependency reports `unavailable` instead
+     * of hanging the caller — plus an overall rollup:
+     *
+     *   unavailable — a required store (operational, configuration) is down
+     *   degraded    — any other check reports `unavailable`
+     *   healthy     — everything else. `not-configured`/`not-integrated`
+     *                 are deliberate dark states, individually visible but
+     *                 not a degradation.
+     */
+    async healthReport() {
+      const bounded = async (capability, fn) => {
+        let timer;
         try {
+          const status = await Promise.race([
+            (async () => fn())(),
+            new Promise((_, reject) => {
+              timer = setTimeout(() => reject(new Error('health check timed out')), healthCheckTimeoutMs);
+            }),
+          ]);
+          return { capability, status };
+        } catch {
+          return { capability, status: 'unavailable' };
+        } finally {
+          clearTimeout(timer);
+        }
+      };
+
+      const health = await Promise.all([
+        // Operational Store: can the platform read its own state?
+        bounded('operational-store', () => Promise.resolve(store.size()).then(() => 'available')),
+        // Configuration Store: is firm configuration readable?
+        bounded('configuration-store', () => {
+          if (!configService) return 'not-configured';
           configService.organizations.list({});
-          results.push({ capability: 'configuration-store', status: 'available' });
-        } catch {
-          results.push({ capability: 'configuration-store', status: 'unavailable' });
-        }
-      }
-      for (const { capability, check } of capabilities) {
-        try {
-          results.push({ capability, status: await check() });
-        } catch {
-          results.push({ capability, status: 'unavailable' });
-        }
-      }
-      return results;
+          return 'available';
+        }),
+        ...capabilities.map(({ capability, check }) => bounded(capability, check)),
+      ]);
+
+      const byCapability = Object.fromEntries(health.map((h) => [h.capability, h.status]));
+      const requiredDown = REQUIRED_CAPABILITIES.some((c) => byCapability[c] === 'unavailable');
+      const anyDown = health.some((h) => h.status === 'unavailable');
+      const status = requiredDown ? 'unavailable' : (anyDown ? 'degraded' : 'healthy');
+      return { status, checkedAt: new Date(clock.now()).toISOString(), health };
+    },
+
+    /**
+     * Readiness (#38): are the required stores answering? One bounded
+     * boolean for the public /readyz probe — no detail leaves this method.
+     */
+    async ready() {
+      const { health } = await api.healthReport();
+      const byCapability = Object.fromEntries(health.map((h) => [h.capability, h.status]));
+      return !REQUIRED_CAPABILITIES.some((c) => byCapability[c] === 'unavailable');
     },
 
     /** Feed size (tests/introspection). */

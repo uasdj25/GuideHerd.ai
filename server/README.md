@@ -24,6 +24,13 @@ cd server
 npm start          # binds 0.0.0.0 on PORT (default 3000)
 ```
 
+Health (#38): `GET /healthz` (public liveness — checks nothing, by design),
+`GET /readyz` (public readiness — one bounded boolean over the required
+stores, `503` when either is down), and the authenticated capability report
+at `GET /api/v1/operations/health` (ADR-0014; overall
+`healthy`/`degraded`/`unavailable` rollup + per-capability list, every check
+bounded by a timeout).
+
 Local console development: serve the site on `http://localhost:8080` and open
 `/receptionist/?apiBase=http://localhost:3000`. The console honors the
 `apiBase` override **only when the page itself runs on localhost/127.0.0.1**,

@@ -34,6 +34,8 @@ themselves.
 
 That's the whole job. Everything below is detail and exceptions.
 
+![The Reception Console ready for caller information](images/reception-console-ready.png)
+
 ---
 
 ## Filling in the caller's details
@@ -77,6 +79,8 @@ hand over, and a countdown starts.
 
 **You have 10 minutes to transfer the caller.**
 
+![The console prepared, showing the transfer countdown](images/reception-console-ready-to-transfer.png)
+
 The countdown isn't a deadline for the appointment — it's how long the prepared
 session waits. It exists so that a caller who hangs up doesn't leave a session
 sitting open forever.
@@ -103,6 +107,8 @@ the rest — though it's satisfying when the booking lands.
 ## When it's booked
 
 The console shows the date, time, timezone, and attorney.
+
+![A booked appointment confirmation on the console](images/reception-console-booked.png)
 
 The caller gets a confirmation by email. **Read the details back to the caller
 if they're still on the line** — it's the fastest way to catch a wrong email
@@ -140,6 +146,8 @@ still with you, they won't notice anything.
 
 The console couldn't reach GuideHerd, so it doesn't know your firm's practice
 areas or appointment types.
+
+![The console when scheduling options cannot be loaded](images/reception-console-options-error.png)
 
 Select **Try Again**. If it keeps failing, GuideHerd is unreachable — take
 details by hand and tell your administrator now, because this affects everyone

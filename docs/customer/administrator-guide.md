@@ -30,6 +30,8 @@ turns up at the wrong hour.
 | **Operations Center** | Operators, administrators | See what's happened. Read-only. |
 | **Administration** | Administrators | Change your firm's setup |
 
+![The Administration Center](images/administration-center.png)
+
 ---
 
 ## Roles

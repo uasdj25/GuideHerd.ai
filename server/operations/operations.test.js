@@ -314,6 +314,107 @@ test('HTTP: a seed-managed deployment reports itself on the health surface (ADR-
   });
 });
 
+// ── Health probes and the bounded health report (#38) ───────────────────────
+
+test('healthReport: parallel bounded checks, rollup, and readiness', async (t) => {
+  const clock = fixedClock(T0);
+  const base = () => ({
+    notificationDeliveryStore: createInMemoryNotificationDeliveryStore({ clock }),
+    configService: null,
+    clock,
+  });
+
+  await t.test('healthy: everything answers; dark states do not degrade', async () => {
+    const ops = createOperationsCenter({
+      ...base(),
+      store: createInMemoryHandoffStore({ clock }),
+      capabilities: [
+        { capability: 'notification-provider', check: () => 'not-configured' },
+        { capability: 'scheduling-provider', check: () => 'not-integrated' },
+      ],
+    });
+    const report = await ops.healthReport();
+    assert.equal(report.status, 'healthy', 'not-configured/not-integrated are deliberate dark states');
+    assert.equal(report.checkedAt, '2026-07-12T15:15:00.000Z');
+    assert.equal(await ops.ready(), true);
+  });
+
+  await t.test('degraded: a non-required capability failing or THROWING', async () => {
+    const ops = createOperationsCenter({
+      ...base(),
+      store: createInMemoryHandoffStore({ clock }),
+      capabilities: [{ capability: 'workflow-engine', check: () => { throw new Error('boom'); } }],
+    });
+    const report = await ops.healthReport();
+    assert.equal(report.status, 'degraded');
+    assert.equal(report.health.find((h) => h.capability === 'workflow-engine').status, 'unavailable');
+    assert.equal(await ops.ready(), true, 'a degraded capability does not fail readiness');
+  });
+
+  await t.test('unavailable: a required store failing fails readiness too', async () => {
+    const broken = createInMemoryHandoffStore({ clock });
+    broken.size = async () => { throw new Error('store down'); };
+    const ops = createOperationsCenter({ ...base(), store: broken, capabilities: [] });
+    const report = await ops.healthReport();
+    assert.equal(report.status, 'unavailable');
+    assert.equal(report.health.find((h) => h.capability === 'operational-store').status, 'unavailable');
+    assert.equal(await ops.ready(), false);
+  });
+
+  await t.test('a HANGING check reports unavailable within the timeout instead of hanging', async () => {
+    const hung = createInMemoryHandoffStore({ clock });
+    hung.size = () => new Promise(() => {}); // never resolves
+    const ops = createOperationsCenter({
+      ...base(), store: hung, capabilities: [], healthCheckTimeoutMs: 50,
+    });
+    const started = Date.now();
+    const report = await ops.healthReport();
+    assert.ok(Date.now() - started < 1000, 'bounded by the timeout, not the hang');
+    assert.equal(report.status, 'unavailable');
+    assert.equal(await ops.ready(), false);
+  });
+});
+
+test('HTTP: /healthz and /readyz are public, minimal, and leak nothing (#38)', async () => {
+  await withServer({}, async (base) => {
+    const live = await fetch(`${base}/healthz`);
+    assert.equal(live.status, 200);
+    assert.deepEqual(await live.json(), { status: 'ok' }, 'liveness is zero-information');
+
+    const ready = await fetch(`${base}/readyz`);
+    assert.equal(ready.status, 200);
+    assert.deepEqual(await ready.json(), { status: 'ready' }, 'readiness is one word — no capability detail');
+
+    // The authenticated detail surface still requires a session.
+    assert.equal((await fetch(`${base}/api/v1/operations/health`)).status, 401);
+  });
+});
+
+test('HTTP: /readyz answers 503 when a required store is down (#38)', async () => {
+  const clock = fixedClock(T0);
+  const broken = createInMemoryHandoffStore({ clock });
+  broken.size = async () => { throw new Error('store down'); };
+  await withServer({ handoffStore: broken }, async (base) => {
+    const ready = await fetch(`${base}/readyz`);
+    assert.equal(ready.status, 503);
+    assert.deepEqual(await ready.json(), { status: 'unavailable' });
+    // Liveness is unaffected: the process itself is up.
+    assert.equal((await fetch(`${base}/healthz`)).status, 200);
+  });
+});
+
+test('HTTP: the operations health report carries the rollup and timestamp (#38)', async () => {
+  await withServer({}, async (base) => {
+    const operator = await loginCookie(base, 'dev-key-ops-0123456789abcdef');
+    const report = await (await fetch(`${base}/api/v1/operations/health`, { headers: operator })).json();
+    assert.equal(report.status, 'healthy');
+    assert.ok(report.checkedAt);
+    assert.ok(Array.isArray(report.health) && report.health.length > 0, 'pre-#38 shape preserved');
+    const overview = await (await fetch(`${base}/api/v1/operations/overview`, { headers: operator })).json();
+    assert.equal(overview.healthStatus, 'healthy');
+  });
+});
+
 test('HTTP: existing workflows are unchanged by the Operations Center', async () => {
   await withServer({}, async (base) => {
     // Anonymous console (default floor), bridge auth, capability tokens —

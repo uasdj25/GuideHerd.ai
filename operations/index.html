@@ -19,6 +19,7 @@
   .ops-health-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--sp-2); }
   .ops-health-cell { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
   .ops-health-cell .cap { font-size: var(--fs-sm); color: var(--text-soft); }
+  .ops-health-rollup { display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--text-soft); margin-bottom: var(--sp-2); }
   #app { display: none; }
 </style>
 </head>
@@ -144,6 +145,8 @@
     // `live` on the first restart that finds the store populated; if it
     // never clears, the configuration filesystem is not durable.
     live: 'ok', 'seed-managed': 'warn', 'bootstrap-imported': 'warn',
+    // overall rollup (#38)
+    healthy: 'ok', degraded: 'warn',
     // severities
     info: 'mute', warn: 'warn', error: 'bad',
   };
@@ -224,8 +227,10 @@
         var bad = g === 'failed' && (groups[g] || 0) > 0;
         return '<div class="gh-stat' + (bad ? ' gh-stat--bad' : '') + '"><div class="gh-stat-n">' + esc(groups[g] || 0) + '</div><div class="gh-stat-l">' + esc(g) + '</div></div>';
       }).join('');
+      // Overall rollup first (#38), then the per-capability grid.
+      var rollup = o.healthStatus ? '<p class="ops-health-rollup">Overall ' + badge(o.healthStatus) + '</p>' : '';
       el('health').innerHTML = o.health.length
-        ? '<div class="ops-health-grid">' + o.health.map(function (r) {
+        ? rollup + '<div class="ops-health-grid">' + o.health.map(function (r) {
             return '<div class="gh-card ops-health-cell"><span class="cap">' + esc(r.capability) + '</span>' + badge(r.status) + '</div>';
           }).join('') + '</div>'
         : empty('No capabilities registered.');

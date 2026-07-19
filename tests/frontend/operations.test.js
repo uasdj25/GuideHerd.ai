@@ -50,6 +50,7 @@ const OPERATOR = {
 const OVERVIEW = {
   sessions: { groups: { pending: 1, active: 0, completed: 5, failed: 0 }, recent: [] },
   health: [{ capability: 'operational-store', status: 'available' }],
+  healthStatus: 'healthy',
 };
 
 const CORS = (origin) => ({
@@ -153,6 +154,11 @@ function newCalls() { return { session: [], login: [], logout: [], overview: [],
       (await page.textContent('#who')).trim() === 'Olive Operator — martinson-beason');
     ok('the authenticated load rendered real data',
       (await page.textContent('#counters')).includes('completed'));
+    // Health rollup (#38): overall badge above the capability grid.
+    await page.waitForSelector('#health .ops-health-rollup');
+    ok('health rollup badge renders with ok styling',
+      (await page.textContent('#health .ops-health-rollup')).includes('healthy')
+      && !!(await page.$('#health .ops-health-rollup .gh-badge--ok')));
     ok('credential input cleared after sign-in', (await page.inputValue('#credential')) === '');
 
     // Credentials never persist client-side.

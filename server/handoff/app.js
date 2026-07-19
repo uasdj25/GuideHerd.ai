@@ -85,7 +85,7 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, workflowStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore, configurationAuthority } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, workflowStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore, configurationAuthority, healthCheckTimeoutMs } = {}) {
   // Configuration authority (ADR-0022): who owns configuration truth in this
   // deployment. server.js computes the real descriptor from the seed mode;
   // the default describes every other composition (tests, dev, demos), where
@@ -365,6 +365,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     outboxStore: outboxEventStore,
     configService: configService || null,
     clock,
+    healthCheckTimeoutMs,
     capabilities: [
       {
         capability: 'notification-provider',
@@ -622,6 +623,23 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
         return res.end();
       }
 
+      // ── Public health probes (#38) ──────────────────────────────────
+      // Liveness: constant-time, zero-information, checks NOTHING — a
+      // liveness probe that consults dependencies turns a database blip
+      // into a restart storm. Readiness: one bounded boolean over the
+      // required stores; no capability names or detail ever leave these
+      // routes. The authenticated detail surface remains ADR-0014's
+      // /api/v1/operations/health.
+      if (method === 'GET' && path === '/healthz') {
+        status = 200;
+        return sendJson(res, status, { status: 'ok' }, cors, correlationId);
+      }
+      if (method === 'GET' && path === '/readyz') {
+        const ready = await operations.ready();
+        status = ready ? 200 : 503;
+        return sendJson(res, status, { status: ready ? 'ready' : 'unavailable' }, cors, correlationId);
+      }
+
       // ── GuideHerd Administration (ADR-0015) ─────────────────────────
       // Always session-authenticated; reads require administration:read,
       // changes require administration:write. The organization and actor
@@ -715,7 +733,10 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
         }
         if (path === '/api/v1/operations/health') {
           status = 200;
-          return sendJson(res, status, { health: await operations.health() }, cors, correlationId);
+          // Full report (#38): overall rollup + per-capability list. The
+          // `health` array keeps its pre-#38 shape; status/checkedAt are
+          // additive.
+          return sendJson(res, status, await operations.healthReport(), cors, correlationId);
         }
         const timelineMatch = path.match(/^\/api\/v1\/operations\/timeline\/([^/]+)$/);
         if (timelineMatch) {

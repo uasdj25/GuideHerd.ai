@@ -143,28 +143,24 @@ screen like the rest of the catalog.
 
 ### Offices and business hours
 
-Offices and their opening hours are editable on the Administration screen.
-But — importantly — **business hours are stored but not currently used to
-decide anything.** Recording them does not stop an appointment being offered
-outside them.
-
-Don't rely on business hours as a control. If it matters that appointments only
-land in certain windows, raise it as a requirement rather than assuming the
-setting does it.
+Offices and their opening hours are editable on the Administration screen —
+and **business hours are now a real rule**: when your scheduling assistant
+asks GuideHerd which times to offer, anything outside your configured hours
+is removed before the caller hears a single option. The whole appointment
+must fit inside a window; days without hours are closed. (Confirm with your
+GuideHerd contact that your assistant is connected to GuideHerd's selection
+step — the rule applies to offers that flow through it.)
 
 ### Scheduling preferences
 
 You can record preferences — preferred attorneys, preferred days, morning or
 afternoon, preferred appointment length.
 
-> **Be clear-eyed about this one: these preferences are saved and validated, but
-> they do not yet influence what gets booked.** The part of GuideHerd that would
-> apply them to real availability isn't connected. Availability comes from your
-> calendar system.
->
-> Setting them does no harm and they'll take effect when that connection lands.
-> But if you set a preference and bookings ignore it, the system isn't broken —
-> it just isn't wired up yet.
+> Preferences **re-rank** the times your calendar system makes available —
+> preferred attorneys, days, mornings/afternoons, and length push matching
+> times to the front of what callers are offered. They never hide a time
+> (business hours do that); with no preferences set, times are offered in
+> calendar order. Availability itself still comes from your calendar system.
 
 Also not available today: minimum notice before an appointment, buffers between
 appointments, and per-type appointment lengths. None of these exist.

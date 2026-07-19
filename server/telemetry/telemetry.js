@@ -67,6 +67,10 @@ const EVENTS = Object.freeze([
   'workflow.completed',
   'workflow.step_failed',
   'workflow.step_abandoned',
+  // Live slot selection (ADR-0012 / #66): policy + business hours
+  // governing real offers, and the loud everything-excluded case.
+  'scheduling.slots_selected',
+  'scheduling.slots_exhausted',
   'scheduler.action_scheduled',
   'scheduler.action_completed',
   'scheduler.action_failed',
@@ -76,6 +80,7 @@ const EVENTS = Object.freeze([
 /** GuideHerd component names for failure attribution. */
 const COMPONENTS = Object.freeze([
   'http-api',
+  'scheduling',
   'identity',
   'authorization',
   'configuration-store',
@@ -110,6 +115,10 @@ const ALLOWED_FIELDS = Object.freeze([
   'provider',
   'providerRequestId',
   'sessionId',
+  // Slot-selection counts (#66): small numbers, never slot content.
+  'receivedCount',
+  'offeredCount',
+  'removedCount',
   'code',
   'notificationType',
   'notificationKey',

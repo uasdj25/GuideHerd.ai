@@ -1,9 +1,12 @@
 # ADR-0012: The GuideHerd Scheduling Policy Engine
 
-**Status:** Proposed — the policy engine and its configuration domain are
-implemented and administrable, but no production booking path consumes the
-engine yet (availability remains provider-side); activation is tracked by
-issue #66. Accepted only once the engine governs live booking.
+**Status:** Accepted — the live selection seam shipped with #66:
+`POST /api/v1/scheduling/slot-selection` (service-identity authorized,
+`scheduling:select`) runs provider-supplied availability through the
+business-hours constraint (hard — `scheduling/hours.js`) and this engine
+(ranking), so the engine governs every offer that flows through GuideHerd.
+The one remaining activation step is operator-side: pointing the scheduling
+assistant's calendar tool at the seam, verified by test calls.
 **Date:** 2026-07-18
 **Relates to:** GuideHerd Constitution (Principles 3, 4, 5, 10), ADR-0004
 (configuration store), ADR-0007 (Extension Framework — Scheduling is a
@@ -100,3 +103,18 @@ strongest possible sense.
 - A deliberate limitation: policy applies at presentation time; it
   cannot create availability (vacation calendars and working hours, when
   they arrive, are filters over provider truth, not calendar writes).
+
+
+## Addendum (#66): the shipped seam and the business-hours constraint
+
+`scheduling/selection.js` composes, in order: sanitation (malformed slots
+dropped and counted) → **business hours** (`scheduling/hours.js`, a HARD
+constraint honoring the three-hours model — the whole appointment must fit
+one window on one local day, judged in the applicable location's timezone;
+slot-named location wins, a sole hours-bearing location covers unlabeled
+slots, several locations leave a slot visibly `unscoped` rather than
+guessed) → this engine's guarded filters and additive deterministic
+ranking. Only the firm's own hard hours rule can produce an empty offer,
+and it does so loudly (`scheduling.slots_exhausted`, warn). Telemetry:
+`scheduling.slots_selected` with received/offered/removed counts — never
+slot content. Input is bounded (200 slots) and strictly validated.

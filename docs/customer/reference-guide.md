@@ -68,7 +68,7 @@ role.
 | Scheduling preferences | You — but **not yet applied to bookings** |
 | Practice areas, attorneys, routing | You |
 | Consultation types | You |
-| Offices, business hours | You — but hours are **not yet enforced** |
+| Offices, business hours | You — hours are a hard rule on offered times |
 | Reminders and their timings | You |
 | Logo, office contact block | You |
 | Console sign-in | Request |
@@ -127,8 +127,6 @@ Things people reasonably expect, that GuideHerd does not have:
 - Single sign-on (Microsoft, Google, Okta)
 - Self-service password reset, invitations, multi-factor authentication
 - Minimum notice, appointment buffers, per-type durations
-- Enforcement of business hours
-- Application of scheduling preferences to real bookings
 - Automatic deletion of old caller data
 - Undo for configuration changes
 - Alerting when something fails

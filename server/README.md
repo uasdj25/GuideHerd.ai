@@ -24,6 +24,11 @@ cd server
 npm start          # binds 0.0.0.0 on PORT (default 3000)
 ```
 
+Slot selection (#66): `POST /api/v1/scheduling/slot-selection` — the
+ADR-0012 seam; service-identity (`scheduling:select`); business hours
+constrain hard, policy ranks deterministically; contract in
+[`docs/api/slot-selection.md`](../docs/api/slot-selection.md).
+
 Health (#38): `GET /healthz` (public liveness — checks nothing, by design),
 `GET /readyz` (public readiness — one bounded boolean over the required
 stores, `503` when either is down), and the authenticated capability report

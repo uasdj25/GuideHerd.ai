@@ -241,6 +241,51 @@ function createAdministrationService({ configService, configDb, clock, identityP
       },
     },
 
+    // Consultation types: the firm-wide appointment kinds the Console
+    // requires on every call. Same catalog discipline as practice areas.
+    'consultation-types': {
+      apply: (ctx, payload) => {
+        const { action, key, fields } = payload || {};
+        if (action === 'create') {
+          return administer({
+            ...ctx, entity: 'consultation-types', action: 'create',
+            change: () => configService.consultationTypes.create(ctx.organizationKey, fields),
+          });
+        }
+        if (action === 'update' && typeof key === 'string') {
+          return administer({
+            ...ctx, entity: `consultation-type:${key}`, action: 'update',
+            before: configService.consultationTypes.get(ctx.organizationKey, key),
+            change: () => configService.consultationTypes.update(ctx.organizationKey, key, fields),
+          });
+        }
+        throw new ValidationError('consultation-types requires action create|update.', []);
+      },
+    },
+
+    // Routing groups: creation and practice-area assignment (`serviceArea`
+    // is a practice-area key; the store resolves and enforces same-org).
+    // Membership/order continues to live in the attorney-order area.
+    'routing-groups': {
+      apply: (ctx, payload) => {
+        const { action, key, fields } = payload || {};
+        if (action === 'create') {
+          return administer({
+            ...ctx, entity: 'routing-groups', action: 'create',
+            change: () => configService.routingGroups.create(ctx.organizationKey, fields),
+          });
+        }
+        if (action === 'update' && typeof key === 'string') {
+          return administer({
+            ...ctx, entity: `routing-group:${key}`, action: 'update',
+            before: configService.routingGroups.get(ctx.organizationKey, key),
+            change: () => configService.routingGroups.update(ctx.organizationKey, key, fields),
+          });
+        }
+        throw new ValidationError('routing-groups requires action create|update.', []);
+      },
+    },
+
     // Attorney ordering: the ordered member list of a routing group is the
     // order the Console (and future engines) present attorneys in.
     'attorney-order': {
@@ -326,6 +371,7 @@ function createAdministrationService({ configService, configDb, clock, identityP
       return {
         organization: { ...configService.organizations.get(organizationKey), version: versionOf('organization') },
         practiceAreas: configService.serviceAreas.list(organizationKey, {}),
+        consultationTypes: configService.consultationTypes.list(organizationKey, {}),
         attorneys: configService.providers.list(organizationKey, {}),
         routingGroups: configService.routingGroups.list(organizationKey, {}),
         locations: configService.locations.list(organizationKey, {}),

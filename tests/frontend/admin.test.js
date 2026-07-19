@@ -58,15 +58,19 @@ function mockConfig(overrides = {}) {
       { key: 'personal-injury', name: 'Personal Injury', active: true },
       { key: 'family-law', name: 'Family Law & Divorce', active: false },
     ],
+    consultationTypes: [
+      { key: 'initial-consultation', name: 'Initial Consultation', active: true },
+    ],
     attorneys: [
       { key: 'clay-martinson', name: 'Clay Martinson', displayName: 'Clay Martinson', active: true },
       { key: 'raina-baugher', name: 'Raina Baugher', displayName: 'Raina Baugher', active: true },
     ],
     routingGroups: [
-      { key: 'pi-group', name: 'Personal Injury Group', providers: ['clay-martinson', 'morris-lilienthal'] },
+      { key: 'pi-group', name: 'Personal Injury Group', serviceArea: 'personal-injury', providers: ['clay-martinson', 'morris-lilienthal'] },
     ],
     locations: [
-      { key: 'huntsville', name: 'Huntsville Office', timezone: 'America/Chicago' },
+      { key: 'huntsville', name: 'Huntsville Office', timezone: 'America/Chicago',
+        officeHours: [{ dayOfWeek: 1, opens: '09:00', closes: '17:00' }] },
     ],
     settings: {
       schedulingPolicy: { value: { preferredTimeOfDay: 'morning' }, version: 5, live: true },
@@ -191,16 +195,20 @@ function newCalls() { return { session: [], login: [], logout: [], config: [], a
       (await page.textContent('#who')).trim() === 'Ada Admin — martinson-beason');
     ok('application header composes gh-app-header', !!(await page.$('header.gh-app-header .gh-app-name')));
 
-    // Entity listings render as Design System tables with badges.
-    const catalog = await page.textContent('#catalog');
-    ok('practice areas listed', catalog.includes('Personal Injury') && catalog.includes('Family Law & Divorce'));
-    ok('attorney keys rendered as mono', !!(await page.$('#catalog code.gh-mono')));
-    ok('routing groups listed with ordered attorneys', catalog.includes('clay-martinson, morris-lilienthal'));
-    ok('locations listed', catalog.includes('Huntsville Office'));
-    ok('active/inactive shown as badges, not raw booleans',
-      (await page.$$eval('#catalog .gh-badge', (els) => els.map((e) => e.textContent.trim()))).includes('Inactive')
-      && !catalog.includes('true') && !catalog.includes('false'));
-    ok('tables are the shared primitive', (await page.$$('#catalog table.gh-table')).length >= 3);
+    // Entity listings render as Design System tables with badges — now as
+    // EDITORS (#67), one card per entity family.
+    ok('practice areas listed', (await page.textContent('#pa-list')).includes('Personal Injury'));
+    ok('attorneys listed with mono keys', !!(await page.$('#att-list code.gh-mono')));
+    ok('consultation types listed (describe() now returns them)',
+      (await page.textContent('#ct-list')).includes('Initial Consultation'));
+    ok('routing groups listed with their practice area',
+      (await page.textContent('#rg-list')).includes('personal-injury'));
+    ok('locations listed', (await page.textContent('#loc-list')).includes('Huntsville Office'));
+    ok('active/inactive shown as badges with a toggle action',
+      (await page.$$eval('#pa-list .gh-badge', (els) => els.map((e) => e.textContent.trim()))).includes('Inactive')
+      && (await page.textContent('#pa-list')).includes('Activate'));
+    ok('business-hours editor prefilled from the API', (await page.inputValue('#bh-open-1')) === '09:00');
+    ok('reminder offsets rendered from settings', (await page.textContent('#rem-offsets')).length > 0);
 
     // Form values loaded from the API (behavior parity with the old page).
     ok('organization fields populated', (await page.inputValue('#org-name')) === 'Martinson & Beason, P.C.');
@@ -214,14 +222,15 @@ function newCalls() { return { session: [], login: [], logout: [], config: [], a
   {
     const calls = newCalls();
     const { page, ctx } = await freshPage({
-      config: { status: 200, body: mockConfig({ practiceAreas: [], attorneys: [], routingGroups: [], locations: [] }) },
+      config: { status: 200, body: mockConfig({ practiceAreas: [], attorneys: [], consultationTypes: [], routingGroups: [], locations: [] }) },
       audit: [{ status: 200, body: { audit: [] }, delayMs: 600 }],
     }, calls);
     await page.waitForSelector('#app:not([hidden])');
     ok('audit shows the shared loading state while fetching', !!(await page.$('#audit .gh-loading')));
     await page.waitForSelector('#audit .gh-empty');
     ok('empty audit uses the shared empty state', (await page.textContent('#audit .gh-empty')).includes('No changes yet'));
-    ok('empty catalog uses the shared empty state', (await page.$$('#catalog .gh-empty')).length === 4);
+    ok('empty catalogs use the shared empty state',
+      (await page.$$('#pa-list .gh-empty, #att-list .gh-empty, #ct-list .gh-empty, #rg-list .gh-empty, #loc-list .gh-empty')).length === 5);
     await ctx.close();
   }
 
@@ -288,6 +297,96 @@ function newCalls() { return { session: [], login: [], logout: [], config: [], a
     await ctx.close();
   }
 
+  // ── Portal editors (#67): every administrable area has a screen ────
+  console.log('— Portal editors —');
+  {
+    const calls = newCalls();
+    const applied = [];
+    const { page, ctx } = await freshPage({
+      apply(area, body) { applied.push({ area, body }); return { status: 200, body: { version: (body.expectedVersion || 0) + 1, result: {} } }; },
+    }, calls);
+    await page.waitForSelector('#app:not([hidden])');
+
+    // Create a practice area.
+    await page.fill('#pa-new-key', 'military-law');
+    await page.fill('#pa-new-name', 'Military Law');
+    await page.click('#pa-create');
+    await page.waitForFunction(() => document.getElementById('msg-practice-areas').textContent.includes('Saved'));
+    ok('practice-area create posts the area payload',
+      applied.some((a) => a.area === 'practice-areas' && a.body.payload.action === 'create'
+        && a.body.payload.fields.key === 'military-law' && a.body.payload.fields.name === 'Military Law'));
+
+    // Deactivate via the per-row toggle.
+    await page.click('#pa-list button[data-key="personal-injury"]');
+    await page.waitForFunction(() => document.querySelectorAll('#msg-practice-areas').length > 0);
+    await page.waitForTimeout(300);
+    ok('per-row toggle posts an active:false update',
+      applied.some((a) => a.area === 'practice-areas' && a.body.payload.action === 'update'
+        && a.body.payload.key === 'personal-injury' && a.body.payload.fields.active === false));
+
+    // Consultation type create (the #56-recorded API gap, now closed).
+    await page.fill('#ct-new-key', 'case-review');
+    await page.fill('#ct-new-name', 'Case Review');
+    await page.click('#ct-create');
+    await page.waitForTimeout(300);
+    ok('consultation-type create posts to its own area',
+      applied.some((a) => a.area === 'consultation-types' && a.body.payload.action === 'create'
+        && a.body.payload.fields.key === 'case-review'));
+
+    // Routing group create carries its practice-area assignment.
+    await page.fill('#rg-new-key', 'family-team');
+    await page.fill('#rg-new-name', 'Family Team');
+    await page.selectOption('#rg-new-area', 'family-law');
+    await page.click('#rg-create');
+    await page.waitForTimeout(300);
+    ok('routing-group create posts serviceArea',
+      applied.some((a) => a.area === 'routing-groups' && a.body.payload.action === 'create'
+        && a.body.payload.fields.serviceArea === 'family-law'));
+
+    // Reassign an existing group.
+    await page.selectOption('#rg-edit-key', 'pi-group');
+    await page.selectOption('#rg-edit-area', 'family-law');
+    await page.click('#rg-reassign');
+    await page.waitForTimeout(300);
+    ok('routing-group reassignment posts an update with serviceArea',
+      applied.some((a) => a.area === 'routing-groups' && a.body.payload.action === 'update'
+        && a.body.payload.key === 'pi-group' && a.body.payload.fields.serviceArea === 'family-law'));
+
+    // Business hours build the officeHours array from the day rows.
+    await page.fill('#bh-open-2', '08:30');
+    await page.fill('#bh-close-2', '16:30');
+    await page.click('#bh-save');
+    await page.waitForTimeout(300);
+    const bh = applied.find((a) => a.area === 'business-hours');
+    ok('business-hours save posts locationKey + officeHours rows',
+      bh && bh.body.payload.locationKey === 'huntsville'
+      && bh.body.payload.officeHours.some((h) => h.dayOfWeek === 2 && h.opens === '08:30' && h.closes === '16:30')
+      && bh.body.payload.officeHours.some((h) => h.dayOfWeek === 1 && h.opens === '09:00'));
+
+    // Reminders: toggle + offsets editor.
+    await page.check('#rem-enabled');
+    await page.fill('#rem-new-slot', '2h');
+    await page.fill('#rem-new-minutes', '120');
+    await page.click('#rem-add');
+    await page.click('#save-reminders');
+    await page.waitForTimeout(300);
+    const rem = applied.find((a) => a.area === 'appointment-reminders');
+    ok('reminders save posts enabled + offsets including the new slot',
+      rem && rem.body.payload.enabled === true
+      && rem.body.payload.offsets.some((o) => o.slot === '2h' && o.minutesBefore === 120));
+
+    // Branding: logo + office contact block ride the payload.
+    await page.fill('#brand-logo', 'https://guideherd.ai/logo.png');
+    await page.fill('#brand-phone', '+1 256 555 0100');
+    await page.click('#save-branding');
+    await page.waitForTimeout(300);
+    const brand = applied.filter((a) => a.area === 'notification-branding').pop();
+    ok('branding posts logoUrl and the office contact block',
+      brand && brand.body.payload.logoUrl === 'https://guideherd.ai/logo.png'
+      && brand.body.payload.office.phone === '+1 256 555 0100');
+    await ctx.close();
+  }
+
   // ── Accessibility structure ────────────────────────────────────────
   console.log('— Accessibility structure —');
   {
@@ -295,12 +394,14 @@ function newCalls() { return { session: [], login: [], logout: [], config: [], a
     await page.waitForSelector('#app:not([hidden])');
     ok('skip link targets main', (await page.getAttribute('.gh-skip-link', 'href')) === '#main'
       && !!(await page.$('main#main')));
-    ok('every form control has a label', await page.$$eval('#app input.gh-input, #app select.gh-select', (els) =>
-      els.every((e) => document.querySelector(`label[for="${e.id}"]`) !== null)));
+    ok('every form control is labelled (explicit, implicit, or aria-label)',
+      await page.$$eval('#app input.gh-input, #app select.gh-select, #app input[type=checkbox]', (els) =>
+        els.every((e) => document.querySelector(`label[for="${e.id}"]`) !== null
+          || e.closest('label') !== null || e.getAttribute('aria-label'))));
     ok('save results are aria-live status regions', await page.$$eval('[id^="msg-"]', (els) =>
       els.length >= 6 && els.every((e) => e.getAttribute('role') === 'status' && e.getAttribute('aria-live') === 'polite')));
     ok('async regions (audit, catalog) are aria-live', (await page.getAttribute('#audit', 'aria-live')) === 'polite'
-      && (await page.getAttribute('#catalog', 'aria-live')) === 'polite');
+      && (await page.getAttribute('#pa-list', 'aria-live')) === 'polite');
     // Keyboard: tab reaches the first field; focus ring styles come from the DS.
     await page.keyboard.press('Tab'); // skip link first
     const first = await page.evaluate(() => document.activeElement.className);

@@ -78,7 +78,7 @@ function isPlainObject(v) {
  *   telemetry?: { event: Function },
  * }} deps
  */
-function createAdministrationService({ configService, configDb, clock, identityProviderKeys = () => [], validationContext = () => ({}), telemetry }) {
+function createAdministrationService({ configService, configDb, clock, identityProviderKeys = () => [], validationContext = () => ({}), configurationAuthority = () => ({ mode: 'live', seedOnBoot: false, lastBootImport: 'none' }), telemetry }) {
   const nowIso = () => new Date(clock.now()).toISOString();
   const emit = telemetry ? telemetry.event.bind(telemetry) : () => {};
 
@@ -384,6 +384,10 @@ function createAdministrationService({ configService, configDb, clock, identityP
           },
         ])),
         registeredIdentityProviders: identityProviderKeys(),
+        // Whether writes made here are authoritative (ADR-0022): `live`
+        // means yes; `seed-managed` means a recurring boot-time re-import
+        // overwrites them, and the portal shows a warning banner.
+        configurationAuthority: configurationAuthority(),
       };
     },
 

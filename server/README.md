@@ -53,6 +53,10 @@ Configuration (environment variables):
   at boot regardless of this setting.
 - `GUIDEHERD_SEED_FILE` — **optional**, off by default. See "Configuration
   Store deployment modes" below.
+- `GUIDEHERD_SEED_MODE` — `bootstrap` (default: import the seed document
+  only when its organization is absent) or `always` (explicit every-boot
+  re-import; loud, and reported as `seed-managed`). Any other value refuses
+  to start. Meaningless unless `GUIDEHERD_SEED_FILE` is set (ADR-0022).
 - `GUIDEHERD_OPERATIONAL_PROVIDER` — Operational Store selection (ADR-0006):
   `memory` (default — sessions in process memory, exactly the pre-existing
   behavior) or `postgres` (durable sessions). Selecting `postgres` with an
@@ -188,24 +192,32 @@ The Configuration Store is a **file**, not a service — nothing separate runs.
 How that file gets populated depends on where it's deployed:
 
 - **Persistent disk** (e.g. this host's own filesystem, or a Railway volume):
-  seed once with the CLI above; the file survives restarts and deploys.
-  `GUIDEHERD_SEED_FILE` stays unset.
+  the store — written live through the Administration Framework — is the
+  source of truth (ADR-0022). Either seed once with the CLI above, or set
+  `GUIDEHERD_SEED_FILE`: in the default `GUIDEHERD_SEED_MODE=bootstrap` the
+  document is imported **only when its organization is absent** from the
+  store; once the organization exists, boot skips the import with a loud
+  log line and live configuration wins. A stale seed file can never
+  overwrite newer administration edits.
 - **Ephemeral filesystem, no volume** (e.g. Railway without one attached):
   the file is wiped on every deploy, so it must be rebuilt at every boot.
-  Set `GUIDEHERD_SEED_FILE=config/data/martinson-beason.example.json` (or a
-  real firm's document) and `server.js` imports it automatically before
-  accepting traffic — **git is the source of truth** in this mode. The
-  import is an idempotent upsert (safe on every boot), and a malformed or
-  invalid seed document makes the process **exit immediately with a
-  non-zero code** rather than start serving an incomplete configuration —
-  this is deliberate, so a bad deploy fails loudly (visible as a
-  crash/restart in platform logs) instead of quietly breaking the console.
+  Set `GUIDEHERD_SEED_FILE` — in `bootstrap` mode the empty store imports
+  it at each boot anyway (safe by construction), or set
+  `GUIDEHERD_SEED_MODE=always` to make **git the source of truth**
+  explicitly: the document is re-imported (idempotent upsert) at every
+  boot, a warning is logged at each boot, and the deployment reports
+  itself as `seed-managed` on the Operations Center health list and the
+  Administration screen banner. Administration edits do NOT survive in
+  this mode — that is now an explicit, visible choice, never a silent one.
 
-  **Do not enable this mode once a firm's configuration can be edited
-  through a live channel a git deploy doesn't know about** (e.g. a future
-  Administration Portal) — the next deploy's re-import would silently
-  overwrite those edits with whatever's in git. Until such a channel
-  exists, git-as-source-of-truth is the intended and only mode.
+  In every mode: a malformed or invalid seed document (or an unknown
+  `GUIDEHERD_SEED_MODE` value) makes the process **exit immediately with a
+  non-zero code** rather than start serving an incomplete configuration —
+  a bad deploy fails loudly (visible as a crash/restart in platform logs)
+  instead of quietly breaking the console. Intentional re-import of a
+  live store is the operator CLI (`npm run config:seed`), never startup.
+  Cutover runbook for deployments still running the historical every-boot
+  re-import: `docs/operations/configuration-authority-cutover.md`.
 
 ## GuideHerd Connect
 

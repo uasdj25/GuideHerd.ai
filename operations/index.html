@@ -140,6 +140,10 @@
     sent: 'ok', pending: 'warn', 'not-configured': 'warn',
     // health
     available: 'ok', unavailable: 'bad', 'not-integrated': 'mute',
+    // configuration authority (ADR-0022): bootstrap-imported clears to
+    // `live` on the first restart that finds the store populated; if it
+    // never clears, the configuration filesystem is not durable.
+    live: 'ok', 'seed-managed': 'warn', 'bootstrap-imported': 'warn',
     // severities
     info: 'mute', warn: 'warn', error: 'bad',
   };

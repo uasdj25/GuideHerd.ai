@@ -82,6 +82,7 @@ function mockConfig(overrides = {}) {
       appointmentReminders: { value: { enabled: false }, version: 0, live: true },
     },
     registeredIdentityProviders: ['static-token', 'dev-user'],
+    configurationAuthority: { mode: 'live', seedOnBoot: false, lastBootImport: 'none' },
     ...overrides,
   };
 }
@@ -214,6 +215,36 @@ function newCalls() { return { session: [], login: [], logout: [], config: [], a
     ok('organization fields populated', (await page.inputValue('#org-name')) === 'Martinson & Beason, P.C.');
     ok('policy time-of-day populated', (await page.inputValue('#pol-time')) === 'morning');
     ok('identity provider options from API', (await page.$$eval('#idp option', (o) => o.map((x) => x.value))).join(',') === 'static-token,dev-user');
+
+    // Configuration authority banner (ADR-0022, #59): live mode reassures.
+    ok('authority banner visible', await page.isVisible('#authority-banner'));
+    ok('live mode shows an ok badge', (await page.getAttribute('#authority-badge', 'class')).includes('gh-badge--ok')
+      && (await page.textContent('#authority-badge')).trim() === 'Live');
+    ok('live mode text says changes stick', (await page.textContent('#authority-text')).includes('source of truth'));
+    await ctx.close();
+  }
+
+  // ── Configuration authority: seed-managed warning (ADR-0022) ───────
+  console.log('— Configuration authority banner —');
+  {
+    const calls = newCalls();
+    const { page, ctx } = await freshPage({
+      config: { status: 200, body: mockConfig({ configurationAuthority: { mode: 'seed-managed', seedOnBoot: true, lastBootImport: 'imported' } }) },
+    }, calls);
+    await page.waitForSelector('#app:not([hidden])');
+    ok('seed-managed shows a warning badge', (await page.getAttribute('#authority-badge', 'class')).includes('gh-badge--warn'));
+    ok('seed-managed warns that edits are overwritten', (await page.textContent('#authority-text')).includes('overwritten'));
+    await ctx.close();
+  }
+  {
+    // bootstrap-imported: durability unproven (first boot vs ephemeral disk).
+    const calls = newCalls();
+    const { page, ctx } = await freshPage({
+      config: { status: 200, body: mockConfig({ configurationAuthority: { mode: 'bootstrap-imported', seedOnBoot: true, lastBootImport: 'imported' } }) },
+    }, calls);
+    await page.waitForSelector('#app:not([hidden])');
+    ok('bootstrap-imported shows a warning badge', (await page.getAttribute('#authority-badge', 'class')).includes('gh-badge--warn'));
+    ok('bootstrap-imported does not promise durability', (await page.textContent('#authority-text')).includes('may not survive'));
     await ctx.close();
   }
 

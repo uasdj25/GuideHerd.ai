@@ -23,14 +23,19 @@ work — they save, they validate, they persist — but nothing acts on them.
 
 ## Before you change anything
 
-**Find out whether your deployment reloads its setup from a file at startup.**
+**Check the banner at the top of the Administration screen.** It tells you
+whether changes made here stick:
 
-If it does, that file is the source of truth, and **anything you change in the
-Administration screen is silently reverted at the next restart.** The two modes
-are mutually exclusive.
+- **Live** (green) — this screen is the source of truth. Changes you save
+  survive restarts and updates.
+- **Seed-managed** (yellow) — this deployment reloads its setup from a file at
+  every restart, and changes saved here **will be overwritten**. Contact
+  GuideHerd support before editing anything.
+- **Just imported** (yellow) — the setup was loaded from a file when the
+  system last started. That's normal for a brand-new deployment, but if it
+  wasn't just set up, confirm with GuideHerd support before editing.
 
-Ask your GuideHerd contact which mode you're in. Get this wrong and you'll spend
-an afternoon configuring, then watch it vanish without warning.
+If the banner isn't green, don't spend an afternoon configuring — ask first.
 
 ---
 
@@ -234,5 +239,5 @@ If something isn't behaving, check in this order:
    picking options that don't fit
 3. **Consultation types** — the list doesn't match how the firm works
 4. **Notification settings** — nothing arriving, or callers getting two emails
-5. **The file-reload question** — settings reverting on their own is almost
-   always this
+5. **The banner at the top of the Administration screen** — settings reverting
+   on their own almost always means it isn't green

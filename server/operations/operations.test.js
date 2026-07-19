@@ -298,6 +298,19 @@ test('HTTP: a full workflow appears in the dashboard — and only to its own org
     assert.equal(byCapability['scheduling-provider'], 'not-integrated');
     assert.equal(byCapability['user-authentication'], 'available');
     assert.equal(byCapability['service-identity'], 'available');
+    // Configuration authority (ADR-0022): without a boot-time seed this
+    // composition is live-authoritative.
+    assert.equal(byCapability['configuration-authority'], 'live');
+  });
+});
+
+test('HTTP: a seed-managed deployment reports itself on the health surface (ADR-0022)', async () => {
+  const authority = { mode: 'seed-managed', seedOnBoot: true, lastBootImport: 'imported' };
+  await withServer({ configurationAuthority: authority }, async (base) => {
+    const operator = await loginCookie(base, 'dev-key-ops-0123456789abcdef');
+    const health = await (await fetch(`${base}/api/v1/operations/health`, { headers: operator })).json();
+    const byCapability = Object.fromEntries(health.health.map((h) => [h.capability, h.status]));
+    assert.equal(byCapability['configuration-authority'], 'seed-managed');
   });
 });
 

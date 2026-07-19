@@ -42,6 +42,8 @@ activity, so it is not a long-term audit trail in any configuration.
 
 ## What's on the page
 
+![The Operations Center overview](images/operations-center-overview.png)
+
 ### Handoffs
 
 Four counters: pending, active, completed, and failed.

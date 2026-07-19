@@ -137,8 +137,9 @@ calls (guide, phases 6 and 10).
 
 ## 8. Staff roster and roles
 
-Everyone needing sign-in access, provisioned with your GuideHerd contact
-during onboarding. **Roles don't nest** — someone who both configures the firm
+Everyone needing sign-in access. The initial administrator account is set up
+with your GuideHerd contact; your administrator then adds everyone else in
+the Users card on the Administration screen. **Roles don't nest** — someone who both configures the firm
 and watches operations needs **both** roles listed. Receptionists need no
 sign-in today (the console is open by default).
 
@@ -150,7 +151,7 @@ sign-in today (the console is open by default).
 
 Firm administrator (owns GuideHerd day to day): ______________________
 
-Who notifies GuideHerd when someone leaves? ______________________
+Who deactivates access when someone leaves (Users card, immediate)? ______________________
 
 ---
 

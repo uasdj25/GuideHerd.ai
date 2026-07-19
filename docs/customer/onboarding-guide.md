@@ -47,8 +47,8 @@ By the end, every fact GuideHerd needs is written down and agreed — all
 **your decisions**: firm identity and timezone; offices and hours; practice
 areas; attorneys and coverage; consultation types; which calendar system
 holds availability; the summary mailbox; and the staff roster with roles.
-(The last three are then confirmed, set up, and provisioned **with
-GuideHerd**.)
+(The calendar connection and summary mailbox are then set up **with
+GuideHerd**; the roster is provisioned by your administrator in phase 7.)
 
 **Timezone is the single highest-risk setting in GuideHerd** — the reference
 point for every appointment time. Get it wrong and everything still *looks*
@@ -243,14 +243,24 @@ and neither role opens the console. Someone who both configures the firm
 *and* watches operations needs **both roles assigned** — common in a small
 firm, and fine, but plan it, because adding a role later isn't instant.
 
-**How people are provisioned.** — **With GuideHerd.** Accounts are set up
-together with your GuideHerd contact during onboarding — not something your
-administrator does in a browser today (ask your contact about the current
-availability of self-service user management). So: **bring the complete
-roster to onboarding**, with roles, on the worksheet; **staff changes after
-go-live need lead time** — raise them days ahead, not the morning of a first
-shift; and **offboarding is not instant** — tell your GuideHerd contact
-promptly when someone with access leaves, and say explicitly if it's urgent.
+**How people are provisioned.** Two steps, and the distinction matters:
+
+- **The initial administrator account** — **With GuideHerd.** It's created
+  as part of the deployment itself during onboarding, and it's also the
+  firm's recovery route: whatever happens later in the Users card, that
+  account keeps working, and only GuideHerd can change it.
+- **Everyone else** — **Administrator action.** Your administrator adds
+  users, assigns roles, and issues credentials in the **Users card** on the
+  Administration screen. Changes are immediate: adding someone, changing
+  roles, and deactivating someone all take effect without any restart —
+  deactivation ends the person's current session on their very next action.
+  Each new user's credential is shown **exactly once**, at creation — copy
+  it and hand it over securely; it can't be looked up later, only replaced.
+
+Still bring the complete roster to onboarding on the worksheet — kickoff is
+when roles get decided — and have the administrator provision everyone
+during phase 5's configuration work, so each person can be verified before
+test calls.
 
 **The Reception Console and sign-in.** By default the console requires **no
 sign-in** — anyone who can reach the page can use it: for a front-desk
@@ -266,9 +276,10 @@ authentication today. Sign-in uses an issued credential; a session lasts 12
 hours from sign-in.
 
 - [ ] Roster on the worksheet — both roles marked where someone needs both
-      screens — and provisioned **with GuideHerd**; each person signed in once
+      screens; initial administrator set up **with GuideHerd**; everyone else
+      added by the administrator in the Users card; each person signed in once
 - [ ] Understood: console is open by default; sign-in is a later, planned
-      change if wanted; offboarding route known
+      change if wanted; offboarding = deactivate in the Users card, immediate
 
 ---
 
@@ -293,7 +304,8 @@ in the receptionist's browser; records every configuration change.
   data today, and there is no export-on-request or erasure tooling. If your
   firm has a retention obligation, agree a written manual procedure — who
   deletes what, how often — with your GuideHerd contact.
-- **Prompt offboarding notice**, per phase 7.
+- **Prompt offboarding.** Deactivate leavers in the Users card the day they
+  leave — it's immediate (phase 7).
 
 **Backups.** — **Ask GuideHerd support, in writing.** Whether your firm's
 configuration and history are backed up, on what schedule, and whether a
@@ -435,10 +447,10 @@ firm actually works — firms drift; the lists should follow.
 
 **Whenever staff change:** configuration changes (practice areas, routing,
 consultation types) are **Administrator actions** — immediate, self-service.
-Access changes — adding, removing, or re-roling a signed-in user — were set
-up **with GuideHerd** at onboarding; ask your contact whether self-service
-user management is available to your deployment, and until it is, raise
-changes early and flag urgent removals explicitly.
+So are access changes: add, deactivate, or re-role users in the **Users
+card**, effective immediately — deactivate leavers the day they leave, no
+lead time needed. (The initial administrator account set up with GuideHerd
+is the exception: it's the recovery route, managed only by GuideHerd.)
 And before any significant configuration change, note the old
 value — there's no undo, and putting it back by hand is the rollback.
 
@@ -462,8 +474,10 @@ words, roughly when, and whether it's happened before.
 **every** receptionist (the console can't load the firm's options);
 deliveries showing **not-configured** (email has stopped entirely); settings
 that **revert on their own** (likely the configuration-mode question from
-phase 9); an **urgent access removal** — someone has left and can still sign
-in. Your GuideHerd contact from onboarding remains your named route in; for
+phase 9); and being **locked out of the Administration screen** entirely —
+for anything less, an urgent access removal is something your administrator
+handles directly (deactivate the user in the Users card; it's immediate).
+Your GuideHerd contact from onboarding remains your named route in; for
 everything else, the [documentation index](README.md) maps each question to
 the guide that answers it.
 

@@ -9,6 +9,11 @@ Everything you need to run GuideHerd at your firm.
 **New to GuideHerd?** → **[Getting Started](getting-started.md)**
 Fifteen minutes. What it does, who does what, and your first week.
 
+**Bringing GuideHerd to your firm?** → **[Onboarding Guide](onboarding-guide.md)**
+The whole journey, kickoff to go-live, phase by phase — with a fill-in
+**[Onboarding Worksheet](onboarding-worksheet.md)** that makes kickoff about
+decisions, not dictation.
+
 ---
 
 ## By role
@@ -44,6 +49,7 @@ environment variables.
 | I want to… | Guide |
 |---|---|
 | Understand what GuideHerd does | [Getting Started](getting-started.md) |
+| Bring GuideHerd to my firm | [Onboarding Guide](onboarding-guide.md) + [Worksheet](onboarding-worksheet.md) |
 | Train a receptionist | [Receptionist Guide](receptionist-guide.md) |
 | Set my firm up | [Administrator Guide](administrator-guide.md) |
 | Change a setting | [Configuration Guide](configuration-guide.md) |
@@ -60,6 +66,8 @@ environment variables.
 | Guide | For |
 |---|---|
 | **[Getting Started](getting-started.md)** | Everyone, first |
+| **[Onboarding Guide](onboarding-guide.md)** | Firms joining GuideHerd — kickoff to go-live |
+| **[Onboarding Worksheet](onboarding-worksheet.md)** | The intake form the firm fills in before kickoff |
 | **[Installation & Deployment](installation-and-deployment.md)** | Whoever runs the infrastructure |
 | **[Administrator Guide](administrator-guide.md)** | Whoever runs GuideHerd for the firm |
 | **[Receptionist Guide](receptionist-guide.md)** | Whoever answers the phone |

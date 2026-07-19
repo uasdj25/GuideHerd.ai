@@ -481,3 +481,49 @@ test('HTTP: request logs carry the correlation ID and never tokens or caller PII
     console.log = original;
   }
 });
+
+// ── Bounded provider requests (#60) ────────────────────────────────────────
+
+/** A fetch that never resolves but honors the request's AbortSignal. */
+const hangingFetch = (url, opts) => new Promise((resolve, reject) => {
+  opts.signal.addEventListener('abort', () => reject(opts.signal.reason));
+});
+
+test('mailer #60: a hung TOKEN request aborts within the bound and is retried (no mail was sent)', async () => {
+  const lines = [];
+  const tel = createTelemetry({ log: (l) => lines.push(JSON.parse(l)), clock: fixedClock(T0) });
+  let calls = 0;
+  const fetchImpl = async (url, opts) => {
+    calls += 1;
+    if (calls === 1) return hangingFetch(url, opts); // token hang
+    if (String(url).includes('login.microsoftonline.com')) {
+      return { ok: true, status: 200, json: async () => ({ access_token: 'tok' }), headers: new Headers() };
+    }
+    return { ok: true, status: 202, json: async () => ({}), headers: new Headers() };
+  };
+  const mailer = createMailer({ env: MAIL_ENV, fetchImpl, telemetry: tel, sleep: async () => {}, requestTimeoutMs: 20 });
+  const result = await mailer.sendSummary({ subject: 's', html: '<p>h</p>' });
+  assert.deepEqual(result, { status: 'sent' }, 'token-phase timeout retried safely to success');
+  assert.ok(lines.some((l) => l.event === 'guideherd.retry.attempted'));
+});
+
+test('mailer #60: a hung SEND request aborts within the bound and is NOT retried (acceptance ambiguous)', async () => {
+  const lines = [];
+  const tel = createTelemetry({ log: (l) => lines.push(JSON.parse(l)), clock: fixedClock(T0) });
+  let sendCalls = 0;
+  const fetchImpl = async (url, opts) => {
+    if (String(url).includes('login.microsoftonline.com')) {
+      return { ok: true, status: 200, json: async () => ({ access_token: 'tok' }), headers: new Headers() };
+    }
+    sendCalls += 1;
+    return hangingFetch(url, opts);
+  };
+  const started = Date.now();
+  const mailer = createMailer({ env: MAIL_ENV, fetchImpl, telemetry: tel, sleep: async () => {}, requestTimeoutMs: 20 });
+  const result = await mailer.sendSummary({ subject: 's', html: '<p>h</p>' });
+  assert.ok(Date.now() - started < 2000, 'bounded, not hanging');
+  assert.deepEqual(result, { status: 'failed' });
+  assert.equal(sendCalls, 1, 'ambiguous acceptance: never retried');
+  assert.ok(lines.some((l) => l.event === 'guideherd.provider.timeout'));
+  assert.ok(lines.some((l) => l.event === 'guideherd.summary.delivery_failed'));
+});

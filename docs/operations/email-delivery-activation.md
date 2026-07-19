@@ -42,6 +42,15 @@ provisioning (see "Current blocker"). Production currently reports the
   (`mailer.js` contract; asserted in tests) — a mail failure can never
   reverse or invalidate a confirmed appointment.
 
+## What activation now also unlocks (batch 5)
+
+- **Operational alerts (#68)** ride the same delivery path: once mail is
+  live, firms that enable alerting get failure emails; until then, alert
+  conditions surface as loud telemetry and Operations Center events only.
+- The Microsoft 365 sandbox/tenant work is tracked as **#72** (owned
+  separately); production credentials remain the owner action below
+  regardless of which tenant provides them.
+
 ## Current blocker (non-secret, exact)
 
 Activation requires Microsoft Graph application credentials and an
@@ -86,6 +95,16 @@ Microsoft 365 tenant):**
 7. Skim recent non-sensitive logs for the delivery events; verify no
    credential or caller-detail appears (the telemetry allowlist enforces
    this; the check is confirmatory).
+
+## Hardening shipped with #60 (no operator action)
+
+Both Graph transports (the summary mailer and the notification provider)
+now bound every request with a timeout (default 10 s): a hung token or
+send call can no longer hang outcome recording or delivery draining.
+Token-phase timeouts are retried (no mail can have been sent); send-phase
+timeouts remain non-retryable (acceptance ambiguous — a duplicate summary
+is worse than a delayed one) and resolve to the claim machine's
+retry-later path.
 
 ## Rollback
 

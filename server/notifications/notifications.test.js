@@ -455,3 +455,29 @@ test('HTTP: failed and escalated outcomes never send a confirmation even when en
     assert.equal(sent.length, 0);
   });
 });
+
+test('graph provider #60: a hung send aborts within the bound; delivery fails without retrying', async () => {
+  const hangingFetch = (url, opts) => new Promise((resolve, reject) => {
+    opts.signal.addEventListener('abort', () => reject(opts.signal.reason));
+  });
+  let sendCalls = 0;
+  const fetchImpl = async (url, opts) => {
+    if (String(url).includes('login.microsoftonline.com')) {
+      return { ok: true, status: 200, json: async () => ({ access_token: 'tok' }), headers: new Headers() };
+    }
+    sendCalls += 1;
+    return hangingFetch(url, opts);
+  };
+  const provider = createGraphEmailProvider({
+    env: { MS_TENANT_ID: 't', MS_CLIENT_ID: 'c', MS_CLIENT_SECRET: 's', SUMMARY_MAILBOX: 'mb@x.test' },
+    fetchImpl, sleep: async () => {}, requestTimeoutMs: 20,
+  });
+  const started = Date.now();
+  const result = await provider.deliver(
+    { rendered: { subject: 's', html: '<p>h</p>', text: 'h' }, recipient: { name: null, email: 'r@x.test' } },
+    {},
+  );
+  assert.ok(Date.now() - started < 2000, 'bounded, not hanging');
+  assert.equal(result.status, 'failed');
+  assert.equal(sendCalls, 1, 'send-phase timeout never retried');
+});

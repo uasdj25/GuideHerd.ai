@@ -65,16 +65,20 @@ function graphRequestId(res) {
  * Classify a fetch() rejection. Connection-phase failures (the request
  * never reached the provider) are retryable; anything ambiguous is not.
  */
-function classifyNetworkError(err) {
+function classifyNetworkError(err, { phase = 'send' } = {}) {
   const code = (err && (err.code || (err.cause && err.cause.code))) || '';
   if (['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN'].includes(code)) {
     return providerUnavailable({ provider: PROVIDER, retryable: true });
   }
-  if (['UND_ERR_CONNECT_TIMEOUT', 'ETIMEDOUT', 'ABORT_ERR'].includes(code) || (err && err.name === 'AbortError')) {
-    return providerTimeout({ provider: PROVIDER, retryable: false }); // ambiguous: may have been accepted
-  }
+  // Timeouts (including our own bounded AbortSignal, #60): in the TOKEN
+  // phase no mail can have been sent, so retrying is safe; in the SEND
+  // phase acceptance is ambiguous — a duplicate summary is worse than a
+  // delayed one, so never retried.
+  const timedOut = ['UND_ERR_CONNECT_TIMEOUT', 'ETIMEDOUT', 'ABORT_ERR'].includes(code)
+    || (err && (err.name === 'AbortError' || err.name === 'TimeoutError'));
+  if (timedOut) return providerTimeout({ provider: PROVIDER, retryable: phase === 'token' });
   // Resets and everything else mid-flight: acceptance state unknown.
-  return providerTimeout({ provider: PROVIDER, retryable: false });
+  return providerTimeout({ provider: PROVIDER, retryable: phase === 'token' });
 }
 
 /** Classify a non-success HTTP response from the provider. */
@@ -96,7 +100,7 @@ function classifyHttpFailure(res) {
  *   retryAttempts?: number,
  * }} [deps]
  */
-function createMailer({ env = process.env, fetchImpl = fetch, telemetry, sleep, retryAttempts = 3 } = {}) {
+function createMailer({ env = process.env, fetchImpl = fetch, telemetry, sleep, retryAttempts = 3, requestTimeoutMs = 10_000 } = {}) {
   const config = {
     tenantId: env.MS_TENANT_ID,
     clientId: env.MS_CLIENT_ID,
@@ -122,9 +126,12 @@ function createMailer({ env = process.env, fetchImpl = fetch, telemetry, sleep, 
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body.toString(),
+        // Bounded (#60): a hung identity provider must not hang the
+        // outcome-recording path. Token-phase timeouts are retry-safe.
+        signal: AbortSignal.timeout(requestTimeoutMs),
       });
     } catch (err) {
-      throw classifyNetworkError(err);
+      throw classifyNetworkError(err, { phase: 'token' });
     }
     if (!res.ok) {
       // Token-endpoint failures: 429/5xx are provider-side (retry-safe — no
@@ -181,9 +188,12 @@ function createMailer({ env = process.env, fetchImpl = fetch, telemetry, sleep, 
                 },
                 saveToSentItems: true,
               }),
+              // Bounded (#60): send-phase timeouts stay non-retryable
+              // (acceptance ambiguous) but no longer hang the caller.
+              signal: AbortSignal.timeout(requestTimeoutMs),
             });
           } catch (err) {
-            throw classifyNetworkError(err);
+            throw classifyNetworkError(err, { phase: 'send' });
           }
           // Graph confirms acceptance with 202. Anything else is a failure.
           if (res.status === 202) return { status: 'sent' };

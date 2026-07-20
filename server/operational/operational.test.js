@@ -47,10 +47,22 @@ if (!PG_URL) {
   const { migrate } = require('./migrate');
   const { createPostgresHandoffStore } = require('./session-repository');
 
+  function configServiceWithFirm() {
+    const { openDatabase } = require('../config/db');
+    const { migrate: migrateConfig } = require('../config/migrate');
+    const { createConfigService } = require('../config/service');
+    const db = openDatabase();
+    migrateConfig(db);
+    const cs = createConfigService({ db });
+    cs.organizations.create({ key: 'martinson-beason', name: 'Martinson & Beason, P.C.', timezone: 'America/Chicago' });
+    return cs;
+  }
+
   /** One shared pool for the suite; contract stores share it (close unused). */
   let sharedPool;
 
   async function resetDatabase(pool) {
+    await pool.query('DROP TABLE IF EXISTS user_sessions');
     await pool.query('DROP TABLE IF EXISTS workflow_signals');
     await pool.query('DROP TABLE IF EXISTS workflow_steps');
     await pool.query('DROP TABLE IF EXISTS workflow_instances');
@@ -67,18 +79,18 @@ if (!PG_URL) {
     sharedPool = createOperationalPool({ connectionString: PG_URL });
     await resetDatabase(sharedPool);
 
-    assert.equal(await migrate(sharedPool), 6, 'all pending migrations apply');
+    assert.equal(await migrate(sharedPool), 7, 'all pending migrations apply');
     assert.equal(await migrate(sharedPool), 0, 're-run is a no-op');
 
     // Concurrent boots: several runners at once, advisory lock serializes.
     await resetDatabase(sharedPool);
     const pools = [createOperationalPool({ connectionString: PG_URL }), createOperationalPool({ connectionString: PG_URL })];
     const results = await Promise.all([migrate(sharedPool), migrate(pools[0]), migrate(pools[1])]);
-    assert.equal(results.reduce((a, b) => a + b, 0), 6, 'exactly one runner applies the migrations');
+    assert.equal(results.reduce((a, b) => a + b, 0), 7, 'exactly one runner applies the migrations');
     await Promise.all(pools.map((p) => p.end()));
 
     const { rows } = await sharedPool.query('SELECT count(*)::int AS n FROM operational_schema_migrations');
-    assert.equal(rows[0].n, 6);
+    assert.equal(rows[0].n, 7);
   });
 
   // Contract suite against PostgreSQL. Each test gets a truncated table on
@@ -652,6 +664,126 @@ if (!PG_URL) {
     const { rows } = await sharedPool.query('SELECT * FROM scheduled_actions');
     assert.equal(/@|caller|phone|subject|html|token/i.test(JSON.stringify(rows)), false);
     await poolB.end();
+  });
+
+
+  // ── Durable login sessions (ADR-0013 / #64) ──────────────────────────────
+  // The SAME lifecycle suite the in-memory reference passes, plus the
+  // durability guarantees only a real database can prove.
+  const { runUserSessionLifecycleSuite } = require('../identity/user-session-contract-suite');
+  const { createPostgresUserSessionStore } = require('./user-session-store');
+  const { createUserSessionService: makeSessionService } = require('../identity/user-sessions');
+
+  runUserSessionLifecycleSuite('postgres', async ({ clock }) => {
+    await sharedPool.query('TRUNCATE user_sessions');
+    return createPostgresUserSessionStore({ pool: sharedPool, clock });
+  }, test);
+
+  test('[postgres] sessions: SURVIVE a restart — a second service instance validates a first-instance token', async () => {
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE user_sessions');
+    const claim = { subject: 'op-sam', type: 'user', displayName: 'Sam Ops', organizationKey: 'org-a', roles: ['operator'] };
+
+    // Instance A issues; instance B (fresh service over the same database —
+    // exactly what a restarted or sibling process is) validates.
+    const a = makeSessionService({ store: createPostgresUserSessionStore({ pool: sharedPool, clock }), clock, ttlSeconds: 3600 });
+    const { token } = await a.establish(claim, 'dev-user');
+
+    const b = makeSessionService({ store: createPostgresUserSessionStore({ pool: sharedPool, clock }), clock, ttlSeconds: 3600 });
+    const validated = await b.validate(token);
+    assert.equal(validated.identity.subject, 'op-sam', 'the session outlives the issuing instance');
+    assert.ok(Object.isFrozen(validated.identity));
+
+    // Logout on B is visible to A immediately — one durable truth.
+    await b.invalidate(token);
+    assert.equal(await a.validate(token), null, 'revocation is cross-instance');
+  });
+
+  test('[postgres] sessions: rows hold hashes and identity only — never a raw token; expired rows are purged on login', async () => {
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE user_sessions');
+    const store = createPostgresUserSessionStore({ pool: sharedPool, clock });
+    const service = makeSessionService({ store, clock, ttlSeconds: 60 });
+    const { token } = await service.establish(
+      { subject: 'op-sam', type: 'user', displayName: null, organizationKey: 'org-a', roles: ['operator'] }, 'dev-user');
+
+    const { rows } = await sharedPool.query('SELECT * FROM user_sessions');
+    assert.equal(rows.length, 1);
+    assert.equal(JSON.stringify(rows).includes(token), false, 'the raw token never reaches the database');
+    assert.equal(rows[0].token_hash.length, 64, 'SHA-256 hex hash keyed');
+
+    // Expiry passes; the next establish() (login) purges the dead row.
+    clock.set(T0 + 60_000);
+    assert.equal(await service.validate(token), null);
+    await service.establish({ subject: 'op-sam', type: 'user', displayName: null, organizationKey: 'org-a', roles: ['operator'] }, 'dev-user');
+    const after = await sharedPool.query('SELECT COUNT(*) AS n FROM user_sessions');
+    assert.equal(Number(after.rows[0].n), 1, 'login purged the expired row; only the live session remains');
+    assert.equal(await store.size(), 1);
+  });
+
+  test('[postgres] COMPOSED APP: a login on one instance survives a restart — a second createApp over the same database validates the cookie, and logout is cross-instance', async () => {
+    await sharedPool.query('TRUNCATE user_sessions');
+    const clock = fixedClock(T0);
+    const DEV_USERS = JSON.stringify([
+      { key: 'dev-key-ops-0123456789abcdef', subject: 'op-sam', displayName: 'Sam Ops', organizationKey: 'martinson-beason', roles: ['operator'] },
+    ]);
+    // Two fully composed apps over the SAME database and the SAME durable
+    // session store, exactly as server.js wires it under postgres — a
+    // restart or a sibling instance is indistinguishable from this.
+    const makeComposed = () => createApp({
+      clock,
+      configService: configServiceWithFirm(),
+      devUsersJson: DEV_USERS,
+      userSessionStore: createPostgresUserSessionStore({ pool: createOperationalPool({ connectionString: PG_URL }), clock }),
+    });
+    const appA = makeComposed();
+    const appB = makeComposed();
+    const servers = [appA, appB].map((a) => http.createServer(a.handler));
+    await Promise.all(servers.map((sv) => new Promise((r) => sv.listen(0, r))));
+    const [baseA, baseB] = servers.map((sv) => `http://127.0.0.1:${sv.address().port}`);
+    try {
+      // Sign in on instance A.
+      const login = await fetch(`${baseA}/api/v1/auth/login`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ credential: 'dev-key-ops-0123456789abcdef' }),
+      });
+      assert.equal(login.status, 200);
+      const cookie = (login.headers.get('set-cookie') || '').match(/gh_session=([^;]*)/)[1];
+      assert.ok(cookie.startsWith('gh_usession_'));
+
+      // The RAW token never reached the database — only its hash.
+      const rows = await sharedPool.query('SELECT * FROM user_sessions');
+      assert.equal(rows.rows.length, 1);
+      assert.equal(JSON.stringify(rows.rows).includes(cookie), false, 'raw token absent from PostgreSQL');
+
+      // Instance B — the "restarted" / sibling process — validates the
+      // cookie it never issued, through the composed HTTP surface.
+      const whoB = await fetch(`${baseB}/api/v1/auth/session`, { headers: { cookie: `gh_session=${cookie}` } });
+      assert.equal(whoB.status, 200, 'the session survives the restart / crosses instances');
+      assert.equal((await whoB.json()).subject, 'op-sam');
+
+      // Logout on B invalidates for A immediately — one durable truth.
+      const logout = await fetch(`${baseB}/api/v1/auth/logout`, {
+        method: 'POST', headers: { 'content-type': 'application/json', cookie: `gh_session=${cookie}` }, body: '{}',
+      });
+      assert.equal(logout.status, 204);
+      assert.equal((await fetch(`${baseA}/api/v1/auth/session`, { headers: { cookie: `gh_session=${cookie}` } })).status, 401,
+        'cross-instance revocation');
+
+      // Absolute expiry still holds across the composed surface: a fresh
+      // login, then advance past the TTL — dead on BOTH instances.
+      const login2 = await fetch(`${baseA}/api/v1/auth/login`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ credential: 'dev-key-ops-0123456789abcdef' }),
+      });
+      const cookie2 = (login2.headers.get('set-cookie') || '').match(/gh_session=([^;]*)/)[1];
+      clock.set(T0 + 12 * 60 * 60 * 1000);
+      assert.equal((await fetch(`${baseA}/api/v1/auth/session`, { headers: { cookie: `gh_session=${cookie2}` } })).status, 401, 'absolute expiry survives restart');
+      assert.equal((await fetch(`${baseB}/api/v1/auth/session`, { headers: { cookie: `gh_session=${cookie2}` } })).status, 401);
+    } finally {
+      servers.forEach((sv) => sv.closeAllConnections());
+      await Promise.all(servers.map((sv) => new Promise((r) => sv.close(r))));
+    }
   });
 
   test('[postgres] teardown', async () => {

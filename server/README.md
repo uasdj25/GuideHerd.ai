@@ -66,7 +66,9 @@ Configuration (environment variables):
   to start. Meaningless unless `GUIDEHERD_SEED_FILE` is set (ADR-0022).
 - `GUIDEHERD_OPERATIONAL_PROVIDER` — Operational Store selection (ADR-0006):
   `memory` (default — sessions in process memory, exactly the pre-existing
-  behavior) or `postgres` (durable sessions). Selecting `postgres` with an
+  behavior) or `postgres` (durable operational stores AND durable login
+  sessions, #64 — restarts don't sign users out; sessions work across
+  instances). Selecting `postgres` with an
   unreachable database, a failed migration, or no connection string makes
   the process **exit non-zero instead of starting**; an unknown value does
   the same. There is never a silent fallback. **Rollback = set it back to

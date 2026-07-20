@@ -94,9 +94,11 @@ receptionist must be provisioned and individually verified first, or they cannot
 work the moment it's on. There is a separate operational runbook for this, and
 it includes rehearsing the rollback.
 
-Note that while sign-in is enabled, **login sessions are held in memory** — a
-restart signs everyone out, and exactly one instance of the service is
-supported. More than one instance requires durable session storage first.
+With the PostgreSQL operational provider (the standard production
+configuration), **login sessions are stored durably** — restarts don't sign
+people out, and multiple instances share the same sessions. With the
+in-memory provider, sessions live in the process: a restart signs everyone
+out and exactly one instance is supported.
 
 ---
 

@@ -85,7 +85,7 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, workflowStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore, configurationAuthority, healthCheckTimeoutMs } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, workflowStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore, configurationAuthority, healthCheckTimeoutMs, userSessionStore } = {}) {
   // Configuration authority (ADR-0022): who owns configuration truth in this
   // deployment. server.js computes the real descriptor from the seed mode;
   // the default describes every other composition (tests, dev, demos), where
@@ -185,7 +185,12 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   const activeUserAuthProviderKey = userAuthProviderKey !== undefined
     ? userAuthProviderKey
     : resolveUserAuthProviderKey(process.env);
+  // Durable login sessions (#64): server.js supplies the PostgreSQL
+  // store under GUIDEHERD_OPERATIONAL_PROVIDER=postgres — the same switch
+  // as every other durable store; the in-memory default is unchanged and
+  // remains the reference.
   const rawUserSessions = createUserSessionService({
+    store: userSessionStore,
     clock,
     ttlSeconds: userSessionTtlSeconds !== undefined
       ? userSessionTtlSeconds

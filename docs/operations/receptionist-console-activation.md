@@ -182,34 +182,23 @@ acceptance criteria: flip to `required`, verify the gate appears, roll back to
 
 ## Known operational characteristics
 
-### The session-store operating boundary
+### The session-store operating boundary — LIFTED (#64)
 
-**Login sessions are held in process memory.** This is acceptable for a
-single-instance pilot, and the rule is precise:
+**Login sessions are durable under
+`GUIDEHERD_OPERATIONAL_PROVIDER=postgres`** — the provider production runs.
+The durable store (operational migration `0007-user-sessions`) holds
+SHA-256 token hashes and validated identities only, preserves the full
+ADR-0013 lifecycle (absolute lazy expiry, rotation/fixation protection,
+immediate logout invalidation — re-proven by the shared lifecycle suite on
+the real database), and makes sessions valid across instances: restarts no
+longer sign users out, and revocation on one instance is immediately
+visible on every other.
 
-1. **A process restart signs every user out.** Re-login is the only
-   consequence — no data is lost, and a prepared handoff continues on its own
-   capability token, unaffected.
-2. **Exactly one API instance is required while sessions are in memory.** A
-   session lives on the instance that issued it; a second instance would
-   reject it.
-3. **Durable session storage is mandatory before any multi-instance
-   deployment.** This is a precondition, not an optimization.
-4. **Sticky sessions must not become the permanent architecture.** Routing a
-   receptionist back to "their" instance would make the pilot's constraint
-   permanent and mask the missing durability. If scale demands more than one
-   instance, build the durable store.
-
-> **Verified 2026-07-18:** production runs **one instance**
-> (`numReplicas: 1`, region `sfo`, one RUNNING instance). The in-memory store
-> is therefore within its boundary today. **Re-check this before scaling the
-> service** — raising the replica count without durable session storage
-> silently breaks sign-in.
->
-> Note this is specifically about *login sessions*. Production already runs
-> `GUIDEHERD_OPERATIONAL_PROVIDER=postgres`, so handoff sessions, notification
-> records, the outbox, and scheduled reminders are durable and survive
-> restarts. Login sessions are the one thing that does not.
+The historical single-instance constraint existed only because sessions
+were in process memory; with the `memory` provider (development, tests)
+that behavior is unchanged and remains the documented reference. Sticky
+sessions never became the architecture — the durable store did, exactly as
+this section required.
 
 **Session lifetime is absolute — 12 hours by default**
 (`GUIDEHERD_USER_SESSION_TTL_SECONDS`), not sliding. A session ends 12 hours

@@ -210,10 +210,9 @@ change it back by hand using that record.
 2. Is the credential exactly right? It's an issued credential, not a password —
    there's no self-service reset, but an administrator can issue a new one
    from the Users card (the old one stops working immediately).
-3. Did the service restart? Restarts sign everyone out. Signing back in is the
-   fix.
-4. Been more than 12 hours since they signed in? Sessions expire absolutely,
-   regardless of activity. Signing back in is the fix.
+3. Been more than 12 hours since they signed in? Sessions expire absolutely,
+   regardless of activity. Signing back in is the fix. (On the standard
+   production setup, restarts alone no longer sign people out.)
 
 ### An administrator can't see the Operations Center
 
@@ -236,8 +235,9 @@ with GuideHerd at onboarding is the recovery route.)
 **Always true, in every deployment:**
 
 - **Booked appointments are unaffected** — they're in your calendar system.
-- **Everyone is signed out.** Login sessions are held in memory. People sign
-  back in; nothing is lost.
+- **On the standard production setup, signed-in users stay signed in** —
+  login sessions are stored durably. (Setups using in-memory sessions sign
+  everyone out on restart; signing back in is the whole fix.)
 
 **Your firm's configuration:** unaffected **when the Administration screen's
 banner is green ("Live")** — that badge is the durability guarantee. If the

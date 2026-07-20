@@ -72,9 +72,19 @@ protection). CSRF posture: SameSite=Strict cookies plus JSON-only bodies
 CORS allowlist, now with `Access-Control-Allow-Credentials`.
 
 The session store is a small contract; the in-memory implementation is
-the reference (a restart logs users out — re-login, no data loss). A
-durable PostgreSQL store joins the activation path before multi-instance
-production enforcement.
+the reference (a restart logs users out — re-login, no data loss).
+
+**Addendum (#64 — the durable store shipped.)** The PostgreSQL session
+store (`operational/user-session-store.js`, migration `0007-user-sessions`)
+implements the same contract under
+`GUIDEHERD_OPERATIONAL_PROVIDER=postgres` — the switch that governs every
+durable store. Rows hold SHA-256 token hashes and validated identities
+only; expiry stays absolute and lazy (plus a login-time purge that bounds
+the table); rotation, fixation protection, and logout invalidation are
+re-proven against the real database by the shared lifecycle suite, and
+cross-instance validity/revocation are proven by two-instance tests. The
+single-instance operating boundary this section imposed is lifted;
+in-memory remains the default and the test reference.
 
 **Addendum (#65 — live directory overlay.)** Session validation consults
 the User Directory (the store-backed user source behind the dev-user

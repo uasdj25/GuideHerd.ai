@@ -5,6 +5,7 @@ const { createInMemoryHandoffStore } = require('./store');
 const { createHandoffService } = require('./service');
 const { normalizeCreate, normalizeRedeem } = require('./validation');
 const { DEMO_FIRM_ID } = require('./demo-bridge');
+const { selectOfferedSlots } = require('../scheduling/selection');
 const { buildConsultationSummary, renderSummaryHtml } = require('./summary');
 const { NoCompletedSummaryError } = require('./errors');
 const { createMailer } = require('./mailer');
@@ -941,6 +942,36 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
           'X-GuideHerd-Correlation-Id': correlationId,
         });
         return res.end(html);
+      }
+
+      // ── Live slot selection (ADR-0012 / #66) ────────────────────────
+      // The scheduling assistant's runtime fetches availability from its
+      // calendar provider, translates it into the neutral slot contract,
+      // and asks GuideHerd what to OFFER: business hours constrain
+      // (hard), policy ranks (deterministic), providers stay unaware of
+      // policy. Service-identity authorized; the organization comes from
+      // the authenticated identity, never the body.
+      if (method === 'POST' && path === '/api/v1/scheduling/slot-selection') {
+        const assistantIdentity = await authorizeAssistant(req, 'scheduling:select');
+        if (!configService) {
+          status = 503;
+          return sendJson(res, status, {
+            error: { code: 'config_unavailable', message: 'The configuration store is not available.', correlationId },
+          }, null, correlationId);
+        }
+        const body = await readJsonBody(req);
+        const selectionOrg = assistantIdentity.organizationKey || DEMO_FIRM_ID;
+        const result = selectOfferedSlots({
+          configService,
+          organizationKey: selectionOrg,
+          slots: body.slots,
+          request: body.request || {},
+          telemetry,
+          correlationId,
+          sessionId: typeof body.sessionId === 'string' ? body.sessionId : undefined,
+        });
+        status = 200;
+        return sendJson(res, status, result, null, correlationId);
       }
 
       if (method === 'POST' && path === '/api/v1/demo/outcome') {

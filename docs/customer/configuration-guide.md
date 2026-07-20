@@ -14,10 +14,13 @@ is in saves a lot of time:
 |---|---|
 | **Self-service** | Change it yourself in Administration. Takes effect immediately. |
 | **Request** | Real and changeable, but no screen exists. Ask your GuideHerd contact. |
-| **Stored only** | Can be saved, but **nothing uses it yet.** Changing it has no effect today. |
 
-The **Stored only** group is the one to watch. Those settings look like they
-work — they save, they validate, they persist — but nothing acts on them.
+Most Self-service settings both save and take effect immediately. The one
+exception to flag: the **scheduling** settings (preferences and business
+hours) are saved and validated, and the capability that applies them to
+real offers is built and tested — but it is **not yet switched on in the
+call path**, so today they do not change what a caller is offered. See the
+Scheduling section for exactly what that means and how it gets turned on.
 
 ---
 
@@ -84,24 +87,31 @@ short — every extra option is a decision on a live call.
 
 | Setting | Status | Notes |
 |---|---|---|
-| Preferred attorneys | **Stored only** | |
-| Preferred days of week | **Stored only** | |
-| Morning / afternoon preference | **Stored only** | |
-| Preferred appointment length | **Stored only** | |
-| Business hours | **Self-service** to edit — but **stored only**: enforced by nothing yet |
+| Preferred attorneys | **Self-service** | Ranks offered times — once the assistant is connected (see below) |
+| Preferred days of week | **Self-service** | Ranks offered times — once connected |
+| Morning / afternoon preference | **Self-service** | Ranks offered times — once connected |
+| Preferred appointment length | **Self-service** | Ranks offered times — once connected |
+| Business hours | **Self-service** | A hard rule (times outside them are never offered) — once connected |
 | Minimum notice before an appointment | **Not available** | Doesn't exist |
 | Buffer between appointments | **Not available** | Doesn't exist |
 | Per-type appointment lengths | **Not available** | Doesn't exist |
 
-> **Read this before setting scheduling preferences.**
+> **Important — what these do today.** The capability that applies your
+> scheduling settings to real offers is **built and tested, but not yet
+> switched on in the call path.** Today the scheduling assistant offers
+> times straight from your calendar system, so **these settings are saved
+> but do not yet change what a real caller is offered.** Turning them on is
+> an activation step your GuideHerd contact performs (connecting the
+> assistant to GuideHerd's selection step) and proves with a test call —
+> until then, treat these as recorded preferences, and use your attorneys'
+> calendars for any time that must never be booked.
 >
-> These settings save correctly and are validated. **Nothing applies them to
-> real bookings yet.** Availability comes from your calendar system, and the
-> part of GuideHerd that would rank it against your preferences isn't connected.
->
-> Setting them is harmless and they'll take effect when that lands. But if you
-> set "mornings preferred" and afternoons get booked, nothing is broken — it
-> isn't wired up.
+> **Once connected**, the behavior is: GuideHerd first removes anything
+> outside your **business hours** (a hard rule — if your rules exclude
+> every available time, the caller is honestly offered nothing rather than
+> something forbidden), then orders what's left by your **preferences**
+> (preferences re-rank; they never hide times). No preferences set means
+> times are offered in calendar order.
 >
 > **Business hours are the same.** Recording them does not prevent an
 > appointment outside them. If that matters to your firm, raise it as a

@@ -104,14 +104,15 @@ session ID and the expected versus actual time.
 
 ### A booking ignored our scheduling preferences
 
-**Expected today.** Scheduling preferences are saved but not yet applied to real
-bookings — availability comes from your calendar system, and the part that would
-rank it against your preferences isn't connected.
-
-Nothing is broken. See the [Configuration Guide](configuration-guide.md).
-
-The same applies to business hours: recording them does not prevent appointments
-outside them.
+**Expected today.** The capability that applies your scheduling preferences
+and business hours to real offers is built and tested but **not yet
+switched on in the call path** — so today the assistant offers times
+straight from your calendar system and your settings do not change them.
+This is an activation your GuideHerd contact performs and proves with a
+test call. Once on: preferences **re-rank** offers (they don't restrict —
+a caller who insists on Thursday afternoon can still book it), and business
+hours are a **hard rule** (a time outside them is never offered). Meanwhile,
+block never-book times in your attorneys' calendars.
 
 ---
 

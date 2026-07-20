@@ -228,3 +228,45 @@ test('HTTP: the failure-alerting capability reports not-configured until an orga
     await new Promise((r) => server.close(r));
   }
 });
+
+test('alerting #68 review: a raised alert surfaces LIVE in the Operations Center feed (recentErrors) — the ephemeral surface, not a durable history', async () => {
+  // Composed app so the real observe → Operations feed wiring is exercised.
+  const DEV_USERS = JSON.stringify([
+    { key: 'dev-key-ops-0123456789abcdef', subject: 'op-sam', organizationKey: FIRM, roles: ['operator'] },
+  ]);
+  const db = openDatabase();
+  migrate(db);
+  const configService = createConfigService({ db });
+  configService.organizations.create({ key: FIRM, name: 'F', timezone: 'UTC' });
+  // Enabled, but delivery will fail — the point is what an admin can SEE.
+  configService.settings.set(FIRM, 'operations', 'alerts', { enabled: true, recipient: RECIPIENT });
+
+  const app = createApp({ clock: fixedClock(T0), configService, devUsersJson: DEV_USERS });
+  const server = http.createServer(app.handler);
+  await new Promise((r) => server.listen(0, r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    // Drive the exhausted-delivery condition through the real telemetry seam.
+    app.alerting.observe('notification.delivery_failed', {
+      organizationKey: FIRM, notificationType: 'consultation-summary', sessionId: 'mock-session-1',
+    });
+    await new Promise((r) => setImmediate(r));
+
+    const login = await fetch(`${base}/api/v1/auth/login`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ credential: 'dev-key-ops-0123456789abcdef' }),
+    });
+    const cookie = (login.headers.get('set-cookie') || '').match(/gh_session=([^;]*)/)[1];
+    const errors = await (await fetch(`${base}/api/v1/operations/errors`, { headers: { cookie: `gh_session=${cookie}` } })).json();
+
+    const raised = errors.events.find((e) => e.name === 'guideherd.alert.raised' || e.name === 'alert.raised');
+    assert.ok(raised, 'the raised alert is visible LIVE in the Operations Center recent-errors feed');
+    // Honest boundary (documented + follow-up proposed): this feed is the
+    // ADR-0014 v1 EPHEMERAL feed — it does not survive a restart, and there
+    // is no dedicated durable alert-history surface. No caller PII either.
+    assert.equal(JSON.stringify(errors).includes('caller@example.com'), false);
+  } finally {
+    server.closeAllConnections();
+    await new Promise((r) => server.close(r));
+  }
+});

@@ -131,9 +131,13 @@ Worth knowing so you don't hunt for it:
 Both fail silently unless **operational alerts** are enabled (Administration
 screen → Operational alerts): with a recipient configured, failed
 deliveries, repeated failed handoffs, and degraded capabilities email your
-administrator — at most one email per condition per window, and raised
-alerts also appear in the activity feed below as `alert.raised`. With
-alerts off (the default), looking here is the only detection there is.
+administrator — at most one email per condition per window. A raised alert
+also appears **live** in the activity feed below as `alert.raised`,
+including when the alert email itself could not be sent — so a mail outage
+is still visible here. That feed is live-only: it does not persist across a
+restart, and there is no separate alert-history page yet, so the daily
+check stays worthwhile. With alerts off (the default), looking here is the
+only detection there is.
 
 **When someone complains:** search the session or correlation ID, check what the
 status says, and check whether the notification went out. Most complaints resolve

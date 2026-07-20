@@ -243,7 +243,21 @@ aggregation; the telemetry seam for exhausted deliveries, excluding the
 alert type itself; poller-driven capability-degradation edges with a
 baseline-then-edge discipline and observable recovery). Every raised
 condition emits `alert.raised` telemetry BEFORE any delivery attempt, so an
-alert about the mail system never depends on the mail system. Recipients
-are per-organization customer configuration (`operational-alerts` domain,
-default off); alert content is condition names, counts, and identifiers —
-never caller PII.
+alert about the mail system never depends on the mail system: the raised
+condition reaches the Operations Center's live event feed (and
+recent-errors) through the observed-telemetry seam regardless of whether
+the alert email sends.
+
+**Visibility scope, stated honestly.** That Operations Center surface is
+the ADR-0014 §3 v1 event feed — allowlisted and EPHEMERAL: raised alerts
+are visible live but do not survive a restart, and there is no dedicated
+durable alert-history surface (raised / delivered / failed / recovered as
+first-class states). When alerting is enabled the delivery attempt also
+writes a durable notification-delivery record, but the Operations Center
+`notifications` view joins records to organizations through the session
+store and therefore does not surface the (session-less) operational-alert
+records. Durable, queryable alert history is a deliberate follow-up
+(reusing the outbox-backed feed the ADR-0014 upgrade already plans), NOT
+part of #68. Recipients are per-organization customer configuration
+(`operational-alerts` domain, default off); alert content is condition
+names, counts, and identifiers — never caller PII.

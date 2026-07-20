@@ -151,7 +151,7 @@ async function main() {
     fatal(`Invalid GUIDEHERD_OUTBOX_POLL_INTERVAL_MS "${RAW_POLL_INTERVAL}" (expected a positive number of milliseconds).`);
   }
   const outboxPoller = createOutboxPoller({
-    outbox: { drain: () => Promise.all([app.outbox.drain(), app.scheduler.drain(), app.workflow.drain(), app.alerting.evaluate()]) },
+    outbox: { drain: () => Promise.all([app.outbox.drain(), app.scheduler.drain(), app.workflow.drain(), app.alerting.evaluate(), app.retention.sweep()]) },
     intervalMs: OUTBOX_POLL_INTERVAL_MS,
   });
   server.on('close', () => outboxPoller.stop());

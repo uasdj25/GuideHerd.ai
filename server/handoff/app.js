@@ -33,6 +33,7 @@ const { createInMemoryNotificationDeliveryStore } = require('../notifications/de
 const { createNotificationService } = require('../notifications/service');
 require('../notifications/alert-notification'); // registers the operational-alert renderer (#68)
 const { createAlertingService } = require('../operations/alerting');
+const { createRetentionService } = require('../operational/retention');
 const { createIntegrationProviderRegistry, INTEGRATION_TYPES } = require('../integrations/contract');
 const { createIntegrationService } = require('../integrations/service');
 const { createInMemoryIntegrationDeliveryStore } = require('../integrations/delivery-store');
@@ -534,6 +535,13 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   alertObserver = (name, fields) => alerting.observe(name, fields);
   deps.alerting = alerting;
 
+  // Data retention (ADR-0006 / #63): the automated purge, driven by the
+  // liveness poller (server.js) — deterministic, idempotent, org-scoped.
+  const retention = createRetentionService({
+    store, configService: configService || null, clock, telemetry: observedTelemetry,
+  });
+  deps.retention = retention;
+
   // GuideHerd Administration (ADR-0015): one producer over the same
   // Configuration Store every subsystem consumes — validated, versioned,
   // audited. Requires the store AND its database (for the audit ledger);
@@ -577,7 +585,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   events.on('conversation.connected', () => outbox.drainSoon());
   const handler = makeHandler(deps);
   return {
-    handler, store, service, clock, allowedOrigins, alerting,
+    handler, store, service, clock, allowedOrigins, alerting, retention,
     mailer: deps.mailer, events, adapters, conversations: deps.conversations,
     identity: { registry: identityProviders, service: identityService },
     authorization: authz,

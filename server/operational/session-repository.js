@@ -571,6 +571,35 @@ function createPostgresHandoffStore({ pool, clock, outbox = null }) {
       return rows[0].n;
     },
 
+    /**
+     * Data retention (ADR-0006 / #63): hard-delete rows past their window,
+     * organization-scoped, in ONE statement per class (set-based, so it is
+     * deterministic and idempotent — a second run deletes nothing new).
+     * Returns counts only. Timestamps are epoch-ms; the columns are
+     * timestamptz, so compare against to_timestamp(ms/1000).
+     */
+    async purgeRetired(firmId, { cancelledExpiredBeforeMs, terminalBeforeMs }) {
+      const shortCut = new Date(cancelledExpiredBeforeMs).toISOString();
+      const termCut = new Date(terminalBeforeMs).toISOString();
+      const short = await pool.query(
+        `DELETE FROM handoff_sessions
+          WHERE organization_key = $1
+            AND (
+              (status = 'cancelled' AND COALESCE(cancelled_at, expires_at) <= $2)
+              OR (status IN ('expired','awaiting-transfer') AND expires_at <= $2)
+            )`,
+        [firmId, shortCut],
+      );
+      const term = await pool.query(
+        `DELETE FROM handoff_sessions
+          WHERE organization_key = $1
+            AND status IN ('booked','failed','escalated')
+            AND completed_at IS NOT NULL AND completed_at <= $2`,
+        [firmId, termCut],
+      );
+      return { purgedShortLived: short.rowCount, purgedTerminal: term.rowCount };
+    },
+
     /** Drain the pool. The repository owns its pool. */
     async close() {
       await pool.end();

@@ -467,6 +467,43 @@ function createInMemoryHandoffStore({ clock, outbox = null }) {
       return sessionsById.size;
     },
 
+    /**
+     * Data retention (ADR-0006 / #63): hard-delete rows past their window,
+     * organization-scoped. Two classes by ADR-0006:
+     *   - cancelled/expired (incl. never-touched awaiting-transfer past its
+     *     expiry): removed once expiry/cancellation is older than
+     *     `cancelledExpiredBeforeMs`;
+     *   - terminal (booked/failed/escalated): removed once completion is
+     *     older than `terminalBeforeMs` (the delivered summary email is the
+     *     record of account — ADR-0006).
+     * Deterministic and idempotent: a second run finds nothing new. Returns
+     * counts ONLY — never caller data.
+     * @param {string} firmId
+     * @param {{ cancelledExpiredBeforeMs: number, terminalBeforeMs: number }} windows
+     * @returns {Promise<{ purgedShortLived: number, purgedTerminal: number }>}
+     */
+    async purgeRetired(firmId, { cancelledExpiredBeforeMs, terminalBeforeMs }) {
+      let purgedShortLived = 0;
+      let purgedTerminal = 0;
+      for (const session of [...sessionsById.values()]) {
+        if (session.firmId !== firmId) continue;
+        const s = session.status;
+        const shortLived =
+          (s === SessionStatus.CANCELLED && (session.cancelledAtMs ?? session.expiresAtMs) <= cancelledExpiredBeforeMs)
+          || ((s === SessionStatus.EXPIRED || s === SessionStatus.AWAITING_TRANSFER)
+              && session.expiresAtMs <= cancelledExpiredBeforeMs);
+        const terminal =
+          (s === SessionStatus.BOOKED || s === SessionStatus.FAILED || s === SessionStatus.ESCALATED)
+          && (session.completedAtMs ?? 0) <= terminalBeforeMs;
+        if (shortLived || terminal) {
+          sessionsById.delete(session.sessionId);
+          if (session.tokenHash) tokenHashToSessionId.delete(session.tokenHash);
+          if (shortLived) purgedShortLived += 1; else purgedTerminal += 1;
+        }
+      }
+      return { purgedShortLived, purgedTerminal };
+    },
+
     /** Release resources. No-op for the in-memory implementation. */
     async close() {},
   };

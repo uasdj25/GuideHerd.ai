@@ -127,7 +127,6 @@ Things people reasonably expect, that GuideHerd does not have:
 - Single sign-on (Microsoft, Google, Okta)
 - Self-service password reset, invitations, multi-factor authentication
 - Minimum notice, appointment buffers, per-type durations
-- Automatic deletion of old caller data
 - Undo for configuration changes
 - Alerting when something fails
 - Reporting, charts, data export

@@ -71,6 +71,8 @@ const EVENTS = Object.freeze([
   // governing real offers, and the loud everything-excluded case.
   'scheduling.slots_selected',
   'scheduling.slots_exhausted',
+  // Data retention (ADR-0006 / #63): one event per sweep, counts only.
+  'retention.swept',
   // Failure alerting (#68): raised conditions are ALWAYS loud here,
   // independent of whether (or how) the alert email is delivered.
   'alert.raised',
@@ -119,6 +121,9 @@ const ALLOWED_FIELDS = Object.freeze([
   'provider',
   'providerRequestId',
   'sessionId',
+  // Retention sweep counts (#63): small integers, never caller data.
+  'purgedShortLived',
+  'purgedTerminal',
   // Slot-selection counts (#66) + alert occurrence count (#68): small
   // numbers, never slot content or caller data.
   'receivedCount',

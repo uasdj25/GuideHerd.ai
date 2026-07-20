@@ -604,6 +604,77 @@ function runHandoffRepositoryContractSuite(label, makeStore) {
     assert.match(loaded.tokenHash, /^[0-9a-f]{64}$/);
     assert.match(loaded.consoleTokenHash, /^[0-9a-f]{64}$/);
   });
+
+  // ── Data retention purge (ADR-0006 / #63) ────────────────────────────────
+  t('retention: purgeRetired hard-deletes cancelled/expired past 24h and terminal past 30d; org-scoped; idempotent', async () => {
+    const H = 60 * 60 * 1000, D = 24 * H;
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+
+    // Terminal (booked) 31 days ago — booked while the clock was in that era.
+    clock.set(T0 - 31 * D);
+    const oldBooked = makeSession({ now: T0 - 31 * D });
+    await store.create(oldBooked.session);
+    await store.connectEligible('org-a', { sessionId: oldBooked.session.sessionId });
+    await store.applyOutcome(oldBooked.session.sessionId, BOOKED_OUTCOME);
+    // Terminal (booked) 5 days ago — within 30d, must survive.
+    clock.set(T0 - 5 * D);
+    const recentBooked = makeSession({ now: T0 - 5 * D });
+    await store.create(recentBooked.session);
+    await store.connectEligible('org-a', { sessionId: recentBooked.session.sessionId });
+    await store.applyOutcome(recentBooked.session.sessionId, BOOKED_OUTCOME);
+    // Everything in the 25h-ago era is created AND transitioned while the
+    // clock is there, so nothing is spuriously expired at creation time.
+    clock.set(T0 - 25 * H);
+    // Cancelled 25h ago — past the 24h window.
+    const cancelled = makeSession({ now: T0 - 25 * H });
+    await store.create(cancelled.session);
+    await store.cancel(cancelled.session.sessionId, cancelled.consoleTokenHash);
+    // Awaiting-transfer whose expiry passes 25h before the sweep — lazily
+    // expired, purged. (Created here so it is not expired at creation.)
+    const staleExpired = makeSession({ now: T0 - 25 * H });
+    await store.create(staleExpired.session);
+    // Another organization's old cancelled session — an org-a sweep must not touch it.
+    const otherOrg = makeSession({ firmId: 'org-b', now: T0 - 25 * H });
+    await store.create(otherOrg.session);
+    await store.cancel(otherOrg.session.sessionId, otherOrg.consoleTokenHash);
+    // Cancelled 1h ago — within 24h, must survive.
+    clock.set(T0 - 1 * H);
+    const freshCancel = makeSession({ now: T0 - 1 * H });
+    await store.create(freshCancel.session);
+    await store.cancel(freshCancel.session.sessionId, freshCancel.consoleTokenHash);
+
+    clock.set(T0);
+    const windows = { cancelledExpiredBeforeMs: T0 - 24 * H, terminalBeforeMs: T0 - 30 * D };
+    const result = await store.purgeRetired('org-a', windows);
+    assert.equal(result.purgedShortLived, 2, 'cancelled-past-24h + stale-expired purged');
+    assert.equal(result.purgedTerminal, 1, 'booked-past-30d purged');
+
+    assert.ok(await store.get(freshCancel.session.sessionId), 'recent cancel survives');
+    assert.ok(await store.get(recentBooked.session.sessionId), 'recent booked survives');
+    assert.ok(await store.get(otherOrg.session.sessionId), 'another org is never swept by org-a');
+    assert.equal(await store.get(cancelled.session.sessionId), undefined, 'old cancel gone');
+    assert.equal(await store.get(oldBooked.session.sessionId), undefined, 'old booked gone');
+
+    const again = await store.purgeRetired('org-a', windows);
+    assert.deepEqual(again, { purgedShortLived: 0, purgedTerminal: 0 });
+  });
+
+  t('retention: purgeRetired returns counts only and cleans the token index', async () => {
+    const H = 60 * 60 * 1000;
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    clock.set(T0 - 25 * H);
+    const cancelled = makeSession({ now: T0 - 25 * H });
+    await store.create(cancelled.session);
+    await store.cancel(cancelled.session.sessionId, cancelled.consoleTokenHash);
+    clock.set(T0);
+    const before = await store.size();
+    const result = await store.purgeRetired('org-a', { cancelledExpiredBeforeMs: T0 - 24 * H, terminalBeforeMs: T0 - 30 * 24 * H });
+    assert.equal(JSON.stringify(result), JSON.stringify({ purgedShortLived: 1, purgedTerminal: 0 }), 'counts only, no caller data');
+    assert.equal(await store.size(), before - 1);
+    await assert.rejects(() => store.redeem(cancelled.session.tokenHash), (e) => e.status === 404 || e.status === 410);
+  });
 }
 
 module.exports = { runHandoffRepositoryContractSuite, makeSession, BOOKED_OUTCOME, hash };

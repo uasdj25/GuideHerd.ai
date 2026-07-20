@@ -159,14 +159,16 @@ they are told to ask.
 
 ## Data retention
 
-**Automatic deletion of old caller data is not implemented.** Intended defaults
-exist — clearing abandoned sessions after a day, removing caller contact details
-from completed sessions after a month — but the job that would perform it has
-not been built. Nothing is deleted automatically today.
+**Automated retention is built and runs on the liveness poller** (ADR-0006 /
+#63): cancelled/expired sessions are hard-deleted after `cancelledExpiredHours`
+(default 24h) and terminal sessions after `terminalDays` (default 30 days),
+per organization, overridable via the `data-retention` configuration domain.
+The delivered consultation summary email is the durable record; rendered
+summaries are never stored.
 
-A firm with a retention obligation needs a **written manual procedure**: who
-deletes what, how often, and how. Agree it before the firm goes live, not after
-someone asks.
+The default windows remain **proposed pending sign-off** — the mechanism
+enforces whatever is configured. The interim manual procedure and exact SQL
+are in the [deployment reference](../operations/deployment-reference.md).
 
 Two points in GuideHerd's favor, true in every deployment: consultation
 summaries are never stored (the delivered email is the only copy), and prepared

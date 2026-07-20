@@ -1,12 +1,16 @@
 # ADR-0012: The GuideHerd Scheduling Policy Engine
 
-**Status:** Accepted — the live selection seam shipped with #66:
-`POST /api/v1/scheduling/slot-selection` (service-identity authorized,
-`scheduling:select`) runs provider-supplied availability through the
-business-hours constraint (hard — `scheduling/hours.js`) and this engine
-(ranking), so the engine governs every offer that flows through GuideHerd.
-The one remaining activation step is operator-side: pointing the scheduling
-assistant's calendar tool at the seam, verified by test calls.
+**Status:** Proposed — the enforcement seam is IMPLEMENTED but NOT YET in
+the caller path. #66 shipped `POST /api/v1/scheduling/slot-selection`
+(service-identity authorized, `scheduling:select`), which runs
+provider-supplied availability through the business-hours constraint (hard
+— `scheduling/hours.js`) and this engine (ranking). **No production or demo
+component calls it today**: booking happens inside the scheduling
+assistant's own external calendar tool (ADR-0011 §7), which does not yet
+call this seam, so a real caller is still offered raw provider availability.
+Accepted only once the scheduling assistant's tool is pointed at the seam
+and a real test call proves policy-shaped offers (tracked as the #66
+follow-up activation). What callers experience TODAY is unchanged.
 **Date:** 2026-07-18
 **Relates to:** GuideHerd Constitution (Principles 3, 4, 5, 10), ADR-0004
 (configuration store), ADR-0007 (Extension Framework — Scheduling is a
@@ -117,4 +121,14 @@ guessed) → this engine's guarded filters and additive deterministic
 ranking. Only the firm's own hard hours rule can produce an empty offer,
 and it does so loudly (`scheduling.slots_exhausted`, warn). Telemetry:
 `scheduling.slots_selected` with received/offered/removed counts — never
-slot content. Input is bounded (200 slots) and strictly validated.
+slot content. Input is bounded (200 slots, and the request must fit the
+16 KB API body cap) and strictly validated.
+
+**Activation boundary (stated plainly).** This seam is exercised only by
+its own automated tests today. The scheduling assistant's calendar tool
+must be configured (external, provider-side ElevenLabs agent-tool
+configuration — no repository change makes this happen) to POST its
+provider availability here and offer back what GuideHerd returns. Until
+that is done AND a real test call confirms policy-shaped offers, callers
+are offered raw provider availability and policy/business-hours do not
+affect a single real booking. #66 stays open until that verification runs.

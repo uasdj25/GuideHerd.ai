@@ -104,13 +104,15 @@ session ID and the expected versus actual time.
 
 ### A booking ignored our scheduling preferences
 
-Preferences **re-rank** offers; they don't restrict them — a caller who
-insists on Thursday afternoon can still book Thursday afternoon even if you
-prefer mornings. If offers seem to ignore preferences entirely, confirm with
-your GuideHerd contact that your scheduling assistant is connected to
-GuideHerd's selection step. Business hours are different: they're a hard
-rule, and a time outside them should never be offered — if one is, contact
-GuideHerd with the session ID.
+**Expected today.** The capability that applies your scheduling preferences
+and business hours to real offers is built and tested but **not yet
+switched on in the call path** — so today the assistant offers times
+straight from your calendar system and your settings do not change them.
+This is an activation your GuideHerd contact performs and proves with a
+test call. Once on: preferences **re-rank** offers (they don't restrict —
+a caller who insists on Thursday afternoon can still book it), and business
+hours are a **hard rule** (a time outside them is never offered). Meanwhile,
+block never-book times in your attorneys' calendars.
 
 ---
 

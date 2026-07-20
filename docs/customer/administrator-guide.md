@@ -143,24 +143,30 @@ screen like the rest of the catalog.
 
 ### Offices and business hours
 
-Offices and their opening hours are editable on the Administration screen —
-and **business hours are now a real rule**: when your scheduling assistant
-asks GuideHerd which times to offer, anything outside your configured hours
-is removed before the caller hears a single option. The whole appointment
-must fit inside a window; days without hours are closed. (Confirm with your
-GuideHerd contact that your assistant is connected to GuideHerd's selection
-step — the rule applies to offers that flow through it.)
+Offices and their opening hours are editable on the Administration screen.
+**Business hours are designed to be a hard rule on offered times** — the
+selection capability that enforces them (the whole appointment must fit one
+window; days without hours are closed) is built and tested. It is **not yet
+switched on in the call path**, so today recording hours does not stop a
+time outside them being offered. Turning it on is an activation your
+GuideHerd contact performs (connecting the assistant to GuideHerd's
+selection step) and proves with a test call. Until then, block never-book
+times in your attorneys' calendars.
 
 ### Scheduling preferences
 
 You can record preferences — preferred attorneys, preferred days, morning or
 afternoon, preferred appointment length.
 
-> Preferences **re-rank** the times your calendar system makes available —
-> preferred attorneys, days, mornings/afternoons, and length push matching
-> times to the front of what callers are offered. They never hide a time
-> (business hours do that); with no preferences set, times are offered in
-> calendar order. Availability itself still comes from your calendar system.
+> Preferences are **designed to re-rank** the times your calendar system
+> makes available — preferred attorneys, days, mornings/afternoons, and
+> length push matching times to the front of what callers are offered (they
+> never hide a time; business hours do that). Like business hours above,
+> this re-ranking is built and tested but **not yet switched on in the call
+> path**, so today setting a preference does not change what a caller is
+> offered. It takes effect when your GuideHerd contact connects the
+> assistant to GuideHerd's selection step. Availability itself always comes
+> from your calendar system.
 
 Also not available today: minimum notice before an appointment, buffers between
 appointments, and per-type appointment lengths. None of these exist.

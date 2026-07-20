@@ -6,6 +6,15 @@ provider, translates it into the neutral slot contract, and asks GuideHerd
 what to offer. Providers never learn policy; GuideHerd never fetches
 availability.
 
+> **Activation status (#66): implemented, NOT YET in the caller path.**
+> No production or demo component calls this endpoint today — it is
+> exercised only by its automated tests. Booking currently happens inside
+> the scheduling assistant's external calendar tool (ADR-0011 §7), which
+> must be configured (provider-side, no repository change) to call this
+> seam and offer back what it returns. Until that is done and a real test
+> call confirms policy-shaped offers, callers are offered raw provider
+> availability and this endpoint changes nothing they experience.
+
 ## Request
 
 `POST /api/v1/scheduling/slot-selection` — service identity (Bearer), the

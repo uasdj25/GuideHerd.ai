@@ -125,12 +125,15 @@ deliberately** — both on means every caller gets two emails. Confirm what
 your calendar system actually sends, then choose the single message.
 
 **Scheduling preferences and business hours.** Preferred attorneys, days,
-morning/afternoon, and appointment length **re-rank** the times callers are
-offered; **business hours are a hard rule** — times outside them are never
-offered. Both apply when your scheduling assistant is connected to
-GuideHerd's selection step, which is confirmed during onboarding (phase 10's
-test calls prove it). Belt and braces for times that must *never* be booked:
-also block them in **your attorneys' calendars**
+morning/afternoon, and appointment length are designed to **re-rank** the
+times callers are offered, and **business hours** to be a **hard rule**
+(times outside them never offered). Both are built and tested — but **not
+yet switched on in the call path**: today the assistant offers times
+straight from your calendar system, so these settings are recorded but do
+not yet change real offers. Switching them on is an activation your
+GuideHerd contact performs and proves with a test call; until then — and as
+belt-and-braces afterward — block times that must *never* be booked in
+**your attorneys' calendars**
 ([Configuration Guide](configuration-guide.md) tracks each setting's status).
 
 Also **not yet available**: minimum notice, buffers between appointments, and
@@ -140,8 +143,10 @@ onboarding so it's on record, and use calendar blocking meanwhile.
 - [ ] Calendar system and owner named; connection made **with GuideHerd**
 - [ ] Calendars reviewed; never-book times blocked **in the calendars**
 - [ ] Decided which single confirmation the caller receives
-- [ ] Understood: preferences re-rank offers; business hours are a hard rule;
-      both confirmed live during test calls
+- [ ] Understood: scheduling preferences/hours are recorded but not yet
+      applied to real offers until the selection step is activated (a
+      GuideHerd action, proven by a test call); never-book times blocked in
+      the calendars meanwhile
 
 ---
 
@@ -156,8 +161,9 @@ Work in this order, because each layer depends on the last:
 
 1. **Firm identity** — firm name, display name, **timezone**. Check the
    timezone against the worksheet, character by character.
-2. **Offices and business hours** — a hard rule on offered times once your
-   assistant is connected to GuideHerd's selection step (phase 10 proves it).
+2. **Offices and business hours** — recorded now; become a hard rule on
+   offered times only once GuideHerd's selection step is activated (a
+   GuideHerd action, not yet switched on).
 3. **Practice areas** — the agreed list; create, rename, and deactivate as
    your firm's language evolves.
 4. **Attorneys** — everyone who takes appointments.

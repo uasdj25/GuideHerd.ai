@@ -26,7 +26,9 @@ npm start          # binds 0.0.0.0 on PORT (default 3000)
 
 Slot selection (#66): `POST /api/v1/scheduling/slot-selection` — the
 ADR-0012 seam; service-identity (`scheduling:select`); business hours
-constrain hard, policy ranks deterministically; contract in
+constrain hard, policy ranks deterministically. **Implemented but not yet
+in the caller path** — no component calls it until the assistant's calendar
+tool is configured to (provider-side); see
 [`docs/api/slot-selection.md`](../docs/api/slot-selection.md).
 
 Health (#38): `GET /healthz` (public liveness — checks nothing, by design),

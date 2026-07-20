@@ -68,7 +68,7 @@ role.
 | Scheduling preferences | You — but **not yet applied to bookings** |
 | Practice areas, attorneys, routing | You |
 | Consultation types | You |
-| Offices, business hours | You — hours are a hard rule on offered times |
+| Offices, business hours | You — saved; becomes a hard rule on offers once scheduling selection is activated |
 | Reminders and their timings | You |
 | Logo, office contact block | You |
 | Console sign-in | Request |

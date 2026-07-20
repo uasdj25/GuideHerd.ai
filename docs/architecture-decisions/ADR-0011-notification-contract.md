@@ -229,3 +229,35 @@ delivered outside this contract anymore.
 - Reminder notifications additionally need a scheduler (no timer
   infrastructure exists in the platform); that arrives with its own
   ticket.
+
+
+## Addendum (#68): the `operational-alert` type
+
+Failure alerting rides this contract rather than inventing a sibling: an
+alert is a model-type notification whose idempotency key encodes the
+condition and its time window (`operational-alert:<condition>:<org>:<window>`),
+so the claim machine makes one-alert-per-condition-window STRUCTURAL — a
+storm is impossible by construction. Conditions are observed from existing
+seams (the durable `conversation.completed` outbox event with threshold
+aggregation; the telemetry seam for exhausted deliveries, excluding the
+alert type itself; poller-driven capability-degradation edges with a
+baseline-then-edge discipline and observable recovery). Every raised
+condition emits `alert.raised` telemetry BEFORE any delivery attempt, so an
+alert about the mail system never depends on the mail system: the raised
+condition reaches the Operations Center's live event feed (and
+recent-errors) through the observed-telemetry seam regardless of whether
+the alert email sends.
+
+**Visibility scope, stated honestly.** That Operations Center surface is
+the ADR-0014 §3 v1 event feed — allowlisted and EPHEMERAL: raised alerts
+are visible live but do not survive a restart, and there is no dedicated
+durable alert-history surface (raised / delivered / failed / recovered as
+first-class states). When alerting is enabled the delivery attempt also
+writes a durable notification-delivery record, but the Operations Center
+`notifications` view joins records to organizations through the session
+store and therefore does not surface the (session-less) operational-alert
+records. Durable, queryable alert history is a deliberate follow-up
+(reusing the outbox-backed feed the ADR-0014 upgrade already plans), NOT
+part of #68. Recipients are per-organization customer configuration
+(`operational-alerts` domain, default off); alert content is condition
+names, counts, and identifiers — never caller PII.

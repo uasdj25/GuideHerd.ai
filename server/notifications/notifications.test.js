@@ -72,7 +72,7 @@ const APPOINTMENT_TYPES = [
 ];
 
 test('contract: every notification type validates and canonicalizes', () => {
-  assert.deepEqual([...NOTIFICATION_TYPES], [...APPOINTMENT_TYPES, 'consultation-summary']);
+  assert.deepEqual([...NOTIFICATION_TYPES], [...APPOINTMENT_TYPES, 'consultation-summary', 'operational-alert']);
   for (const type of APPOINTMENT_TYPES) {
     const validated = validateNotificationRequest(validRequest({ type }));
     assert.equal(validated.type, type);

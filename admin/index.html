@@ -257,6 +257,25 @@
       <button class="gh-btn gh-btn-outline" id="rem-add">Add offset</button>
       <button class="gh-btn gh-btn-primary" id="save-reminders">Save reminders</button>
       <p class="gh-alert" id="msg-appointment-reminders" role="status" aria-live="polite"></p>
+
+      <!-- Failure alerting (#68): default off; alerts email an
+           administrator when failures happen instead of waiting to be
+           noticed. Requires working email delivery. -->
+      <div class="area-head" style="margin-top:var(--sp-3)">
+        <h3 class="area-sub" style="margin:0">Operational alerts</h3>
+        <span id="badge-operational-alerts"></span>
+      </div>
+      <label class="gh-check" style="margin-top:var(--sp-2)">
+        <input type="checkbox" id="alert-enabled">
+        <span>Email an administrator when failures happen
+          <span class="gh-check-note">Failed handoffs, failed deliveries, and degraded capabilities — at most one email per condition per window. Needs email delivery active.</span></span>
+      </label>
+      <div class="gh-field">
+        <label class="gh-label" for="alert-recipient">Alert recipient</label>
+        <input class="gh-input" id="alert-recipient" type="email" placeholder="ops@yourfirm.example">
+      </div>
+      <button class="gh-btn gh-btn-primary" id="save-alerts">Save alerts</button>
+      <p class="gh-alert" id="msg-operational-alerts" role="status" aria-live="polite"></p>
     </div>
   </section>
 
@@ -738,6 +757,13 @@
     if (Object.keys(office).length) branding.office = office;
     change('notification-branding', 'setting:notifications/branding', branding);
   });
+  el('save-alerts').addEventListener('click', function () {
+    change('operational-alerts', 'setting:operations/alerts', {
+      enabled: el('alert-enabled').checked,
+      recipient: el('alert-recipient').value.trim() || null,
+    });
+  });
+
   el('save-idp').addEventListener('click', function () {
     change('identity-provider', 'setting:identity/provider', { provider: el('idp').value });
   });
@@ -936,6 +962,11 @@
       el('badge-notifications').innerHTML = liveBadge(c.settings.notifications);
       el('badge-notification-branding').innerHTML = liveBadge(c.settings.notificationBranding);
       el('badge-identity-provider').innerHTML = liveBadge(c.settings.identityProvider);
+      el('badge-operational-alerts').innerHTML = liveBadge(c.settings.operationalAlerts);
+      var alerts = (c.settings.operationalAlerts || {}).value || {};
+      versions['setting:operations/alerts'] = (c.settings.operationalAlerts || {}).version || 0;
+      el('alert-enabled').checked = alerts.enabled === true;
+      el('alert-recipient').value = alerts.recipient || '';
 
       lastConfig = c;
 

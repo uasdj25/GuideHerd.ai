@@ -92,10 +92,12 @@ A typo means a booked appointment the caller never hears about, and nobody finds
 out until they don't show up. Five seconds prevents the most common failure in
 the system.
 
-**3. Nothing alerts you when something fails.**
-A failed booking or a failed email is recorded, not announced. Checking the
-Operations Center is the only detection there is. Make it a daily habit at
-first.
+**3. Turn on failure alerts — until then, nothing announces a failure.**
+Out of the box, a failed booking or a failed email is recorded, not
+announced. The Administration screen can email an administrator when
+failures happen (at most one email per problem per window) — enable it once
+email delivery is active. Until it's on, checking the Operations Center is
+the only detection there is: make it a daily habit.
 
 ---
 

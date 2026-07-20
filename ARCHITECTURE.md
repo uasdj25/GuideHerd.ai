@@ -161,6 +161,7 @@ live in one codebase; the boundaries let them separate later without a rewrite.
 - [ADR-0020: The GuideHerd Integration Contract](docs/architecture-decisions/ADR-0020-integration-contract.md)
 - [ADR-0021: The GuideHerd Workflow Contract](docs/architecture-decisions/ADR-0021-workflow-contract.md)
 - [ADR-0022: Configuration Authority](docs/architecture-decisions/ADR-0022-configuration-authority.md)
+- [ADR-0023: The GuideHerd Communication Adapter Architecture (Telephony)](docs/architecture-decisions/ADR-0023-communication-adapter-architecture.md)
 
 See also [Vision](docs/Vision.md) and [Roadmap](docs/Roadmap.md).
 

@@ -142,7 +142,7 @@ a deploy.
 | Variable | Default | Purpose |
 |---|---|---|
 | `GUIDEHERD_MAX_PREPARED_SESSIONS` | `20` | Concurrent prepared sessions per firm; exceeding returns `429` |
-| `GUIDEHERD_TRUST_PROXY` | unset (off) | Trust `X-Forwarded-For` for login rate-limiting. **Set to `true` in production** (behind Railway's edge) so the limiter keys per real client using the edge-appended rightmost entry. Left unset, XFF is ignored and all clients behind a proxy share one limiter key (fails safe — throttles more, never spoofable). Only enable behind a trusted single-hop edge. |
+| `GUIDEHERD_TRUST_PROXY` | unset (off) | Trust `X-Forwarded-For` (rightmost entry) for login rate-limiting. **Leave UNSET on Railway.** Railway's official docs do not document `X-Forwarded-For` behavior at all (they document `X-Real-IP` as the client-IP header), and Railway staff statements contradict each other on append-vs-strip and leftmost-vs-rightmost — so the rightmost-XFF model is **not proven correct on Railway** and must not be relied on. Unset is fail-safe: XFF is ignored, all clients behind the edge share one limiter key (coarser throttling, never spoofable). Only enable behind an edge whose XFF-append semantics you have positively verified. A proper per-client limiter on Railway would key on `X-Real-IP` — a future change, gated on verifying that header (it has documented caveats under Railway's CDN path). |
 | `GUIDEHERD_OUTBOX_POLL_INTERVAL_MS` | — | Drain interval for queued work |
 | `DEMO_BRIDGE_SECRET` | — | Demo infrastructure only. **Not production authentication.** |
 | `GUIDEHERD_TEST_DATABASE_URL` | — | Test-only; enables the PostgreSQL leg of the backend suite |

@@ -72,9 +72,11 @@ Configuration (environment variables):
   re-import; loud, and reported as `seed-managed`). Any other value refuses
   to start. Meaningless unless `GUIDEHERD_SEED_FILE` is set (ADR-0022).
 - `GUIDEHERD_TRUST_PROXY` — when set (`true`/`1`/`yes`), trust
-  `X-Forwarded-For` for login rate limiting, keying on the trusted-edge
-  rightmost entry (#39). OFF by default (socket-only, unspoofable). Set in
-  production, which sits behind Railway's edge.
+  `X-Forwarded-For` (rightmost entry) for login rate limiting (#39). OFF by
+  default (socket-only, unspoofable). **Leave unset on Railway:** the
+  rightmost-XFF model is not proven correct there (Railway documents
+  `X-Real-IP`, not XFF, and staff guidance is contradictory), so unset is
+  the fail-safe posture.
 - `GUIDEHERD_OPERATIONAL_PROVIDER` — Operational Store selection (ADR-0006):
   `memory` (default — sessions in process memory, exactly the pre-existing
   behavior) or `postgres` (durable operational stores AND durable login

@@ -63,22 +63,32 @@ const { registerAppointmentReminders } = require('../scheduler/reminders');
 const MAX_BODY_BYTES = 16 * 1024;
 
 // Login attempt limiting (#39): fixed-window, per client address, counting
-// ATTEMPTS (a successful login inside the window is unaffected unless the
-// address already exhausted it — failures and floods look identical to a
-// limiter, deliberately). Process-local: production runs one instance, and
-// durable sessions (#64) did not change that; a shared/durable limiter is
-// the recorded follow-up if the instance count ever grows. Memory is
-// bounded: the map resets when it grows past its cap.
+// ATTEMPTS (failures and floods look identical to a limiter, deliberately).
+// Process-local: production runs one instance, and durable sessions (#64)
+// did not change that; a shared/durable limiter is the recorded follow-up
+// if the instance count ever grows. Memory is bounded by pruning stale
+// (past-window) entries on each attempt — never by discarding live counters.
 const LOGIN_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS_PER_WINDOW = 30;
-const LOGIN_LIMITER_MAX_ENTRIES = 10_000;
+const LOGIN_LIMITER_MAX_ENTRIES = 50_000; // hard backstop only; pruning keeps us far below
 function createLoginLimiter({ clock, windowMs = LOGIN_WINDOW_MS, maxAttempts = LOGIN_MAX_ATTEMPTS_PER_WINDOW }) {
   const attempts = new Map(); // client -> { bucket, count }
   return {
     /** @returns {boolean} true when this attempt is allowed */
     attempt(client) {
-      if (attempts.size > LOGIN_LIMITER_MAX_ENTRIES) attempts.clear();
       const bucket = Math.floor(clock.now() / windowMs);
+      // Stale removal: drop every entry from a past window — bounds memory
+      // to at most the distinct clients seen THIS window, and never resets
+      // a live counter (unlike a clear-all). O(n) amortized; runs only when
+      // the map is non-trivial.
+      if (attempts.size >= 1024) {
+        for (const [key, value] of attempts) {
+          if (value.bucket < bucket) attempts.delete(key);
+        }
+      }
+      // Absolute backstop against a single-window flood of distinct keys —
+      // only reachable if XFF trust is on and the edge is not sanitizing.
+      if (attempts.size > LOGIN_LIMITER_MAX_ENTRIES) return false;
       const current = attempts.get(client);
       const next = current && current.bucket === bucket
         ? { bucket, count: current.count + 1 }
@@ -89,13 +99,34 @@ function createLoginLimiter({ clock, windowMs = LOGIN_WINDOW_MS, maxAttempts = L
   };
 }
 
-/** Client address for limiting: the platform edge's forwarded chain, else the socket. */
-function clientAddressOf(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.trim() !== '') {
-    return forwarded.split(',')[0].trim().slice(0, 64);
+/**
+ * Client address for limiting (#39). Trust of `X-Forwarded-For` is EXPLICIT
+ * and OFF by default: an unconfigured or directly-exposed deployment uses
+ * the socket peer only, so a client cannot spoof XFF to evade or forge a
+ * limiter key. When `GUIDEHERD_TRUST_PROXY` is set (the deployment sits
+ * behind a single trusted edge, e.g. Railway), the RIGHTMOST XFF entry is
+ * used — the value the trusted proxy appended about its immediate peer,
+ * which a client cannot control under the append model — never the
+ * client-supplied leftmost. Normalized (lowercased, port/zone stripped,
+ * length-capped) so IPv6 forms collapse to one key.
+ */
+function clientAddressOf(req, { trustProxy = false } = {}) {
+  const normalize = (raw) => {
+    let addr = String(raw || '').trim();
+    const bracketed = addr.match(/^\[([^\]]+)\](?::\d+)?$/); // [v6] or [v6]:port
+    if (bracketed) addr = bracketed[1];
+    else if ((addr.match(/:/g) || []).length === 1) addr = addr.split(':')[0]; // v4:port
+    addr = addr.replace(/%.*$/, ''); // IPv6 zone id
+    return addr.toLowerCase().slice(0, 64) || 'unknown';
+  };
+  if (trustProxy) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.trim() !== '') {
+      const parts = forwarded.split(',').map((p) => p.trim()).filter(Boolean);
+      if (parts.length > 0) return normalize(parts[parts.length - 1]);
+    }
   }
-  return (req.socket && req.socket.remoteAddress) || 'unknown';
+  return normalize(req.socket && req.socket.remoteAddress);
 }
 
 // Browser callers must be explicitly allowlisted. No wildcard is ever honored.
@@ -124,7 +155,7 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, workflowStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore, configurationAuthority, healthCheckTimeoutMs, userSessionStore } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, workflowStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore, configurationAuthority, healthCheckTimeoutMs, userSessionStore, trustProxy } = {}) {
   // Configuration authority (ADR-0022): who owns configuration truth in this
   // deployment. server.js computes the real descriptor from the seed mode;
   // the default describes every other composition (tests, dev, demos), where
@@ -286,6 +317,11 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     : DEFAULT_POLICY;
   const authz = authorization || createAuthorization({ policy: activePolicy });
 
+  // Trust X-Forwarded-For only when the deployment declares it sits behind
+  // a trusted edge (#39). Off by default → socket-only, spoof-proof.
+  const trustForwardedFor = trustProxy !== undefined
+    ? Boolean(trustProxy)
+    : ['1', 'true', 'yes'].includes(String(process.env.GUIDEHERD_TRUST_PROXY || '').trim().toLowerCase());
   const loginLimiter = createLoginLimiter({ clock });
 
   const deps = {
@@ -305,6 +341,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     activeUserAuthProviderKey,
     consoleAuthMode,
     loginLimiter,
+    trustForwardedFor,
   };
   deps.telemetry = observedTelemetry;
 
@@ -588,7 +625,7 @@ function corsHeadersFor(req, allowedOrigins) {
 }
 
 /** Build the raw Node http request handler. */
-function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode, operations, administration, loginLimiter }) {
+function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode, operations, administration, loginLimiter, trustForwardedFor }) {
   /**
    * Resolve the active Conversation Adapter for a firm. Provider selection
    * comes from the Configuration Store (connect/conversation-provider),
@@ -841,7 +878,7 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
       if (method === 'POST' && path === '/api/v1/auth/login') {
         // Bounded attempts BEFORE any credential work (#39): the limiter
         // answers 429 uniformly and confirms nothing about credentials.
-        if (loginLimiter && !loginLimiter.attempt(clientAddressOf(req))) {
+        if (loginLimiter && !loginLimiter.attempt(clientAddressOf(req, { trustProxy: trustForwardedFor }))) {
           telemetry.event('authentication.login_failed', {
             severity: 'warn', component: 'identity', operation: 'login',
             correlationId, code: 'rate_limited',

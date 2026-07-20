@@ -339,6 +339,7 @@
         <strong>Credential for <span id="issued-subject"></span></strong> — shown once, never again.
         Copy it now and hand it over securely:
         <div style="margin-top:var(--sp-1)"><code class="gh-mono" id="issued-credential"></code></div>
+        <button type="button" class="gh-btn gh-btn-ghost" id="issued-dismiss" style="margin-top:var(--sp-2)">Done — I've copied it</button>
       </div>
       <p class="gh-alert" id="msg-users" role="status" aria-live="polite"></p>
     </div>
@@ -582,6 +583,7 @@
   }
 
   function change(area, entity, payload, msgId) {
+    if (typeof clearIssuedCredential === 'function') clearIssuedCredential();
     var target = el('msg-' + (msgId || area));
     setAlert(target, null, 'Saving…');
     return api('/api/v1/admin/' + area, {
@@ -646,7 +648,18 @@
       }).join('') + '</tbody></table></div>';
   }
 
+  // One-time credential hygiene (#39): the issued credential lives ONLY in
+  // this panel, and only until the admin dismisses it or begins any other
+  // action. clearIssuedCredential empties the DOM nodes (not just hides),
+  // so it cannot be recovered by un-hiding or by inspecting the element.
+  function clearIssuedCredential() {
+    el('issued-credential').textContent = '';
+    el('issued-subject').textContent = '';
+    el('issued-wrap').hidden = true;
+  }
+
   function userChange(payload) {
+    clearIssuedCredential(); // beginning another action clears a prior credential
     var target = el('msg-users');
     setAlert(target, null, 'Saving…');
     return api('/api/v1/admin/users', {
@@ -668,6 +681,8 @@
   function selectedRoles(id) {
     return Array.prototype.slice.call(el(id).selectedOptions).map(function (o) { return o.value; });
   }
+
+  el('issued-dismiss').addEventListener('click', clearIssuedCredential);
 
   el('user-add').addEventListener('click', function () {
     userChange({

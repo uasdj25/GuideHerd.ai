@@ -22,7 +22,7 @@ const DEV_USERS = JSON.stringify([
 ]);
 
 async function withServer(opts, fn) {
-  const app = createApp({ clock: fixedClock(T0), devUsersJson: DEV_USERS, ...opts });
+  const app = createApp({ clock: fixedClock(T0), devUsersJson: DEV_USERS, trustProxy: true, ...opts });
   const server = http.createServer(app.handler);
   await new Promise((r) => server.listen(0, r));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -58,6 +58,28 @@ test('login limiting: attempts are bounded per client window; the answer confirm
     // The window expires; the address recovers.
     app.clock.set(T0 + 10 * 60 * 1000);
     assert.equal((await login(base, 'dev-key-jane-0123456789abcdef', { 'x-forwarded-for': '198.51.100.7' })).status, 200);
+  });
+});
+
+test('login limiting: with proxy trust OFF (default), XFF is ignored and cannot spoof the limiter key', async () => {
+  await withServer({ trustProxy: false }, async (base) => {
+    let last;
+    for (let i = 0; i < 31; i++) {
+      last = await login(base, 'wrong-credential-000000', { 'x-forwarded-for': `10.0.0.${i}` });
+    }
+    assert.equal(last.status, 429, 'rotating XFF did not evade the limiter — all shared the socket key');
+  });
+});
+
+test('login limiting: trusted-proxy mode reads the RIGHTMOST forwarded entry (edge-appended, not client-spoofable)', async () => {
+  await withServer({ trustProxy: true }, async (base) => {
+    let last;
+    for (let i = 0; i < 31; i++) {
+      last = await login(base, 'wrong-credential-000000', { 'x-forwarded-for': `1.2.3.4, 198.51.100.50` });
+    }
+    assert.equal(last.status, 429, 'keyed on the trusted rightmost entry (198.51.100.50)');
+    assert.equal((await login(base, 'dev-key-jane-0123456789abcdef',
+      { 'x-forwarded-for': `1.2.3.4, 203.0.113.77` })).status, 200, 'a different real client is free');
   });
 });
 

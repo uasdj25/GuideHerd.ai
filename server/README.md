@@ -71,6 +71,10 @@ Configuration (environment variables):
   only when its organization is absent) or `always` (explicit every-boot
   re-import; loud, and reported as `seed-managed`). Any other value refuses
   to start. Meaningless unless `GUIDEHERD_SEED_FILE` is set (ADR-0022).
+- `GUIDEHERD_TRUST_PROXY` — when set (`true`/`1`/`yes`), trust
+  `X-Forwarded-For` for login rate limiting, keying on the trusted-edge
+  rightmost entry (#39). OFF by default (socket-only, unspoofable). Set in
+  production, which sits behind Railway's edge.
 - `GUIDEHERD_OPERATIONAL_PROVIDER` — Operational Store selection (ADR-0006):
   `memory` (default — sessions in process memory, exactly the pre-existing
   behavior) or `postgres` (durable operational stores AND durable login

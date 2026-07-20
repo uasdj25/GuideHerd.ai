@@ -64,19 +64,54 @@ authorized sending mailbox. As of 2026-07-18:
    app registration, mailbox, or any paid resource requires human approval
    and Microsoft-side admin consent that cannot (and must not) be bypassed.
 
-**What DJ must do to unblock (one-time, ~15 minutes with an existing
-Microsoft 365 tenant):**
+**What the operator must do to unblock (one-time, with an authorized
+Microsoft 365 tenant). Verified against official Microsoft docs 2026-07:**
 
-1. In Entra ID: an app registration with **`Mail.Send` (Application)**
-   permission, **admin-consented**. Strongly recommended: scope it to the
-   sending mailbox only via an Exchange `ApplicationAccessPolicy`, so the
-   credential cannot send as anyone else.
-2. Choose the sending mailbox (GuideHerd-controlled, e.g.
-   `notifications@guideherd.ai`) and the summary recipient (the firm's
-   intake address, or DJ's for the pilot).
-3. Enter the five values **directly in Railway's protected variables UI**
-   — never via chat, files, or shell.
-4. Redeploy (variables are read at boot).
+1. **Entra app registration** for the client-credentials (daemon) flow:
+   a client secret or (preferred) certificate; tokens acquired with scope
+   `https://graph.microsoft.com/.default`. No redirect URI, no signed-in
+   user. Application permission — **not** delegated (there is no user).
+   ([client-credentials flow](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow))
+
+2. **Scope the app to the ONE sending mailbox — use RBAC for Applications,
+   NOT ApplicationAccessPolicy.** Microsoft has retitled the old page
+   "Application Access Policies (legacy)" and states plainly *"New access
+   configuration should not use Application Access Policies"* (future
+   deprecation + forced migration). The current mechanism is **Exchange
+   Online RBAC for Applications**
+   ([docs](https://learn.microsoft.com/en-us/exchange/permissions-exo/application-rbac)):
+   - `New-ServicePrincipal -AppId <appId> -ObjectId <enterprise-app objectId>`
+     (use the **Enterprise Applications** object id, not the App
+     Registration's).
+   - `New-ManagementScope -Name "GuideHerd sender" -RecipientRestrictionFilter "<filter matching only the sending mailbox>"` (or an Administrative Unit).
+   - `New-ManagementRoleAssignment -Role "Application Mail.Send" -App <SP> -CustomResourceScope "GuideHerd sender"`.
+   - Verify with `Test-ServicePrincipalAuthorization -Identity <SP> -Resource <mailbox>`.
+   - **Structural difference from the legacy model:** with RBAC for
+     Applications you do **not** also grant `Mail.Send` in Entra — the
+     Exchange role assignment IS the grant, and Entra grants + Exchange
+     grants form a **union**, so a leftover Entra `Mail.Send` would defeat
+     the mailbox scoping (grant tenant-wide send). If the app already has
+     the Entra `Mail.Send` grant, remove it.
+   - *(Legacy `New-ApplicationAccessPolicy` still functions today and is an
+     acceptable stopgap if RBAC is unavailable; if used, note its scope
+     principal cannot be a shared mailbox directly — a mail-enabled
+     security group is required for that — and changes can take **>1 hour**
+     to propagate.)*
+
+3. **Sending mailbox**: must resolve to a real Exchange Online mailbox
+   (REST-enabled). A licensed user mailbox is the fully documented path; an
+   unlicensed shared mailbox (≤50 GB) is widely used for this but is not
+   explicitly documented by Microsoft for app-only send — prefer a licensed
+   mailbox for the pilot to avoid ambiguity. Choose the summary recipient
+   (the firm's intake address, or the operator's for the pilot).
+
+4. **Propagation:** after consent + role assignment, allow **~30 min to
+   ~2 hours** before the send path converges (RBAC cache;
+   `Test-ServicePrincipalAuthorization` bypasses the cache and does not
+   prove API-path convergence). Do not conclude "broken" before then.
+
+5. Enter the five values **directly in Railway's protected variables UI**
+   — never via chat, files, or shell. Redeploy (variables read at boot).
 
 ## Verification procedure (after unblocking)
 
@@ -114,18 +149,50 @@ unaffected. No data migration; fully reversible.
 
 ## Credential rotation
 
-**Owner: DJ** (holder of the Entra tenant). Procedure: create a new client
-secret in the app registration → update `MS_CLIENT_SECRET` in Railway →
-redeploy → delete the old secret in Entra. Rotate immediately if the value
-is ever exposed anywhere outside Railway's variable store; calendar
-rotation per the tenant's policy (Entra secrets expire — set ≤ 24 months
-and diarize).
+**Owner: whoever administers the Microsoft 365 tenant that holds the app
+registration** (the production/customer tenant — see ownership assumptions
+below; tenant provisioning is #72). Procedure: create a new client secret
+(or certificate) in the app registration → update `MS_CLIENT_SECRET` in
+Railway → redeploy → delete the old secret in Entra. Rotate immediately if
+the value is ever exposed anywhere outside Railway's variable store;
+otherwise on the tenant's calendar (Entra secrets expire — set ≤ 24 months
+and diarize). Certificates are preferred over secrets for a daemon app.
 
-## Microsoft permission requirements (known)
+## Microsoft permission requirements (verified against official docs 2026-07)
 
-- Graph **`Mail.Send` — Application** permission with tenant admin consent.
-- The token request uses `client_credentials` with the `.default` scope
-  (already implemented; no delegated flow, no user sign-in).
-- Exchange `ApplicationAccessPolicy` restricting the app to the sending
-  mailbox: not required by the code, strongly recommended for least
-  privilege.
+- **Application** (not delegated) Graph `Mail.Send`, tenant admin consent
+  required — an unattended service has no signed-in user. By default this
+  can send as ANY mailbox in the tenant, which is why mailbox scoping is
+  mandatory. ([sendMail permissions](https://learn.microsoft.com/en-us/graph/api/user-sendmail?view=graph-rest-1.0), [permissions reference](https://learn.microsoft.com/en-us/graph/permissions-reference))
+- Token request: `client_credentials` with the `.default` scope (already
+  implemented; no delegated flow, no user sign-in).
+- **Mailbox scoping via RBAC for Applications** (the current mechanism —
+  `ApplicationAccessPolicy` is legacy; see the unblock steps above). Under
+  RBAC, the Exchange role assignment is the grant and must NOT be
+  duplicated by an Entra `Mail.Send` grant (union semantics defeat
+  scoping).
+
+## Tenant and mailbox ownership assumptions (stated plainly)
+
+- **GuideHerd uses Google Workspace / Gmail internally.** Microsoft Graph
+  support exists because the pilot firm (Martinson & Beason) uses
+  Microsoft 365 — this is provider breadth, not a change to GuideHerd's own
+  mail.
+- **A Microsoft 365 Developer/trial tenant is suitable for BUILDING and
+  validating the adapter**, if the operator qualifies (the E5 developer
+  sandbox is no longer open public sign-up — it now requires a Visual
+  Studio subscription, partner-program, or Unified/Premier support
+  eligibility). It is **not** suitable as anything persistent: the
+  subscription lasts up to 90 days and, on expiry, data is deleted after a
+  30+30-day grace — the app registration, consent, mailbox, and role
+  assignments all vanish and must be re-provisioned in the production
+  tenant regardless. Inbound connectors are unsupported in dev tenants.
+  ([dev program FAQ](https://learn.microsoft.com/en-us/office/developer-program/microsoft-365-developer-program-faq))
+- **Production activation requires an authorized customer or production
+  tenant, a real Exchange Online mailbox, admin consent, and the five
+  values entered only through the protected configuration interface.** The
+  Microsoft 365 sandbox/tenant provisioning is tracked separately as **#72
+  (assigned to Ryan)** and is untouched by this work.
+- **No Graph credential and no live production delivery has been configured
+  or verified.** #60 remains OPEN after this documentation branch merges,
+  until the verification procedure above is actually performed.

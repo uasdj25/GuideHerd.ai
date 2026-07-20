@@ -149,6 +149,43 @@ a deploy.
 
 ---
 
+## Data retention (ADR-0006 / #63)
+
+Automated retention **ships and runs on the liveness poller**: it
+hard-deletes cancelled/expired handoff sessions after
+`cancelledExpiredHours` (default **24h**) and terminal sessions
+(booked/failed/escalated) after `terminalDays` (default **30 days**),
+per organization. The delivered consultation summary email is the durable
+record; rendered summaries are never stored. Override per organization via
+the `data-retention` domain (Administration/Configuration Framework).
+
+The default WINDOWS remain **proposed pending sign-off** (ADR-0006). The
+mechanism enforces whatever is configured; confirming the exact numbers is
+the remaining human decision.
+
+### Interim manual procedure (for pre-existing data / until window sign-off)
+
+Owner: whoever administers the operational database. Cadence: weekly during
+the pilot, or on request. Exact statements (parameterize the cutoffs; run
+against the operational PostgreSQL only, never printing caller data):
+
+```sql
+-- cancelled/expired older than 24h
+DELETE FROM handoff_sessions
+ WHERE organization_key = :org
+   AND ( (status = 'cancelled' AND COALESCE(cancelled_at, expires_at) <= now() - interval '24 hours')
+      OR (status IN ('expired','awaiting-transfer') AND expires_at <= now() - interval '24 hours') );
+-- terminal older than 30 days
+DELETE FROM handoff_sessions
+ WHERE organization_key = :org
+   AND status IN ('booked','failed','escalated')
+   AND completed_at IS NOT NULL AND completed_at <= now() - interval '30 days';
+```
+
+Record: date, organization, row counts (never caller details). Once the
+automated sweep is confirmed running (via the `retention.swept` telemetry
+and stable row counts), the manual procedure is a fallback only.
+
 ## Current production configuration
 
 Recorded from a read-only inspection on **2026-07-18**. Re-verify before relying

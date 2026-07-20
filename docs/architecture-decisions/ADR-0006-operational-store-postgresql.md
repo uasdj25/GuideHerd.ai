@@ -91,11 +91,20 @@ Proposed defaults, pending sign-off: cancelled/expired sessions purge after
 summary email is the durable artifact of record; rendered summaries are
 never stored. Backups retain purged data for the backup window.
 
-The automated purge job is deferred to a follow-on ticket. Until it ships,
-retention is manual: a **controlled low-volume pilot may proceed under an
-explicitly documented manual retention/deletion policy** (who deletes, how
-often, and the SQL used — recorded alongside the deployment runbook).
-Automated retention remains **required before broader production scale**.
+**The automated purge SHIPPED (#63):** `server/operational/retention.js`
+runs on the existing liveness poller (the same seam as the outbox drain),
+hard-deleting past-window rows organization-scoped via the store's
+`purgeRetired` method (both the in-memory and PostgreSQL implementations,
+proven by the shared contract suite). Deterministic and idempotent
+(set-based deletion by age), tenant-isolated, counts-only telemetry
+(`retention.swept`). Windows are the proposed defaults above,
+**organization-overridable via the `data-retention` configuration domain**.
+
+The specific default WINDOWS (24h / 30d) remain **proposed pending
+sign-off** — the mechanism enforces whatever policy is configured; blessing
+the exact numbers is the one remaining human decision. The interim manual
+procedure (below, and in the deployment reference) still applies to any
+pre-existing data until sign-off.
 
 ## Consequences
 

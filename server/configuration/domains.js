@@ -112,6 +112,46 @@ function registerProductionDomains(framework) {
     },
   });
 
+  // Data retention (ADR-0006 / #63) — how long operational sessions live
+  // before hard deletion. DEFAULTS are ADR-0006's PROPOSED windows
+  // (sign-off pending); every field is organization-overridable. Bounded
+  // to sane ranges; a malformed field degrades to the default and is
+  // reported (fail-safe read, strict write).
+  framework.register({
+    id: 'data-retention',
+    title: 'Data retention',
+    owner: 'operational-store',
+    namespace: 'retention',
+    key: 'policy',
+    live: true,
+    schemaVersion: 1,
+    normalize(raw) {
+      const defaults = { cancelledExpiredHours: 24, terminalDays: 30 };
+      if (raw === null || raw === undefined) return { value: { ...defaults }, issues: [] };
+      const issues = [];
+      if (!isPlainObject(raw)) {
+        return { value: { ...defaults }, issues: ['must be an object like { "cancelledExpiredHours": 24, "terminalDays": 30 }'] };
+      }
+      for (const k of Object.keys(raw)) {
+        if (!['cancelledExpiredHours', 'terminalDays'].includes(k)) issues.push(`unknown field: ${k}`);
+      }
+      const intField = (name, def, min, max) => {
+        if (raw[name] === undefined) return def;
+        const v = raw[name];
+        if (!Number.isInteger(v) || v < min || v > max) {
+          issues.push(`${name} must be an integer between ${min} and ${max}`);
+          return def;
+        }
+        return v;
+      };
+      const value = {
+        cancelledExpiredHours: intField('cancelledExpiredHours', defaults.cancelledExpiredHours, 1, 24 * 365),
+        terminalDays: intField('terminalDays', defaults.terminalDays, 1, 3650),
+      };
+      return { value, issues };
+    },
+  });
+
   // Failure alerting (#68) — who hears about operational failures.
   // DEFAULT OFF: nothing emails anyone until a firm names a recipient and
   // enables it. The recipient is the firm's administrator mailbox —

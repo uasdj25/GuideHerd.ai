@@ -355,15 +355,16 @@ item rather than an acceptable steady state.
 
 ### Data retention
 
-**Automatic deletion of old caller data is not implemented.**
+**Old operational data is now purged automatically.** Cancelled or unbooked
+sessions are removed after about a day; completed sessions after about a
+month. Your GuideHerd contact can set your firm's exact windows (the
+default numbers are being finalized). The delivered consultation summary
+email remains your durable record of each call.
 
-There are intended defaults — clearing abandoned sessions after a day, removing
-caller contact details from completed sessions after a month — but the job that
-would do it **has not been built.** Nothing is deleted automatically today.
-
-If your firm has a retention obligation, you need a **written manual procedure**:
-who deletes what, how often, and how it's done. Agree it with your GuideHerd
-contact and record it. Don't assume the platform is handling it.
+The purge runs continuously in the background — no action needed. There is
+still no self-service export or selective-erasure tool; for a specific
+erasure request (e.g. a caller asks to be removed sooner), ask your
+GuideHerd contact.
 
 Two genuine points in GuideHerd's favor:
 

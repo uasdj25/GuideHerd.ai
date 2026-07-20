@@ -7,7 +7,7 @@ const { normalizeCreate, normalizeRedeem } = require('./validation');
 const { DEMO_FIRM_ID } = require('./demo-bridge');
 const { selectOfferedSlots } = require('../scheduling/selection');
 const { buildConsultationSummary, renderSummaryHtml } = require('./summary');
-const { NoCompletedSummaryError } = require('./errors');
+const { NoCompletedSummaryError , TooManyLoginAttemptsError } = require('./errors');
 const { createMailer } = require('./mailer');
 const { HandoffError, MalformedRequestError, UnauthorizedError, BridgeNotConfiguredError, ValidationError } = require('./errors');
 const { ConfigError } = require('../config/errors');
@@ -62,6 +62,73 @@ const { registerAppointmentReminders } = require('../scheduler/reminders');
 // Scheduling context is tiny; cap the body to reject oversized payloads early.
 const MAX_BODY_BYTES = 16 * 1024;
 
+// Login attempt limiting (#39): fixed-window, per client address, counting
+// ATTEMPTS (failures and floods look identical to a limiter, deliberately).
+// Process-local: production runs one instance, and durable sessions (#64)
+// did not change that; a shared/durable limiter is the recorded follow-up
+// if the instance count ever grows. Memory is bounded by pruning stale
+// (past-window) entries on each attempt — never by discarding live counters.
+const LOGIN_WINDOW_MS = 10 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS_PER_WINDOW = 30;
+const LOGIN_LIMITER_MAX_ENTRIES = 50_000; // hard backstop only; pruning keeps us far below
+function createLoginLimiter({ clock, windowMs = LOGIN_WINDOW_MS, maxAttempts = LOGIN_MAX_ATTEMPTS_PER_WINDOW }) {
+  const attempts = new Map(); // client -> { bucket, count }
+  return {
+    /** @returns {boolean} true when this attempt is allowed */
+    attempt(client) {
+      const bucket = Math.floor(clock.now() / windowMs);
+      // Stale removal: drop every entry from a past window — bounds memory
+      // to at most the distinct clients seen THIS window, and never resets
+      // a live counter (unlike a clear-all). O(n) amortized; runs only when
+      // the map is non-trivial.
+      if (attempts.size >= 1024) {
+        for (const [key, value] of attempts) {
+          if (value.bucket < bucket) attempts.delete(key);
+        }
+      }
+      // Absolute backstop against a single-window flood of distinct keys —
+      // only reachable if XFF trust is on and the edge is not sanitizing.
+      if (attempts.size > LOGIN_LIMITER_MAX_ENTRIES) return false;
+      const current = attempts.get(client);
+      const next = current && current.bucket === bucket
+        ? { bucket, count: current.count + 1 }
+        : { bucket, count: 1 };
+      attempts.set(client, next);
+      return next.count <= maxAttempts;
+    },
+  };
+}
+
+/**
+ * Client address for limiting (#39). Trust of `X-Forwarded-For` is EXPLICIT
+ * and OFF by default: an unconfigured or directly-exposed deployment uses
+ * the socket peer only, so a client cannot spoof XFF to evade or forge a
+ * limiter key. When `GUIDEHERD_TRUST_PROXY` is set (the deployment sits
+ * behind a single trusted edge, e.g. Railway), the RIGHTMOST XFF entry is
+ * used — the value the trusted proxy appended about its immediate peer,
+ * which a client cannot control under the append model — never the
+ * client-supplied leftmost. Normalized (lowercased, port/zone stripped,
+ * length-capped) so IPv6 forms collapse to one key.
+ */
+function clientAddressOf(req, { trustProxy = false } = {}) {
+  const normalize = (raw) => {
+    let addr = String(raw || '').trim();
+    const bracketed = addr.match(/^\[([^\]]+)\](?::\d+)?$/); // [v6] or [v6]:port
+    if (bracketed) addr = bracketed[1];
+    else if ((addr.match(/:/g) || []).length === 1) addr = addr.split(':')[0]; // v4:port
+    addr = addr.replace(/%.*$/, ''); // IPv6 zone id
+    return addr.toLowerCase().slice(0, 64) || 'unknown';
+  };
+  if (trustProxy) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.trim() !== '') {
+      const parts = forwarded.split(',').map((p) => p.trim()).filter(Boolean);
+      if (parts.length > 0) return normalize(parts[parts.length - 1]);
+    }
+  }
+  return normalize(req.socket && req.socket.remoteAddress);
+}
+
 // Browser callers must be explicitly allowlisted. No wildcard is ever honored.
 const DEFAULT_CORS_ALLOWED_ORIGINS = ['https://guideherd.ai', 'http://localhost:8080'];
 
@@ -88,7 +155,7 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, workflowStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore, configurationAuthority, healthCheckTimeoutMs, userSessionStore } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, workflowStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore, configurationAuthority, healthCheckTimeoutMs, userSessionStore, trustProxy } = {}) {
   // Configuration authority (ADR-0022): who owns configuration truth in this
   // deployment. server.js computes the real descriptor from the seed mode;
   // the default describes every other composition (tests, dev, demos), where
@@ -250,6 +317,13 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     : DEFAULT_POLICY;
   const authz = authorization || createAuthorization({ policy: activePolicy });
 
+  // Trust X-Forwarded-For only when the deployment declares it sits behind
+  // a trusted edge (#39). Off by default → socket-only, spoof-proof.
+  const trustForwardedFor = trustProxy !== undefined
+    ? Boolean(trustProxy)
+    : ['1', 'true', 'yes'].includes(String(process.env.GUIDEHERD_TRUST_PROXY || '').trim().toLowerCase());
+  const loginLimiter = createLoginLimiter({ clock });
+
   const deps = {
     service,
     store,
@@ -266,6 +340,8 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     userAuthProviders,
     activeUserAuthProviderKey,
     consoleAuthMode,
+    loginLimiter,
+    trustForwardedFor,
   };
   deps.telemetry = observedTelemetry;
 
@@ -549,7 +625,7 @@ function corsHeadersFor(req, allowedOrigins) {
 }
 
 /** Build the raw Node http request handler. */
-function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode, operations, administration }) {
+function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode, operations, administration, loginLimiter, trustForwardedFor }) {
   /**
    * Resolve the active Conversation Adapter for a firm. Provider selection
    * comes from the Configuration Store (connect/conversation-provider),
@@ -669,13 +745,15 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
       // required stores; no capability names or detail ever leave these
       // routes. The authenticated detail surface remains ADR-0014's
       // /api/v1/operations/health.
-      if (method === 'GET' && path === '/healthz') {
+      if ((method === 'GET' || method === 'HEAD') && path === '/healthz') {
         status = 200;
+        if (method === 'HEAD') { res.writeHead(status); return res.end(); }
         return sendJson(res, status, { status: 'ok' }, cors, correlationId);
       }
-      if (method === 'GET' && path === '/readyz') {
+      if ((method === 'GET' || method === 'HEAD') && path === '/readyz') {
         const ready = await operations.ready();
         status = ready ? 200 : 503;
+        if (method === 'HEAD') { res.writeHead(status); return res.end(); }
         return sendJson(res, status, { status: ready ? 'ready' : 'unavailable' }, cors, correlationId);
       }
 
@@ -798,6 +876,15 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
       // session presented with the login request). Provider tokens and
       // claims never reach the browser.
       if (method === 'POST' && path === '/api/v1/auth/login') {
+        // Bounded attempts BEFORE any credential work (#39): the limiter
+        // answers 429 uniformly and confirms nothing about credentials.
+        if (loginLimiter && !loginLimiter.attempt(clientAddressOf(req, { trustProxy: trustForwardedFor }))) {
+          telemetry.event('authentication.login_failed', {
+            severity: 'warn', component: 'identity', operation: 'login',
+            correlationId, code: 'rate_limited',
+          });
+          throw new TooManyLoginAttemptsError();
+        }
         const body = await readJsonBody(req);
         const credential = body && typeof body.credential === 'string' ? body.credential.trim() : '';
         if (credential === '' || credential.length > 512) {
@@ -972,6 +1059,9 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
         res.writeHead(status, {
           'Content-Type': 'text/html; charset=utf-8',
           'Cache-Control': 'no-store',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY',
+          'Referrer-Policy': 'no-referrer',
           'X-GuideHerd-Correlation-Id': correlationId,
         });
         return res.end(html);
@@ -1175,6 +1265,13 @@ function sendJson(res, status, body, cors, correlationId) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
+    // Security review (#39): API responses are never sniffable, never
+    // framed, never leak referrers; HSTS pins the public TLS edge
+    // (browsers ignore it over plain-http local development).
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'no-referrer',
+    'Strict-Transport-Security': 'max-age=31536000',
     ...(correlationId ? { 'X-GuideHerd-Correlation-Id': correlationId } : {}),
     ...(cors || {}),
   });

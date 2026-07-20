@@ -476,6 +476,14 @@ function newCalls() { return { session: [], login: [], logout: [], config: [], a
     ok('credential is nowhere else in the DOM',
       (await page.evaluate((c) => document.body.innerHTML.split(c).length - 1, CRED)) === 1);
 
+    // Security (#39): the "Done" dismiss button EMPTIES the credential from
+    // the DOM — not merely hides it (a hidden node still holds the value).
+    await page.click('#issued-dismiss');
+    ok('dismiss clears the credential from the DOM entirely',
+      (await page.isVisible('#issued-wrap')) === false
+      && (await page.textContent('#issued-credential')) === ''
+      && (await page.evaluate((c) => document.body.innerHTML.includes(c), CRED)) === false);
+
     // Per-row deactivate and rotate post their actions.
     await page.click('#user-list button[data-user-action="deactivate"][data-subject="admin-ada"]');
     await page.waitForTimeout(200);
@@ -485,6 +493,16 @@ function newCalls() { return { session: [], login: [], logout: [], config: [], a
     await page.waitForTimeout(200);
     ok('rotate posts rotate-credential for the row’s subject',
       applied.some((a) => a.area === 'users' && a.body.payload.action === 'rotate-credential' && a.body.payload.subject === 'ricky-reception'));
+    ok('rotate re-displays a one-time credential', await page.isVisible('#issued-wrap'));
+
+    // Security (#39): beginning ANOTHER admin action clears the credential
+    // even without dismissing — here, saving a role change.
+    await page.selectOption('#user-roles-subject', 'ricky-reception');
+    await page.click('#user-roles-save');
+    await page.waitForTimeout(200);
+    ok('starting another action clears a shown credential from the DOM',
+      (await page.isVisible('#issued-wrap')) === false
+      && (await page.evaluate((c) => document.body.innerHTML.includes(c), CRED)) === false);
 
     // Role change: select user, adjust roles, save.
     await page.selectOption('#user-roles-subject', 'ricky-reception');

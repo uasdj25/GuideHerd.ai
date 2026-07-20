@@ -142,6 +142,7 @@ a deploy.
 | Variable | Default | Purpose |
 |---|---|---|
 | `GUIDEHERD_MAX_PREPARED_SESSIONS` | `20` | Concurrent prepared sessions per firm; exceeding returns `429` |
+| `GUIDEHERD_TRUST_PROXY` | unset (off) | Trust `X-Forwarded-For` for login rate-limiting. **Set to `true` in production** (behind Railway's edge) so the limiter keys per real client using the edge-appended rightmost entry. Left unset, XFF is ignored and all clients behind a proxy share one limiter key (fails safe — throttles more, never spoofable). Only enable behind a trusted single-hop edge. |
 | `GUIDEHERD_OUTBOX_POLL_INTERVAL_MS` | — | Drain interval for queued work |
 | `DEMO_BRIDGE_SECRET` | — | Demo infrastructure only. **Not production authentication.** |
 | `GUIDEHERD_TEST_DATABASE_URL` | — | Test-only; enables the PostgreSQL leg of the backend suite |

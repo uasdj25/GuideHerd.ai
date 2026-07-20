@@ -97,14 +97,17 @@ hard-deleting past-window rows organization-scoped via the store's
 `purgeRetired` method (both the in-memory and PostgreSQL implementations,
 proven by the shared contract suite). Deterministic and idempotent
 (set-based deletion by age), tenant-isolated, counts-only telemetry
-(`retention.swept`). Windows are the proposed defaults above,
-**organization-overridable via the `data-retention` configuration domain**.
+(`retention.swept`).
 
-The specific default WINDOWS (24h / 30d) remain **proposed pending
-sign-off** — the mechanism enforces whatever policy is configured; blessing
-the exact numbers is the one remaining human decision. The interim manual
-procedure (below, and in the deployment reference) still applies to any
-pre-existing data until sign-off.
+**DARK BY DEFAULT (safety):** because the sweep DELETES, it does nothing
+for an organization until that organization **explicitly opts in** by
+setting `enabled: true` in the `data-retention` configuration domain. An
+unconfigured deployment purges nothing, and the Operations Center reports
+`data-retention: not-configured`. The 24h / 30d windows are **SUGGESTED
+values** (used only once enabled, and organization-overridable) — they are
+never a reason to delete on their own, and they remain **proposed pending
+sign-off**. Enabling retention for a firm is a deliberate operator/admin
+action; until then the interim manual procedure below applies.
 
 ## Consequences
 

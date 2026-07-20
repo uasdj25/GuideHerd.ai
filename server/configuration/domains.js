@@ -126,15 +126,22 @@ function registerProductionDomains(framework) {
     live: true,
     schemaVersion: 1,
     normalize(raw) {
-      const defaults = { cancelledExpiredHours: 24, terminalDays: 30 };
-      if (raw === null || raw === undefined) return { value: { ...defaults }, issues: [] };
+      // DARK BY DEFAULT (#63 safety correction): retention is DESTRUCTIVE,
+      // so an unconfigured organization is never purged. `enabled` must be
+      // set to `true` explicitly to activate the sweep. The 24h/30d numbers
+      // are ADR-0006's SUGGESTED windows — used only when enabled, never a
+      // reason to delete on their own.
+      const SUGGESTED = { cancelledExpiredHours: 24, terminalDays: 30 };
+      const dark = { enabled: false, ...SUGGESTED };
+      if (raw === null || raw === undefined) return { value: dark, issues: [] };
       const issues = [];
       if (!isPlainObject(raw)) {
-        return { value: { ...defaults }, issues: ['must be an object like { "cancelledExpiredHours": 24, "terminalDays": 30 }'] };
+        return { value: dark, issues: ['must be an object like { "enabled": true, "cancelledExpiredHours": 24, "terminalDays": 30 }'] };
       }
       for (const k of Object.keys(raw)) {
-        if (!['cancelledExpiredHours', 'terminalDays'].includes(k)) issues.push(`unknown field: ${k}`);
+        if (!['enabled', 'cancelledExpiredHours', 'terminalDays'].includes(k)) issues.push(`unknown field: ${k}`);
       }
+      if (raw.enabled !== undefined && typeof raw.enabled !== 'boolean') issues.push('enabled must be a boolean');
       const intField = (name, def, min, max) => {
         if (raw[name] === undefined) return def;
         const v = raw[name];
@@ -145,8 +152,10 @@ function registerProductionDomains(framework) {
         return v;
       };
       const value = {
-        cancelledExpiredHours: intField('cancelledExpiredHours', defaults.cancelledExpiredHours, 1, 24 * 365),
-        terminalDays: intField('terminalDays', defaults.terminalDays, 1, 3650),
+        // Enabled only on an explicit, valid true — never inferred.
+        enabled: raw.enabled === true && issues.length === 0,
+        cancelledExpiredHours: intField('cancelledExpiredHours', SUGGESTED.cancelledExpiredHours, 1, 24 * 365),
+        terminalDays: intField('terminalDays', SUGGESTED.terminalDays, 1, 3650),
       };
       return { value, issues };
     },

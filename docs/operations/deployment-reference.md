@@ -151,17 +151,23 @@ a deploy.
 
 ## Data retention (ADR-0006 / #63)
 
-Automated retention **ships and runs on the liveness poller**: it
-hard-deletes cancelled/expired handoff sessions after
-`cancelledExpiredHours` (default **24h**) and terminal sessions
-(booked/failed/escalated) after `terminalDays` (default **30 days**),
-per organization. The delivered consultation summary email is the durable
-record; rendered summaries are never stored. Override per organization via
-the `data-retention` domain (Administration/Configuration Framework).
+Automated retention ships and runs on the liveness poller, but it is
+**OFF BY DEFAULT and never deletes anything until an organization
+explicitly opts in.** To enable it for a firm, set the `data-retention`
+domain to `{ "enabled": true }` (optionally with `cancelledExpiredHours` /
+`terminalDays` overrides). While disabled — the default — the Operations
+Center health reports `data-retention: not-configured` and no row is ever
+purged.
 
-The default WINDOWS remain **proposed pending sign-off** (ADR-0006). The
-mechanism enforces whatever is configured; confirming the exact numbers is
-the remaining human decision.
+When enabled, the sweep hard-deletes cancelled/expired handoff sessions
+after `cancelledExpiredHours` (suggested **24h**) and terminal sessions
+after `terminalDays` (suggested **30 days**), per organization. The
+delivered consultation summary email is the durable record; rendered
+summaries are never stored.
+
+The suggested WINDOWS remain **proposed pending sign-off** (ADR-0006).
+Enabling retention and confirming the numbers are deliberate human
+decisions.
 
 ### Interim manual procedure (for pre-existing data / until window sign-off)
 

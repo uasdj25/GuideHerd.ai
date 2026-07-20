@@ -22,7 +22,11 @@
 
 const { readDomain } = require('../configuration/framework');
 
-const DEFAULT_POLICY = Object.freeze({ cancelledExpiredHours: 24, terminalDays: 30 });
+// DARK BY DEFAULT (#63 safety correction): retention deletes rows, so an
+// unconfigured organization is NEVER purged. `enabled` must be an explicit
+// `true` in the `data-retention` domain. The windows are ADR-0006's
+// SUGGESTED values, applied only when an organization opts in.
+const DEFAULT_POLICY = Object.freeze({ enabled: false, cancelledExpiredHours: 24, terminalDays: 30 });
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
@@ -67,6 +71,9 @@ function createRetentionService({ store, configService = null, clock, telemetry 
       for (const organizationKey of organizations()) {
         try {
           const policy = policyFor(organizationKey);
+          // Opt-in only: an organization is purged ONLY when it has
+          // explicitly enabled retention. No enablement → no deletion.
+          if (!policy.enabled) continue;
           const result = await store.purgeRetired(organizationKey, {
             cancelledExpiredBeforeMs: now - policy.cancelledExpiredHours * HOUR_MS,
             terminalBeforeMs: now - policy.terminalDays * DAY_MS,
@@ -91,6 +98,17 @@ function createRetentionService({ store, configService = null, clock, telemetry 
         }
       }
       return { purgedShortLived, purgedTerminal };
+    },
+
+    /**
+     * Observability (#63 correction): whether any organization has
+     * explicitly enabled retention. `not-configured` (the default) means
+     * the sweep deletes NOTHING — retention is dark until opted in.
+     * Surfaced on the Operations Center capability list.
+     */
+    status() {
+      const anyEnabled = organizations().some((key) => policyFor(key).enabled);
+      return anyEnabled ? 'available' : 'not-configured';
     },
   };
 }

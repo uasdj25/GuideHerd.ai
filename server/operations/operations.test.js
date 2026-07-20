@@ -298,6 +298,10 @@ test('HTTP: a full workflow appears in the dashboard — and only to its own org
     assert.equal(byCapability['scheduling-provider'], 'not-integrated');
     assert.equal(byCapability['user-authentication'], 'available');
     assert.equal(byCapability['service-identity'], 'available');
+    // Data retention is DARK BY DEFAULT (#63 safety): reports not-configured
+    // until an organization explicitly opts in — nothing is ever deleted
+    // while it reads not-configured.
+    assert.equal(byCapability['data-retention'], 'not-configured');
     // Configuration authority (ADR-0022): without a boot-time seed this
     // composition is live-authoritative.
     assert.equal(byCapability['configuration-authority'], 'live');

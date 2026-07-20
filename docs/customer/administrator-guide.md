@@ -355,16 +355,14 @@ item rather than an acceptable steady state.
 
 ### Data retention
 
-**Old operational data is now purged automatically.** Cancelled or unbooked
-sessions are removed after about a day; completed sessions after about a
-month. Your GuideHerd contact can set your firm's exact windows (the
-default numbers are being finalized). The delivered consultation summary
-email remains your durable record of each call.
-
-The purge runs continuously in the background — no action needed. There is
-still no self-service export or selective-erasure tool; for a specific
-erasure request (e.g. a caller asks to be removed sooner), ask your
-GuideHerd contact.
+**Automatic data retention is available but OFF until your firm turns it
+on.** When enabled, it removes cancelled or unbooked sessions after about a
+day and completed sessions after about a month; the delivered consultation
+summary email remains your durable record of each call. It is deliberately
+off by default so nothing is ever deleted without your firm's explicit
+decision — ask your GuideHerd contact to enable it and to set your exact
+windows. There is no self-service export or selective-erasure tool; for a
+specific erasure request, ask your GuideHerd contact.
 
 Two genuine points in GuideHerd's favor:
 

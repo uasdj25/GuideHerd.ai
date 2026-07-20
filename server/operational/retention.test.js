@@ -29,14 +29,26 @@ function fixture() {
   return configService;
 }
 
-test('retention service: DEFAULT windows are ADR-0006 proposed (24h / 30d)', () => {
-  assert.deepEqual(DEFAULT_POLICY, { cancelledExpiredHours: 24, terminalDays: 30 });
+test('retention service: DEFAULT is DISABLED — an unconfigured org is never purged (#63 safety)', () => {
+  assert.deepEqual(DEFAULT_POLICY, { enabled: false, cancelledExpiredHours: 24, terminalDays: 30 });
+});
+
+test('retention service: with NO configuration, sweep deletes NOTHING — purgeRetired is never called', async () => {
+  const configService = fixture(); // org-a, org-b exist; neither enables retention
+  let called = false;
+  const store = { async purgeRetired() { called = true; return { purgedShortLived: 9, purgedTerminal: 9 }; } };
+  const retention = createRetentionService({ store, configService, clock: fixedClock(T0) });
+  const result = await retention.sweep();
+  assert.equal(called, false, 'the destructive purge is never invoked for an unconfigured organization');
+  assert.deepEqual(result, { purgedShortLived: 0, purgedTerminal: 0 });
+  assert.equal(retention.status(), 'not-configured', 'retention reports itself unconfigured');
 });
 
 test('retention service: sweeps every org with its resolved policy; emits counts-only telemetry', async () => {
   const configService = fixture();
-  // org-b overrides to tighter windows (2h / 7d).
-  configService.settings.set('org-b', 'retention', 'policy', { cancelledExpiredHours: 2, terminalDays: 7 });
+  // Both orgs OPT IN explicitly; org-b overrides to tighter windows (2h / 7d).
+  configService.settings.set('org-a', 'retention', 'policy', { enabled: true });
+  configService.settings.set('org-b', 'retention', 'policy', { enabled: true, cancelledExpiredHours: 2, terminalDays: 7 });
 
   const seen = [];
   const store = {
@@ -70,6 +82,8 @@ test('retention service: sweeps every org with its resolved policy; emits counts
 
 test('retention service: a per-org purge failure is isolated and never breaks the sweep', async () => {
   const configService = fixture();
+  configService.settings.set('org-a', 'retention', 'policy', { enabled: true });
+  configService.settings.set('org-b', 'retention', 'policy', { enabled: true });
   const store = {
     async purgeRetired(orgKey) {
       if (orgKey === 'org-a') throw new Error('store down');

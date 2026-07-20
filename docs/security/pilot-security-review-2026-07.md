@@ -16,7 +16,7 @@ review with targeted live checks; every claim below names its evidence
 | F3 | Headers | Product pages lacked CSP and frame protection (login surfaces frameable → clickjacking-shaped risk) | Low-Med | **FIXED**: `_headers` for Cloudflare Pages — global nosniff/DENY/no-referrer/HSTS; CSP on the three product surfaces (self-hosted everything + the one API origin; `'unsafe-inline'` required by the pages' inline-script architecture — external injection still blocked) |
 | F4 | Probes | `/healthz`/`/readyz` answered GET only; platform checkers often use HEAD | Info | **FIXED**: HEAD supported, no body |
 | F5 | Contract | #66's 200-slot cap exceeds the 16 KB body cap (~100 typical slots) | Info | **Documented** in the slot-selection contract; real availability is far below both bounds |
-| F6 | Limiting | The login limiter trusted `x-forwarded-for` unconditionally and read the client-spoofable LEFTMOST entry | Med | **FIXED** (F7): trust is now explicit (`GUIDEHERD_TRUST_PROXY`, OFF by default → socket-only, spoof-proof); when on, the RIGHTMOST (edge-appended) entry is used, IPv6-normalized. Production behind Railway sets the flag |
+| F6 | Limiting | The login limiter trusted `x-forwarded-for` unconditionally and read the client-spoofable LEFTMOST entry | Med | **FIXED** (F7): trust is now explicit (`GUIDEHERD_TRUST_PROXY`, OFF by default → socket-only, spoof-proof). **The `true` (rightmost-XFF) path stays UNSET on Railway** — verified against Railway's official docs, which do not document XFF at all (they document `X-Real-IP`) and whose staff guidance is self-contradictory, so rightmost-XFF is unproven there. Socket-only (unset) is the fail-safe posture; a per-client limiter on Railway would need `X-Real-IP` support (future, gated on verifying that header). |
 | F7 | Limiting | (as F6 — the proxy-trust fix) | — | see F6 |
 | F8 | Limiting | Limiter memory bound was clear-everything (a flood reset legit counters) | Low | **FIXED**: stale entries from past windows are pruned individually; a live counter is never discarded; a 50k hard backstop remains |
 | F9 | Credential UI | #65's one-time issued credential stayed in the DOM after display (persisted through re-renders and other actions) | Med | **FIXED**: a Dismiss control and clear-on-next-action EMPTY the credential nodes (not just hide); browser-tested |
@@ -104,9 +104,13 @@ credential hygiene.
 **Pilot-acceptable limitations (documented, single instance):** the login
 limiter and alert-aggregation counters are process-local (reset on
 restart, independent per instance) — correct for one instance; HSTS/CSP
-depend on the Cloudflare edge; `GUIDEHERD_TRUST_PROXY` must be set in
-production so per-client limiting works behind Railway's edge (unset →
-whole-deployment throttle, which fails safe).
+depend on the Cloudflare edge. `GUIDEHERD_TRUST_PROXY` is **left UNSET on
+Railway** (verified: Railway does not document `X-Forwarded-For`; its
+staff guidance on XFF position is contradictory, so the rightmost-entry
+model is unproven). Unset → socket-only, whole-deployment throttle, which
+fails safe (coarser, never spoofable). Per-client limiting on Railway
+would require keying on the documented `X-Real-IP` header — deferred and
+gated on verifying that header's behavior under Railway's CDN path.
 
 **Required before multi-instance scaling:** a durable/shared login limiter
 (PG-backed, reusing the claim pattern); durable session store is already
@@ -114,8 +118,9 @@ done (#64). *These are the scaling trigger.*
 
 **Required before a second customer / broader internet exposure:** durable
 Operations alert history (#68 follow-up); general API rate limiting
-informed by real traffic; a formal trusted-proxy hop model if the edge
-topology changes.
+informed by real traffic; per-client login limiting via `X-Real-IP` if it
+is needed (requires verifying Railway's `X-Real-IP` behavior — the
+rightmost-XFF assumption was found unprovable against Railway's docs).
 
 **Deferred enterprise capabilities:** MFA / enterprise IdP (ADR-0013's
 recorded provider-registry path).

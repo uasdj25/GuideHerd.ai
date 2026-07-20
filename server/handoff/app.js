@@ -515,6 +515,21 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
           return anyEnabled ? 'available' : 'not-configured';
         },
       },
+      {
+        // Data retention (#63): DARK BY DEFAULT — `not-configured` means the
+        // purge deletes NOTHING for any organization. Flips to `available`
+        // only when a firm explicitly enables retention (opt-in).
+        capability: 'data-retention',
+        check: () => {
+          if (!configService) return 'not-configured';
+          const { readDomain } = require('../configuration/framework');
+          const anyEnabled = configService.organizations.list().some((o) => {
+            const { value } = readDomain(configService, 'data-retention', o.key);
+            return value && value.enabled === true;
+          });
+          return anyEnabled ? 'available' : 'not-configured';
+        },
+      },
     ],
   });
   opsObserver = (name, fields) => operations.observe(name, fields);

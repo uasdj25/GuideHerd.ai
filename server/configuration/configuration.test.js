@@ -56,6 +56,34 @@ test('framework: the production domain model registers every settings domain, al
   assert.equal(owners['scheduling-policy'], 'scheduling', 'validation ownership stays with the subsystem');
   assert.equal(owners['notification-branding'], 'notifications');
   assert.equal(owners['appointment-reminders'], 'scheduler', 'the Scheduler owns its reminder configuration');
+  assert.equal(owners['data-retention'], 'operational-store');
+});
+
+test('data-retention: DARK BY DEFAULT — destructive purge is off until an org explicitly opts in (#63 safety)', () => {
+  const { validateDomain, readDomain } = require('./framework');
+  const { openDatabase } = require('../config/db');
+  const { migrate } = require('../config/migrate');
+  const { createConfigService } = require('../config/service');
+  const db = openDatabase(); migrate(db);
+  const cs = createConfigService({ db });
+  cs.organizations.create({ key: 'org-a', name: 'A', timezone: 'UTC' });
+
+  // The CONSUMER read (what the sweep uses) with NO override → DISABLED.
+  assert.deepEqual(readDomain(cs, 'data-retention', 'org-a').value,
+    { enabled: false, cancelledExpiredHours: 24, terminalDays: 30 }, 'unconfigured = off');
+
+  // Explicit opt-in enables; windows optional (suggested defaults apply).
+  assert.deepEqual(validateDomain('data-retention', { enabled: true }).normalized,
+    { enabled: true, cancelledExpiredHours: 24, terminalDays: 30 });
+  assert.deepEqual(validateDomain('data-retention', { enabled: true, cancelledExpiredHours: 2, terminalDays: 7 }).normalized,
+    { enabled: true, cancelledExpiredHours: 2, terminalDays: 7 });
+  // Windows WITHOUT enable stay DISABLED — numbers alone never delete.
+  assert.deepEqual(validateDomain('data-retention', { cancelledExpiredHours: 1 }).normalized,
+    { enabled: false, cancelledExpiredHours: 1, terminalDays: 30 });
+  // Malformed enabled / unknown field / out-of-range are rejected.
+  assert.equal(validateDomain('data-retention', { enabled: 'yes' }).ok, false);
+  assert.equal(validateDomain('data-retention', { enabled: true, ttl: 1 }).ok, false);
+  assert.equal(validateDomain('data-retention', { enabled: true, terminalDays: 0 }).ok, false);
 });
 
 test('framework: unknown domains fail loudly in both directions', () => {

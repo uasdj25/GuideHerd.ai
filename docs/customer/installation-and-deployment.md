@@ -159,16 +159,18 @@ they are told to ask.
 
 ## Data retention
 
-**Automated retention is built and runs on the liveness poller** (ADR-0006 /
-#63): cancelled/expired sessions are hard-deleted after `cancelledExpiredHours`
-(default 24h) and terminal sessions after `terminalDays` (default 30 days),
-per organization, overridable via the `data-retention` configuration domain.
-The delivered consultation summary email is the durable record; rendered
-summaries are never stored.
+**Automated retention is built but OFF BY DEFAULT** (ADR-0006 / #63):
+nothing is deleted until an organization opts in via the `data-retention`
+domain (`enabled: true`). While disabled — the default — the Operations
+Center reports `data-retention: not-configured` and no row is purged. When
+enabled, cancelled/expired sessions are hard-deleted after
+`cancelledExpiredHours` (suggested 24h) and terminal sessions after
+`terminalDays` (suggested 30 days), per organization. The delivered
+consultation summary email is the durable record.
 
-The default windows remain **proposed pending sign-off** — the mechanism
-enforces whatever is configured. The interim manual procedure and exact SQL
-are in the [deployment reference](../operations/deployment-reference.md).
+The suggested windows remain **proposed pending sign-off**. The interim
+manual procedure and exact SQL are in the
+[deployment reference](../operations/deployment-reference.md).
 
 Two points in GuideHerd's favor, true in every deployment: consultation
 summaries are never stored (the delivered email is the only copy), and prepared

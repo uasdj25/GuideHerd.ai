@@ -32,19 +32,37 @@
   .admin-login p { color: var(--text-dim); font-size: var(--fs-sm); margin-bottom: var(--sp-3); }
   .admin-login form { display: flex; flex-direction: column; gap: var(--sp-2); }
 
-  .admin-main { padding: var(--sp-4) 0 var(--sp-6); }
+  /* Content column: a touch narrower than the reading default so the
+     two-column forms scan more easily. Vertical padding only — the shared
+     container keeps its own horizontal gutters (a `padding` shorthand here
+     would zero them out, letting cards touch the viewport edge on mobile). */
+  .admin-main { max-width: 960px; padding-top: var(--sp-4); padding-bottom: var(--sp-6); }
+  /* Keep the header row tracking the very same column edges as the content. */
+  .gh-app-header .gh-container { max-width: 960px; }
 
-  /* Area cards: shared card, form rows stacked with shared spacing. */
-  .area-card { margin-top: var(--sp-2); }
-  .area-card .gh-field + .gh-field,
-  .area-card .gh-check,
-  .area-card .gh-btn,
-  .area-card .gh-alert { margin-top: var(--sp-2); }
-  .area-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; }
+  /* Area cards: peers separated by a comfortable gap. One uniform vertical
+     rhythm governs everything stacked directly inside a card, with the
+     wider gap reserved for a sub-section heading — this single model
+     replaces the per-element margins so the spacing stays even no matter
+     which control types happen to sit next to each other. Scoping to direct
+     children also keeps the row-action buttons inside tables from inheriting
+     a top margin (which otherwise dropped them below their own row). */
+  .area-card { margin-top: var(--sp-3); }
+  .area-card > * + * { margin-top: var(--sp-2); }
+  .area-card > * + .area-head,
+  .area-card > .area-sub { margin-top: var(--sp-3); }
+
+  /* Heading + status badge: centered so the badge reads as aligned to the
+     serif title rather than sitting on its baseline. The badge is kept
+     quiet (a touch more compact, a hair softer, a smaller dot) so the
+     heading stays the focal point. */
+  .area-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; }
+  .area-head .gh-badge { padding: 3px 8px; opacity: 0.9; }
+  .area-head .gh-badge::before { width: 4px; height: 4px; }
   .area-sub { font-family: var(--serif); font-size: var(--fs-md); margin: var(--sp-3) 0 var(--sp-1); }
 
   /* Two-column field rows collapse on narrow viewports. */
-  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); margin-top: var(--sp-2); }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
   @media (max-width: 560px) { .field-row { grid-template-columns: 1fr; } }
 
   /* Alerts double as per-area save status; empty alerts collapse. */
@@ -53,7 +71,14 @@
   /* Configuration-authority banner (ADR-0022): one line above the areas. */
   .authority-banner { display: flex; align-items: baseline; gap: var(--sp-2); margin-bottom: var(--sp-3); }
 
-  .catalog-tables { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
+  .catalog-tables { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+  /* Row-action links (Activate/Deactivate/Remove/New credential) live in
+     top-aligned table cells; the shared button's vertical padding otherwise
+     drops their label below the rest of the row. Trimming it in-table only
+     lands them on the row's own baseline. Standalone ghost buttons keep the
+     full pill padding. */
+  .gh-table .gh-btn-ghost { padding-top: 0; padding-bottom: 0; }
 </style>
 </head>
 <body>
@@ -111,7 +136,7 @@
         <h2 class="gh-section-title">Organization</h2>
         <span class="gh-badge gh-badge--ok">Live</span>
       </div>
-      <div class="gh-field" style="margin-top:var(--sp-2)">
+      <div class="gh-field">
         <label class="gh-label" for="org-name">Name</label>
         <input class="gh-input" id="org-name">
       </div>
@@ -136,7 +161,7 @@
         <h2 class="gh-section-title">Attorney ordering</h2>
         <span class="gh-badge gh-badge--ok">Live</span>
       </div>
-      <div class="gh-field" style="margin-top:var(--sp-2)">
+      <div class="gh-field">
         <label class="gh-label" for="order-group">Routing group</label>
         <select class="gh-select" id="order-group"></select>
       </div>
@@ -154,7 +179,7 @@
         <h2 class="gh-section-title">Scheduling policy</h2>
         <span id="badge-scheduling-policy"></span>
       </div>
-      <div class="gh-field" style="margin-top:var(--sp-2)">
+      <div class="gh-field">
         <label class="gh-label" for="pol-attorneys">Preferred attorneys</label>
         <input class="gh-input" id="pol-attorneys" aria-describedby="pol-attorneys-note">
         <span class="gh-muted" id="pol-attorneys-note" style="font-size:var(--fs-xs)">Comma-separated, ordered.</span>
@@ -185,7 +210,7 @@
         <h2 class="gh-section-title">Notifications</h2>
         <span id="badge-notifications"></span>
       </div>
-      <label class="gh-check" style="margin-top:var(--sp-2)">
+      <label class="gh-check">
         <input type="checkbox" id="notif-enabled">
         <span>Send appointment confirmations
           <span class="gh-check-note">Enable only once calendar-provider attendee emails are confirmed off (double-notification risk).</span></span>
@@ -193,11 +218,11 @@
       <button class="gh-btn gh-btn-primary" id="save-notifications">Save notification settings</button>
       <p class="gh-alert" id="msg-notifications" role="status" aria-live="polite"></p>
 
-      <div class="area-head" style="margin-top:var(--sp-3)">
+      <div class="area-head">
         <h3 class="area-sub" style="margin:0">Notification branding</h3>
         <span id="badge-notification-branding"></span>
       </div>
-      <div class="gh-field" style="margin-top:var(--sp-2)">
+      <div class="gh-field">
         <label class="gh-label" for="brand-sender">Sender name</label>
         <input class="gh-input" id="brand-sender">
       </div>
@@ -234,11 +259,11 @@
       <button class="gh-btn gh-btn-primary" id="save-branding">Save branding</button>
       <p class="gh-alert" id="msg-notification-branding" role="status" aria-live="polite"></p>
 
-      <div class="area-head" style="margin-top:var(--sp-3)">
+      <div class="area-head">
         <h3 class="area-sub" style="margin:0">Appointment reminders</h3>
         <span id="badge-appointment-reminders"></span>
       </div>
-      <label class="gh-check" style="margin-top:var(--sp-2)">
+      <label class="gh-check">
         <input type="checkbox" id="rem-enabled">
         <span>Send appointment reminders
           <span class="gh-check-note">Only appointments booked after enabling get reminders; disabling stops already-scheduled ones.</span></span>
@@ -261,11 +286,11 @@
       <!-- Failure alerting (#68): default off; alerts email an
            administrator when failures happen instead of waiting to be
            noticed. Requires working email delivery. -->
-      <div class="area-head" style="margin-top:var(--sp-3)">
+      <div class="area-head">
         <h3 class="area-sub" style="margin:0">Operational alerts</h3>
         <span id="badge-operational-alerts"></span>
       </div>
-      <label class="gh-check" style="margin-top:var(--sp-2)">
+      <label class="gh-check">
         <input type="checkbox" id="alert-enabled">
         <span>Email an administrator when failures happen
           <span class="gh-check-note">Failed handoffs, failed deliveries, and degraded capabilities — at most one email per condition per window. Needs email delivery active.</span></span>
@@ -286,7 +311,7 @@
         <h2 class="gh-section-title">Identity provider</h2>
         <span id="badge-identity-provider"></span>
       </div>
-      <div class="gh-field" style="margin-top:var(--sp-2)">
+      <div class="gh-field">
         <label class="gh-label" for="idp">Provider</label>
         <select class="gh-select" id="idp"></select>
       </div>
@@ -335,7 +360,7 @@
       </div>
       <button class="gh-btn gh-btn-primary" id="user-roles-save">Save roles</button>
 
-      <div class="gh-card" id="issued-wrap" hidden style="margin-top:var(--sp-2)">
+      <div class="gh-card" id="issued-wrap" hidden>
         <strong>Credential for <span id="issued-subject"></span></strong> — shown once, never again.
         Copy it now and hand it over securely:
         <div style="margin-top:var(--sp-1)"><code class="gh-mono" id="issued-credential"></code></div>
@@ -501,11 +526,11 @@
       <button class="gh-btn gh-btn-primary" id="loc-create">Add office</button>
       <p class="gh-alert" id="msg-office" role="status" aria-live="polite"></p>
 
-      <div class="area-head" style="margin-top:var(--sp-3)">
+      <div class="area-head">
         <h3 class="area-sub" style="margin:0">Business hours</h3>
         <span class="gh-badge gh-badge--ok">Live</span>
       </div>
-      <div class="gh-field" style="margin-top:var(--sp-2)">
+      <div class="gh-field">
         <label class="gh-label" for="bh-location">Office</label>
         <select class="gh-select" id="bh-location"></select>
       </div>
@@ -520,7 +545,7 @@
     <div class="gh-eyebrow"><span class="gh-eyebrow-dot" aria-hidden="true"></span><span>History</span></div>
     <div class="gh-card area-card">
       <h2 class="gh-section-title">Recent configuration changes</h2>
-      <div id="audit" aria-live="polite" style="margin-top:var(--sp-2)"></div>
+      <div id="audit" aria-live="polite"></div>
     </div>
   </section>
 </main>

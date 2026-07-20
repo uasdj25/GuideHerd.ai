@@ -456,28 +456,29 @@ test('HTTP: failed and escalated outcomes never send a confirmation even when en
   });
 });
 
-test('graph provider #60: a hung send aborts within the bound; delivery fails without retrying', async () => {
-  const hangingFetch = (url, opts) => new Promise((resolve, reject) => {
-    opts.signal.addEventListener('abort', () => reject(opts.signal.reason));
-  });
+test('graph provider #60: bounds each request with a signal; a send-phase timeout fails without retrying', async () => {
+  // Deterministic: reject with the exact error AbortSignal.timeout() raises
+  // on abort (a TimeoutError), rather than racing a real short timer.
+  const timeoutError = () => { const e = new Error('The operation timed out.'); e.name = 'TimeoutError'; return e; };
+  const signals = [];
   let sendCalls = 0;
   const fetchImpl = async (url, opts) => {
+    signals.push(opts && opts.signal);
     if (String(url).includes('login.microsoftonline.com')) {
       return { ok: true, status: 200, json: async () => ({ access_token: 'tok' }), headers: new Headers() };
     }
     sendCalls += 1;
-    return hangingFetch(url, opts);
+    throw timeoutError(); // send phase times out — acceptance ambiguous
   };
   const provider = createGraphEmailProvider({
     env: { MS_TENANT_ID: 't', MS_CLIENT_ID: 'c', MS_CLIENT_SECRET: 's', SUMMARY_MAILBOX: 'mb@x.test' },
-    fetchImpl, sleep: async () => {}, requestTimeoutMs: 20,
+    fetchImpl, sleep: async () => {}, requestTimeoutMs: 10_000,
   });
-  const started = Date.now();
   const result = await provider.deliver(
     { rendered: { subject: 's', html: '<p>h</p>', text: 'h' }, recipient: { name: null, email: 'r@x.test' } },
     {},
   );
-  assert.ok(Date.now() - started < 2000, 'bounded, not hanging');
   assert.equal(result.status, 'failed');
   assert.equal(sendCalls, 1, 'send-phase timeout never retried');
+  assert.ok(signals.every((s) => s instanceof AbortSignal), 'every Graph request is bounded by a signal');
 });

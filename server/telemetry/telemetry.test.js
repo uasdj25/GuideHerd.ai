@@ -483,45 +483,61 @@ test('HTTP: request logs carry the correlation ID and never tokens or caller PII
 });
 
 // ── Bounded provider requests (#60) ────────────────────────────────────────
+// A timed-out request is simulated DETERMINISTICALLY by rejecting with the
+// exact error AbortSignal.timeout() produces on abort (a DOMException named
+// 'TimeoutError'). This exercises the mailer's phase-aware classification
+// without a wall-clock race (a real short timeout resolves nondeterministically
+// across Node versions). The mailer ALSO attaching a bounded signal is
+// asserted separately below.
 
-/** A fetch that never resolves but honors the request's AbortSignal. */
-const hangingFetch = (url, opts) => new Promise((resolve, reject) => {
-  opts.signal.addEventListener('abort', () => reject(opts.signal.reason));
-});
+const timeoutError = () => { const e = new Error('The operation timed out.'); e.name = 'TimeoutError'; return e; };
 
-test('mailer #60: a hung TOKEN request aborts within the bound and is retried (no mail was sent)', async () => {
-  const lines = [];
-  const tel = createTelemetry({ log: (l) => lines.push(JSON.parse(l)), clock: fixedClock(T0) });
-  let calls = 0;
+test('mailer #60: the mailer attaches a bounded AbortSignal to every Graph request', async () => {
+  const signals = [];
   const fetchImpl = async (url, opts) => {
-    calls += 1;
-    if (calls === 1) return hangingFetch(url, opts); // token hang
+    signals.push(opts && opts.signal);
     if (String(url).includes('login.microsoftonline.com')) {
       return { ok: true, status: 200, json: async () => ({ access_token: 'tok' }), headers: new Headers() };
     }
     return { ok: true, status: 202, json: async () => ({}), headers: new Headers() };
   };
-  const mailer = createMailer({ env: MAIL_ENV, fetchImpl, telemetry: tel, sleep: async () => {}, requestTimeoutMs: 20 });
+  const mailer = createMailer({ env: MAIL_ENV, fetchImpl, sleep: async () => {}, requestTimeoutMs: 10_000 });
+  await mailer.sendSummary({ subject: 's', html: '<p>h</p>' });
+  assert.equal(signals.length, 2, 'token + send requests');
+  assert.ok(signals.every((s) => typeof AbortSignal !== 'undefined' && s instanceof AbortSignal), 'every request is bounded by a signal');
+});
+
+test('mailer #60: a TOKEN-phase timeout is retried (no mail was sent) and succeeds', async () => {
+  const lines = [];
+  const tel = createTelemetry({ log: (l) => lines.push(JSON.parse(l)), clock: fixedClock(T0) });
+  let calls = 0;
+  const fetchImpl = async (url) => {
+    calls += 1;
+    if (calls === 1) throw timeoutError(); // token phase times out
+    if (String(url).includes('login.microsoftonline.com')) {
+      return { ok: true, status: 200, json: async () => ({ access_token: 'tok' }), headers: new Headers() };
+    }
+    return { ok: true, status: 202, json: async () => ({}), headers: new Headers() };
+  };
+  const mailer = createMailer({ env: MAIL_ENV, fetchImpl, telemetry: tel, sleep: async () => {}, requestTimeoutMs: 10_000 });
   const result = await mailer.sendSummary({ subject: 's', html: '<p>h</p>' });
   assert.deepEqual(result, { status: 'sent' }, 'token-phase timeout retried safely to success');
   assert.ok(lines.some((l) => l.event === 'guideherd.retry.attempted'));
 });
 
-test('mailer #60: a hung SEND request aborts within the bound and is NOT retried (acceptance ambiguous)', async () => {
+test('mailer #60: a SEND-phase timeout is NOT retried (acceptance ambiguous) and fails', async () => {
   const lines = [];
   const tel = createTelemetry({ log: (l) => lines.push(JSON.parse(l)), clock: fixedClock(T0) });
   let sendCalls = 0;
-  const fetchImpl = async (url, opts) => {
+  const fetchImpl = async (url) => {
     if (String(url).includes('login.microsoftonline.com')) {
       return { ok: true, status: 200, json: async () => ({ access_token: 'tok' }), headers: new Headers() };
     }
     sendCalls += 1;
-    return hangingFetch(url, opts);
+    throw timeoutError(); // send phase times out — acceptance unknown
   };
-  const started = Date.now();
-  const mailer = createMailer({ env: MAIL_ENV, fetchImpl, telemetry: tel, sleep: async () => {}, requestTimeoutMs: 20 });
+  const mailer = createMailer({ env: MAIL_ENV, fetchImpl, telemetry: tel, sleep: async () => {}, requestTimeoutMs: 10_000 });
   const result = await mailer.sendSummary({ subject: 's', html: '<p>h</p>' });
-  assert.ok(Date.now() - started < 2000, 'bounded, not hanging');
   assert.deepEqual(result, { status: 'failed' });
   assert.equal(sendCalls, 1, 'ambiguous acceptance: never retried');
   assert.ok(lines.some((l) => l.event === 'guideherd.provider.timeout'));

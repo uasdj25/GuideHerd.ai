@@ -52,12 +52,14 @@ function graphRequestId(res) {
   }
 }
 
-function classifyNetworkError(err) {
+function classifyNetworkError(err, { phase = 'send' } = {}) {
   const code = (err && (err.code || (err.cause && err.cause.code))) || '';
   if (['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN'].includes(code)) {
     return providerUnavailable({ provider: PROVIDER, retryable: true });
   }
-  return providerTimeout({ provider: PROVIDER, retryable: false }); // ambiguous: may have been accepted
+  // Token-phase failures (incl. our bounded AbortSignal timeout, #60) are
+  // retry-safe — no mail can have been sent; send-phase stays ambiguous.
+  return providerTimeout({ provider: PROVIDER, retryable: phase === 'token' });
 }
 
 function classifyHttpFailure(res) {
@@ -78,7 +80,7 @@ function classifyHttpFailure(res) {
  *   retryAttempts?: number,
  * }} [deps]
  */
-function createGraphEmailProvider({ env = process.env, fetchImpl = fetch, telemetry, sleep, retryAttempts = 3 } = {}) {
+function createGraphEmailProvider({ env = process.env, fetchImpl = fetch, telemetry, sleep, retryAttempts = 3, requestTimeoutMs = 10_000 } = {}) {
   const config = {
     tenantId: env.MS_TENANT_ID,
     clientId: env.MS_CLIENT_ID,
@@ -101,9 +103,11 @@ function createGraphEmailProvider({ env = process.env, fetchImpl = fetch, teleme
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body.toString(),
+        // Bounded (#60): a hung identity provider must not hang delivery.
+        signal: AbortSignal.timeout(requestTimeoutMs),
       });
     } catch (err) {
-      throw classifyNetworkError(err);
+      throw classifyNetworkError(err, { phase: 'token' });
     }
     if (!res.ok) {
       if (res.status === 429) throw providerRateLimited({ provider: PROVIDER, httpStatus: res.status, retryable: true });
@@ -165,9 +169,10 @@ function createGraphEmailProvider({ env = process.env, fetchImpl = fetch, teleme
                 },
                 saveToSentItems: true,
               }),
+              signal: AbortSignal.timeout(requestTimeoutMs),
             });
           } catch (err) {
-            throw classifyNetworkError(err);
+            throw classifyNetworkError(err, { phase: 'send' });
           }
           if (res.status === 202) return { status: 'sent', providerRequestId: graphRequestId(res) };
           throw classifyHttpFailure(res);

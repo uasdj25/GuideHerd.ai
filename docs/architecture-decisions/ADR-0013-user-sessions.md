@@ -4,10 +4,10 @@
 Operations Center and Administration Center authentication are ACTIVE in
 production, and the receptionist authentication capability is shipped
 (console login UI, 12h sessions, runbook — PR #31). The Reception Console
-gate itself (`GUIDEHERD_CONSOLE_AUTH=required`) remains INTENTIONALLY
-inactive until after the Martinson & Beason demo; the activation addendum
-will be written when the flip actually happens.
-**Date:** 2026-07-18
+gate (`GUIDEHERD_CONSOLE_AUTH=required`) is now ACTIVE in production as of
+2026-07-20 (GitLab #61) — anonymous console access is retired. See the
+Activation addendum below.
+**Date:** 2026-07-18 (activation addendum 2026-07-20)
 **Relates to:** GuideHerd Constitution (Principles 2, 4, 9), ADR-0009
 (Identity Contract), ADR-0010 (Authorization — which recorded receptionist
 login as the required milestone), ADR-0007 (Extension Framework)
@@ -131,9 +131,35 @@ provider claims.
 2. Provision users (dev provider for the pilot; an enterprise provider
    later) in the deployment environment.
 3. Durable session store for multi-instance scale, if needed.
-4. Flip `GUIDEHERD_CONSOLE_AUTH=required`.
+4. Flip `GUIDEHERD_CONSOLE_AUTH=required`. **Done 2026-07-20 (GitLab #61).**
 
-Until step 4, production behavior is byte-for-byte today's.
+Steps 1–4 are complete: durable PostgreSQL session storage (step 3) shipped
+with #64, and the flip (step 4) is active in production — see the addendum
+below.
+
+## Activation addendum — Reception Console gate activated (2026-07-20, GitLab #61)
+
+Step 4 of the activation path was performed in production on 2026-07-20.
+Anonymous Reception Console access is retired: unauthenticated console requests
+receive 401, and receptionists sign in through the User Sessions system defined
+in this ADR.
+
+- **Change:** the single Railway production variable `GUIDEHERD_CONSOLE_AUTH=required`
+  — no code change; `GUIDEHERD_DEV_USERS` and all other configuration unchanged.
+- **Prerequisites (satisfied before the flip):** receptionist users provisioned via
+  `GUIDEHERD_DEV_USERS` and verified by sign-in; durable PostgreSQL session storage
+  active (`GUIDEHERD_OPERATIONAL_PROVIDER=postgres`, #64 — the historical
+  single-instance / in-memory constraint no longer applies); one API instance;
+  12-hour absolute session lifetime.
+- **Verification:** unauthenticated `scheduling-options` → 401; the branded sign-in
+  gate presents without a session; authenticated receptionist sign-in loads the
+  console with practice areas, attorneys, and consultation types; a normal handoff
+  completed end to end; `/healthz` and `/readyz` = 200 on a clean boot.
+- **Rollback (one variable, reversible):** remove `GUIDEHERD_CONSOLE_AUTH` (or set it
+  to `anonymous`) and redeploy — restores anonymous operation; no client release, no
+  schema or data change.
+
+Runbook: `docs/operations/receptionist-console-activation.md`.
 
 ## Out of scope (recorded)
 

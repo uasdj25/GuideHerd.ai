@@ -2,10 +2,23 @@
 
 **Applies to:** Reception Console (`/receptionist/`)
 **Architecture:** ADR-0013 (User Sessions), ADR-0010 (Authorization)
-**Issue:** #58
-**Status of this runbook:** the console-side implementation is complete and
-verified locally. **Steps 3–5 below are unperformed and require explicit human
-approval.** Production is still running `GUIDEHERD_CONSOLE_AUTH=anonymous`.
+**Issue:** #58 (implementation), #61 (production activation)
+**Status of this runbook:** **ACTIVATED IN PRODUCTION on 2026-07-20 (GitLab #61).**
+Production runs `GUIDEHERD_CONSOLE_AUTH=required` — the Reception Console requires
+receptionist sign-in and unauthenticated console requests receive 401. The steps
+below remain the canonical, reusable procedure (and rollback) for any future
+deployment or re-run.
+
+### Activation record (2026-07-20, GitLab #61)
+
+- **Change:** set `GUIDEHERD_CONSOLE_AUTH=required` in Railway production
+  (`truthful-eagerness` / `GuideHerd.ai` / `production`) — the only configuration
+  change; `GUIDEHERD_DEV_USERS` and everything else unchanged; no code change.
+- **Verified:** unauthenticated `scheduling-options` → 401; the branded sign-in gate
+  is shown without a session; authenticated receptionist sign-in loads the console;
+  practice areas, attorneys, and consultation types load; a normal handoff completed
+  end to end; `/healthz` = `/readyz` = 200; clean boot on deployment.
+- **Rollback:** remove `GUIDEHERD_CONSOLE_AUTH` (or set `anonymous`) and redeploy.
 
 ---
 

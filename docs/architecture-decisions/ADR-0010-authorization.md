@@ -41,7 +41,7 @@ object in `server/identity/authorization.js`):
 | Role | Identity type | Scope | Permissions | Intended surface |
 |---|---|---|---|---|
 | `scheduling-assistant` | service (bearer credential, ADR-0009) | organization | `conversation:connect`, `conversation:complete`, `summary:read` | the assistant runtime reaching the demo bridge |
-| `receptionist` | user (session cookie, ADR-0013) | organization | `handoff:create`, `configuration:read` | the Reception Console (gate intentionally inactive; capability shipped) |
+| `receptionist` | user (session cookie, ADR-0013) | organization | `handoff:create`, `configuration:read` | the Reception Console (gate ACTIVE in production since 2026-07-20, GitLab #61) |
 | `operator` | user (session cookie, ADR-0013) | organization | `operations:read` | the Operations Center (read-only) |
 | `administrator` | user (session cookie, ADR-0013) | organization | `administration:read`, `administration:write` | the Administration Center |
 

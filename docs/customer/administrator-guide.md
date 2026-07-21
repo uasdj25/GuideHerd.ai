@@ -96,11 +96,11 @@ implemented — don't plan a rollout around it.
 
 ## Sign-in for the Reception Console
 
-By default the Reception Console **does not require a sign-in.** Anyone who can
-reach the page can use it. For a firm where the console lives on a front-desk
-machine on the office network, that is often a reasonable posture.
-
-Sign-in can be switched on. When it is:
+Your Reception Console **requires receptionist sign-in.** An unauthenticated
+visitor gets the branded sign-in gate and cannot use the console until they sign
+in. (The console can also run without a sign-in — the alternative posture,
+reasonable when it lives on a trusted front-desk machine on the office network —
+but your deployment has sign-in enabled.) With sign-in on:
 
 - Receptionists sign in with an issued credential
 - Their name appears at the top right, with a **Sign out** link
@@ -110,11 +110,10 @@ Sign-in can be switched on. When it is:
   routinely exceed eight hours
 - On the standard production setup, a restart no longer signs people out
 
-**Switching this on is a planned change, not a setting you flip.** Every
-receptionist must be provisioned and individually verified first, because the
-moment it's on, an unprovisioned receptionist cannot work. Ask your GuideHerd
-contact to follow the activation runbook, which includes rehearsing the switch
-back.
+**Provisioning is what keeps this working.** Every receptionist must be
+provisioned and individually verified, because an unprovisioned person cannot
+work while sign-in is on. To add or remove who can sign in — or to change this
+posture — ask your GuideHerd contact; such changes follow the activation runbook.
 
 ---
 

@@ -202,7 +202,7 @@ The consultation summary to your firm stays GuideHerd-branded regardless.
 
 | Setting | Status | Default |
 |---|---|---|
-| Reception Console sign-in | **Request** | **Off** |
+| Reception Console sign-in | **On (required)** | Enabled 2026-07; managed with GuideHerd |
 | Users and their roles | **Self-service** | Users card on the Administration screen — immediate, incl. deactivation. The initial administrator account is set up with GuideHerd |
 | Session length | **Request** | 12 hours, absolute |
 | Single sign-on (Microsoft / Google / Okta) | **Not available** | |
@@ -215,8 +215,9 @@ may sign in before their shift, and shifts plus lunch, overtime, and handoff
 coverage routinely exceed eight hours. If your firm runs longer shifts than
 that, it can be raised per deployment.
 
-Turning on Console sign-in is a planned change: every receptionist must be
-provisioned and verified first, or they can't work the moment it's on.
+Console sign-in is **on**: every receptionist must be provisioned and verified,
+or they can't work while it's on. Changing who can sign in — or this posture — is
+managed with GuideHerd.
 
 ---
 

@@ -118,8 +118,10 @@ routing groups and their practice-area assignments.
 [activation runbook](receptionist-console-activation.md) — users must be
 provisioned and individually verified first, and the rollback rehearsed.
 
-**Login sessions are in memory.** A restart signs everyone out, and exactly one
-API instance is required. See the runbook's session-store operating boundary.
+**Login sessions are durable** under `GUIDEHERD_OPERATIONAL_PROVIDER=postgres`
+(the production provider, #64): a restart no longer signs users out and the old
+single-instance constraint no longer applies. The in-memory store remains the
+development/reference default, where a restart does sign everyone out.
 
 ---
 
@@ -201,7 +203,7 @@ on it.
 |---|---|
 | Replicas | **1** (region `sfo`) |
 | `GUIDEHERD_OPERATIONAL_PROVIDER` | `postgres` — operational data is durable |
-| `GUIDEHERD_CONSOLE_AUTH` | unset → `anonymous` |
+| `GUIDEHERD_CONSOLE_AUTH` | `required` → authenticated receptionist access enforced (GitLab #61, 2026-07-20) |
 | `GUIDEHERD_SEED_FILE` | **set** → seed applied per `GUIDEHERD_SEED_MODE` |
 | `GUIDEHERD_SEED_MODE` | unset (pre-cutover this meant every-boot re-import; after ADR-0022 ships, unset = `bootstrap`) |
 | `MS_*` / `SUMMARY_*` | **unset** → email delivery disabled |

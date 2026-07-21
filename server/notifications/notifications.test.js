@@ -296,6 +296,45 @@ test('graph provider: translates the rendered notification into a delivery; Guid
   assert.equal(sent.message.body.content, message.rendered.html);
 });
 
+test('graph provider: HTML input stays HTML; plain-text-only input uses Text; no saveToSentItems; recipient/subject/shape unchanged', async () => {
+  // (1) The normal rendered-HTML notification path is unchanged.
+  {
+    const { fetchImpl, calls } = fakeGraph([202]);
+    const provider = createGraphEmailProvider({ env: MAIL_ENV, fetchImpl, sleep: async () => {} });
+    const message = renderedFixture();
+    assert.equal((await provider.deliver(message, {})).status, 'sent');
+    const sent = calls.bodies[0];
+    assert.equal(sent.message.body.contentType, 'HTML', 'rendered HTML still HTML');
+    assert.equal(sent.message.body.content, message.rendered.html);
+    assert.equal(sent.message.subject, message.rendered.subject, 'subject unchanged');
+    assert.deepEqual(sent.message.toRecipients,
+      [{ emailAddress: { address: 'ryan@example.com', name: 'Ryan Scoggins' } }],
+      'recipient serialization unchanged');
+    assert.equal('saveToSentItems' in sent, false, 'no explicit top-level saveToSentItems');
+    assert.equal('saveToSentItems' in sent.message, false);
+    assert.deepEqual(Object.keys(sent.message).sort(), ['body', 'subject', 'toRecipients'],
+      'no from/sender/internetMessageHeaders or other properties added');
+  }
+  // (2) Plain-text-only input (no HTML) uses a Text itemBody.
+  {
+    const { fetchImpl, calls } = fakeGraph([202]);
+    const provider = createGraphEmailProvider({ env: MAIL_ENV, fetchImpl, sleep: async () => {} });
+    const result = await provider.deliver(
+      { rendered: { subject: 'Test', html: undefined, text: 'Hello' }, recipient: { email: 'david@guideherd.ai' } },
+      {},
+    );
+    assert.equal(result.status, 'sent');
+    const sent = calls.bodies[0];
+    assert.equal(sent.message.body.contentType, 'Text', 'plain-text-only uses Text');
+    assert.equal(sent.message.body.content, 'Hello');
+    assert.equal(sent.message.subject, 'Test');
+    assert.deepEqual(sent.message.toRecipients, [{ emailAddress: { address: 'david@guideherd.ai' } }]);
+    assert.equal('saveToSentItems' in sent, false, 'Text path also omits saveToSentItems');
+    assert.deepEqual(Object.keys(sent.message).sort(), ['body', 'subject', 'toRecipients']);
+    assert.deepEqual(Object.keys(sent.message.body).sort(), ['content', 'contentType']);
+  }
+});
+
 test('graph provider: 429 retries then succeeds; auth failure and rejection never retry; timeout is ambiguous and never retried', async () => {
   {
     const { fetchImpl, calls } = fakeGraph([429, 202]);

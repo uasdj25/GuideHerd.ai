@@ -160,14 +160,20 @@ function createGraphEmailProvider({ env = process.env, fetchImpl = fetch, teleme
               body: JSON.stringify({
                 message: {
                   subject: rendered.subject,
-                  body: { contentType: 'HTML', content: rendered.html },
+                  // Rendered HTML notifications keep contentType HTML unchanged;
+                  // when the caller intentionally provides no HTML (a plain-text
+                  // message), send a Text itemBody instead. saveToSentItems is
+                  // omitted — Graph defaults it to true — so the request carries
+                  // no property an ordinary Outlook-composed message wouldn't.
+                  body: rendered.html
+                    ? { contentType: 'HTML', content: rendered.html }
+                    : { contentType: 'Text', content: rendered.text },
                   toRecipients: [{
                     emailAddress: recipient.name
                       ? { address: recipient.email, name: recipient.name }
                       : { address: recipient.email },
                   }],
                 },
-                saveToSentItems: true,
               }),
               signal: AbortSignal.timeout(requestTimeoutMs),
             });

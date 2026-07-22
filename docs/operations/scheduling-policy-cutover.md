@@ -68,6 +68,104 @@ a Railway configuration step (see the deployment reference), not a code change.
 
 ---
 
+## Customer-facing latency and failure behavior (v1)
+
+The cutover adds one **synchronous ElevenLabs → GuideHerd** HTTPS call into the
+caller-facing flow. Because a caller hears the delay, latency and failure
+behavior are first-class.
+
+### Four distinct latency components
+
+Keep these separate when measuring — only the third is *added* by this cutover:
+
+| Component | What it is | Added by cutover? |
+|---|---|---|
+| **Local scheduling-engine time** | `selectOfferedSlots()` — sanitize + hard business hours + deterministic ranking (pure computation + Configuration Store reads) | measured locally |
+| **GuideHerd HTTP route processing** | the seam's parse → auth → config reads → engine → serialize, inside the API process | measured locally |
+| **ElevenLabs → GuideHerd tool-call / network latency** | the HTTPS round trip: TLS, public internet, Railway ingress — the *dominant* added cost | **yes** — measure in the voice test |
+| **Calendar-provider lookup latency** | the assistant's existing availability fetch | **no** — pre-existing; excluded from the budget below |
+
+### Send the full candidate list in ONE batched request
+
+The assistant MUST send the **entire** candidate-slot list to
+`/api/v1/scheduling/slot-selection` in a **single** request. Do **not** call the
+seam per slot:
+
+- Ranking is *relative across the whole set* — per-slot calls cannot rank.
+- Per-slot calls multiply the network round trip by the slot count — the single
+  largest latency risk.
+- The contract accepts up to 200 slots / 16 KB (≈ 100 typical slots) per request;
+  a real week of availability fits in one call.
+
+### Conversational latency acceptance criteria
+
+- **Baseline (before cutover):** measure scheduling latency as it is today
+  (calendar lookup + the assistant forming its offer, no GuideHerd call). Record
+  **p50 and p95**.
+- **After cutover:** measure the **incremental** latency of the GuideHerd
+  selection call. Record **p50 and p95**.
+- **Target: < 250 ms added latency at p95** for the GuideHerd selection call,
+  **excluding** the existing calendar-provider lookup.
+- Verify through **one controlled voice call** that **no unnatural spoken pause**
+  is introduced.
+
+### Local timing (measured) — and why it is not the whole picture
+
+`server/scripts/bench-slot-selection.js` measures the two GuideHerd-local
+components over a ~100-slot week (loopback, **not** real network):
+
+```
+engine (selectOfferedSlots): p50 ≈ 14 ms   p95 ≈ 18 ms
+http route (in-process):     p50 ≈ 15 ms   p95 ≈ 20–27 ms
+```
+
+(Illustrative; machine- and run-dependent — rerun locally.) GuideHerd's own
+processing is on the order of ~15–30 ms at p95 — comfortably inside the 250 ms
+budget, leaving essentially all of it for the network round trip. **The
+network component is not measurable in the repository** and MUST be measured
+during the controlled post-demo voice test; these local numbers only bound the
+route/engine portion.
+
+### Synchronous-path safety
+
+- **Bounded ElevenLabs tool timeout.** Recommended starting value: **750 ms**
+  (well above the ~15–19 ms local processing plus a realistic network RTT, and
+  below a caller-perceptible stall).
+- **No synchronous retry** during the caller-facing flow — a retry doubles the
+  delay the caller hears. (The seam's own internal retry is for its own
+  dependencies, not for the assistant's tool call.)
+- **A timeout or failure must never strand the caller in silence** — the
+  assistant proceeds per the failure policy below.
+
+### v1 failure policy
+
+Two clearly-separated cases:
+
+**Transient failure** — the GuideHerd call **times out** (past the 750 ms bound)
+or returns a **5xx / network error**:
+
+- The assistant **MAY fall back to the provider candidate slots** — offer raw
+  availability, exactly the pre-cutover behavior. The caller still gets times.
+- Emit **sanitized telemetry** recording that **policy selection was bypassed**
+  (reason + counts only — never caller data). Where the request reached GuideHerd
+  but failed, its existing `provider.*` / request-failure telemetry applies; where
+  it never arrived (timeout / network), the **assistant/Connect side must record
+  the bypass** so it is not invisible.
+- **Do not expose an internal error to the caller** — the caller hears normal
+  options, not an apology or an error.
+- **Repeated failures must be visible through operational monitoring** — the
+  Operations Center capability view (ADR-0014) plus alerting (#68 internal, #23
+  external). A steady bypass rate is an operational signal, not a silent norm.
+
+**Deterministic error** — a **400 (malformed)** or **401 / 403 (unauthorized)**:
+
+- These indicate a **configuration or integration defect**, not a transient
+  runtime condition. They must **NOT silently fall back as though successful.**
+  Surface them loudly (fail the cutover verification; alert), fix the integration,
+  and re-verify. **Only transient failures are eligible for the graceful fallback.**
+
+---
+
 ## Cutover procedure (post-demo, in order — each step reversible)
 
 1. **Confirm the demo is finished** and a maintenance window is agreed.
@@ -76,7 +174,10 @@ a Railway configuration step (see the deployment reference), not a code change.
    seam still returns 200 for the new credential and 401/403 without it.
 3. **Configure the ElevenLabs agent tool** (in the ElevenLabs console — external):
    add/point the availability tool so that, after fetching provider availability,
-   it calls the seam with the credential and offers back only the returned slots.
+   it calls the seam **once, with the full candidate list**, using the credential,
+   and offers back only the returned slots. Set a **bounded tool timeout (start at
+   750 ms)** and **no synchronous retry**; on a timeout or transient failure the
+   assistant falls back to raw provider availability per the failure policy above.
    Update the agent instructions to *use the returned slots verbatim* and to stop
    encoding any ranking/hours logic in the prompt.
 4. **Remove the "stored only" markings** for scheduling policy and business hours
@@ -89,24 +190,39 @@ a Railway configuration step (see the deployment reference), not a code change.
 
 ## Verification
 
-### Demo-safe (already runnable now, no production touch)
+### Demo-safe (runnable now, no production touch)
 
 ```
-cd server && node --experimental-sqlite --test scheduling/selection.test.js
+cd server && node --experimental-sqlite --test scheduling/selection.test.js   # seam behavior
+cd server && node --experimental-sqlite scripts/bench-slot-selection.js       # local engine/route timing
 ```
 
-Proves the seam ranks, constrains by hours, enforces authorization, matches the
-contract, and degrades gracefully — end to end over HTTP with mocked availability.
+The test suite proves the seam ranks, constrains by hours, enforces
+authentication and permission-level authorization, matches the documented
+contract, handles malformed payloads, and degrades gracefully — end to end over
+HTTP with mocked availability. The benchmark reports **GuideHerd-local timing
+only** (see "Local timing" above); real network latency is a voice-test
+measurement, not a repository one.
 
-### Live (post-cutover only — requires the ElevenLabs agent; do NOT run before cutover)
+### Live post-demo voice tests (post-cutover only — require the ElevenLabs agent; do NOT run before cutover)
 
-- Place a test call; set the firm policy to "mornings preferred" (Administration
-  screen); confirm the assistant offers morning slots first for identical
-  availability.
-- Configure business hours to exclude a window that the calendar has; confirm the
-  assistant never offers a slot in that window.
-- Confirm determinism: the same availability + same policy yields the same order.
-- Confirm graceful degradation: with no policy, offers are chronological.
+1. **Baseline voice test** — with the policy call *disabled* (or immediately
+   pre-cutover): place a call through booking, record the scheduling timing
+   (p50/p95) and confirm normal behavior.
+2. **Policy-enabled voice test** — with the seam wired and "mornings preferred"
+   set: place a call, record the timing, and confirm morning slots are offered
+   first and no slot outside business hours is offered.
+3. **Compare timing** — the *added* latency (policy-enabled minus baseline,
+   excluding the calendar lookup) is **< 250 ms at p95**, with no unnatural pause.
+4. **Only returned slots are spoken** — when the policy call succeeds, the
+   assistant offers exactly the seam's returned slots, in order — nothing else.
+5. **Graceful continuity when unavailable** — deliberately make the policy call
+   fail (e.g. point the tool at a wrong URL or force a timeout): the caller still
+   hears slots (raw availability), there is **no silence and no spoken error**,
+   and the **bypass telemetry** is recorded.
+6. **Rollback restores the previous configuration** — revert the ElevenLabs agent
+   tool/instructions; confirm the assistant returns to offering raw provider
+   availability (pre-cutover behavior) with **no GuideHerd deploy**.
 
 ---
 
@@ -142,8 +258,11 @@ assistant calls it.
   an honest empty offer and emits `scheduling.slots_exhausted` (warn); the
   assistant should have a "no times available" path. This is configuration, not a
   defect.
-- **Latency** — the seam does no external I/O (synchronous Configuration Store
-  reads), so it adds negligible latency; there is no timeout surface to tune.
+- **Latency** — GuideHerd-local processing is ~15–30 ms at p95 (measured;
+  `scripts/bench-slot-selection.js`). The dominant added latency is the
+  ElevenLabs→GuideHerd network round trip, bounded by the tool timeout (start
+  750 ms) and measured in the voice test. See "Customer-facing latency and
+  failure behavior" for the batching rule, acceptance criteria, and failure policy.
 
 ---
 

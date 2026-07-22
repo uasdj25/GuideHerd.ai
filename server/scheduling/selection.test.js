@@ -143,12 +143,13 @@ test('selection: bounded, validated input — non-arrays and oversized batches f
 
 // ── The integration seam over HTTP (acceptance criterion) ──────────────────
 
-async function withServer(configService, fn) {
+async function withServer(configService, fn, extraOpts = {}) {
   const app = createApp({
     demoBridgeSecret: SECRET,
     clock: fixedClock(T0),
     mailer: { enabled: false, async sendSummary() { return { status: 'not-configured' }; } },
     configService,
+    ...extraOpts,
   });
   const server = http.createServer(app.handler);
   await new Promise((resolve) => server.listen(0, resolve));
@@ -200,4 +201,111 @@ test('HTTP: the saved policy reorders REAL offered slots at the seam; outside-ho
     // Malformed input over HTTP fails loudly, not silently.
     assert.equal((await post(base, '/api/v1/scheduling/slot-selection', { slots: 'nope' }, auth)).status, 400);
   });
+});
+
+// ── Additional coverage (#66 hardening): every policy dimension, graceful
+//    degradation, the documented contract shape, malformed payloads, and
+//    permission-level authorization at the seam. ──────────────────────────
+
+const TUE_10AM = '2026-07-14T15:00:00Z'; // 10:00 Tuesday local — inside 09:00–17:00 hours
+
+test('selection: preferred day, preferred duration, and attorney ORDER each reorder against chronology, deterministically', () => {
+  // Preferred day (Tuesday) outranks the earlier Monday slot — proving the
+  // dimension reorders rather than merely agreeing with chronology.
+  const byDay = fixtureConfig({ policy: { preferredDaysOfWeek: ['tuesday'] } });
+  const day = selectOfferedSlots({ configService: byDay, organizationKey: FIRM, slots: [slot(MON_10AM), slot(TUE_10AM)] });
+  assert.deepEqual(day.slots.map((s) => s.startsAt), [TUE_10AM, MON_10AM], 'preferred day outranks the earlier day');
+  assert.ok(day.applied.dimensions.includes('preferred-day'));
+
+  // Preferred duration: the 60-minute slot outranks an earlier 30-minute one.
+  const byDur = fixtureConfig({ policy: { preferredDurationMinutes: 60 } });
+  const dur = selectOfferedSlots({ configService: byDur, organizationKey: FIRM,
+    slots: [slot(MON_9AM), { startsAt: MON_10AM, durationMinutes: 60 }] });
+  assert.deepEqual(dur.slots.map((s) => s.startsAt), [MON_10AM, MON_9AM], 'preferred duration outranks the earlier start');
+
+  // Preferred-attorney ORDER: first in the list outranks the second, overriding chronology.
+  const byAtt = fixtureConfig({ policy: { preferredAttorneys: ['clay-martinson', 'raina-baugher'] } });
+  const attInput = [slot(MON_9AM, { attorneyId: 'raina-baugher' }), slot(MON_10AM, { attorneyId: 'clay-martinson' })];
+  const att = selectOfferedSlots({ configService: byAtt, organizationKey: FIRM, slots: attInput });
+  assert.deepEqual(att.slots.map((s) => [s.startsAt, s.attorneyId]),
+    [[MON_10AM, 'clay-martinson'], [MON_9AM, 'raina-baugher']],
+    'the first preferred attorney outranks the second even when it starts later');
+
+  // Determinism: identical inputs → identical ordering.
+  const again = selectOfferedSlots({ configService: byAtt, organizationKey: FIRM,
+    slots: [slot(MON_9AM, { attorneyId: 'raina-baugher' }), slot(MON_10AM, { attorneyId: 'clay-martinson' })] });
+  assert.deepEqual(again.slots, att.slots, 'deterministic for identical inputs');
+});
+
+test('selection: graceful degradation — consultation filter relaxes; absent requested attorney is flagged not fatal; unknown policy refs never crash', () => {
+  // An unknown preferred-attorney reference is inert (no bonus), never fatal.
+  const cs = fixtureConfig({ policy: { preferredAttorneys: ['ghost-attorney'] } });
+  const unknown = selectOfferedSlots({ configService: cs, organizationKey: FIRM, slots: [slot(MON_10AM), slot(MON_9AM)] });
+  assert.deepEqual(unknown.slots.map((s) => s.startsAt), [MON_9AM, MON_10AM], 'unknown policy attorney ref is inert, not fatal');
+
+  // A requested consultation type matching nothing relaxes rather than emptying.
+  const cs2 = fixtureConfig();
+  const relaxed = selectOfferedSlots({ configService: cs2, organizationKey: FIRM,
+    slots: [slot(MON_9AM, { consultationTypeId: 'family-law' })], request: { consultationTypeId: 'personal-injury' } });
+  assert.equal(relaxed.slots.length, 1, 'consultation-type filter relaxes rather than emptying');
+  assert.equal(relaxed.applied.fallback.consultationTypeRelaxed, true);
+
+  // A requested attorney with no availability is flagged, but others still offer.
+  const absent = selectOfferedSlots({ configService: cs2, organizationKey: FIRM,
+    slots: [slot(MON_9AM, { attorneyId: 'raina-baugher' })], request: { attorneyId: 'clay-martinson' } });
+  assert.equal(absent.slots.length, 1, 'other attorneys still offered when the requested one is unavailable');
+  assert.equal(absent.applied.fallback.requestedAttorneyUnavailable, true);
+});
+
+test('HTTP: the response matches the documented slot-selection contract shape', async () => {
+  const configService = fixtureConfig({ policy: { preferredTimeOfDay: 'morning' } });
+  await withServer(configService, async (base) => {
+    const auth = { authorization: `Bearer ${SECRET}` };
+    const res = await post(base, '/api/v1/scheduling/slot-selection',
+      { slots: [slot(MON_9AM, { attorneyId: 'clay-martinson' })] }, auth);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.ok(Array.isArray(body.slots));
+    assert.equal(body.slots[0].startsAt, MON_9AM);
+    assert.equal(body.slots[0].attorneyId, 'clay-martinson');
+    assert.equal(typeof body.slots[0].score, 'number');
+    assert.ok(Array.isArray(body.slots[0].matchedDimensions));
+    assert.deepEqual(Object.keys(body.applied).sort(),
+      ['businessHours', 'dimensions', 'droppedMalformed', 'fallback', 'policy', 'removedOutsideHours', 'unscopedSlots']);
+    assert.equal(body.applied.policy, true);
+    assert.deepEqual(Object.keys(body.applied.fallback).sort(),
+      ['consultationTypeRelaxed', 'requestedAttorneyUnavailable']);
+  });
+});
+
+test('HTTP: malformed payloads — missing slots is 400; malformed entries dropped-and-counted; empty is an honest empty 200', async () => {
+  const configService = fixtureConfig();
+  await withServer(configService, async (base) => {
+    const auth = { authorization: `Bearer ${SECRET}` };
+    assert.equal((await post(base, '/api/v1/scheduling/slot-selection', {}, auth)).status, 400, 'missing slots field');
+    const mixed = await post(base, '/api/v1/scheduling/slot-selection', {
+      slots: [slot(MON_9AM), { durationMinutes: 30 }, 'not-an-object', { startsAt: 'not-a-date' }],
+    }, auth);
+    assert.equal(mixed.status, 200);
+    const mixedBody = await mixed.json();
+    assert.deepEqual(mixedBody.slots.map((s) => s.startsAt), [MON_9AM], 'only the valid slot is offered');
+    assert.ok(mixedBody.applied.droppedMalformed >= 3, 'malformed entries dropped and counted');
+    const empty = await post(base, '/api/v1/scheduling/slot-selection', { slots: [] }, auth);
+    assert.equal(empty.status, 200);
+    assert.deepEqual((await empty.json()).slots, [], 'empty availability is an honest empty offer');
+  });
+});
+
+test('HTTP: an authenticated identity lacking scheduling:select is denied at the permission layer (403)', async () => {
+  const configService = fixtureConfig();
+  // A valid service identity scoped to the firm, but holding a role WITHOUT
+  // scheduling:select (receptionist). It authenticates, then fails authorization.
+  const staticIdentitiesJson = JSON.stringify([
+    { token: 'reception-token-no-select', subject: 'reception-bot', type: 'service', organizationKey: FIRM, roles: ['receptionist'] },
+  ]);
+  await withServer(configService, async (base) => {
+    const res = await post(base, '/api/v1/scheduling/slot-selection', { slots: [] },
+      { authorization: 'Bearer reception-token-no-select' });
+    assert.equal(res.status, 403, 'a valid identity without scheduling:select is denied at the permission layer');
+  }, { staticIdentitiesJson });
 });

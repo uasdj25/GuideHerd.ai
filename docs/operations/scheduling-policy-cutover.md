@@ -6,8 +6,9 @@ ElevenLabs scheduling assistant (GuideHerd Connect, ADR-0005).
 **Status:** **NOT YET CUT OVER.** The GuideHerd-side seam is complete, tested,
 and live in production; the ElevenLabs assistant does **not** yet call it, so a
 real caller is still offered raw provider availability. This runbook is the
-controlled, post-demo cutover — it is deliberately unperformed until after the
-Martinson & Beason demonstration.
+**controlled cutover** — performed and validated in a scheduled window **before**
+the Martinson & Beason demonstration, with the rollback rehearsed and kept ready
+throughout.
 
 ---
 
@@ -29,7 +30,8 @@ Martinson & Beason demonstration.
 
 **There is no remaining GuideHerd code change.** The only remaining work is
 *external*: pointing the assistant's calendar tool at the seam. That step is
-below and must not be performed until after the demo.
+below and is performed in a controlled validation window before the demo, with
+rollback ready.
 
 ---
 
@@ -123,13 +125,13 @@ http route (in-process):     p50 ≈ 15 ms   p95 ≈ 20–27 ms
 processing is on the order of ~15–30 ms at p95 — comfortably inside the 250 ms
 budget, leaving essentially all of it for the network round trip. **The
 network component is not measurable in the repository** and MUST be measured
-during the controlled post-demo voice test; these local numbers only bound the
+during the controlled voice test (the pre-demo validation run); these numbers only bound the
 route/engine portion.
 
 ### Synchronous-path safety
 
 - **Bounded ElevenLabs tool timeout.** Recommended starting value: **750 ms**
-  (well above the ~15–19 ms local processing plus a realistic network RTT, and
+  (well above the ~15–30 ms local processing plus a realistic network RTT, and
   below a caller-perceptible stall).
 - **No synchronous retry** during the caller-facing flow — a retry doubles the
   delay the caller hears. (The seam's own internal retry is for its own
@@ -166,9 +168,9 @@ or returns a **5xx / network error**:
 
 ---
 
-## Cutover procedure (post-demo, in order — each step reversible)
+## Cutover procedure (controlled pre-demo, in order — each step reversible)
 
-1. **Confirm the demo is finished** and a maintenance window is agreed.
+1. **Agree a validation window before the demo** and confirm the rollback is ready.
 2. *(Recommended)* Provision the dedicated assistant credential in
    `GUIDEHERD_STATIC_IDENTITIES` (Railway, production) and redeploy. Verify the
    seam still returns 200 for the new credential and 401/403 without it.
@@ -204,7 +206,7 @@ HTTP with mocked availability. The benchmark reports **GuideHerd-local timing
 only** (see "Local timing" above); real network latency is a voice-test
 measurement, not a repository one.
 
-### Live post-demo voice tests (post-cutover only — require the ElevenLabs agent; do NOT run before cutover)
+### Live voice tests (the pre-demo validation run — require the ElevenLabs agent; run only after the tool is wired)
 
 1. **Baseline voice test** — with the policy call *disabled* (or immediately
    pre-cutover): place a call through booking, record the scheduling timing

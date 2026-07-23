@@ -142,6 +142,14 @@
       "value": "initial-consultation"
     },
     {
+      "namespace": "scheduling",
+      "key": "calcom-availability",
+      "value": {
+        "eventTypeId": 6287134,
+        "durationMinutes": 30
+      }
+    },
+    {
       "namespace": "connect",
       "key": "conversation-provider",
       "value": {

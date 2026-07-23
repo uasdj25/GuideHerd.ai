@@ -25,7 +25,13 @@ const { selectSlots, sanitizeSlots } = require('./engine');
 const { resolveSchedulingPolicy } = require('./policy');
 const { applyBusinessHoursConstraint } = require('./hours');
 
-const MAX_SLOTS = 200; // bounded input: a provider dumping more is a caller bug
+// Bounded input for the HTTP batch endpoint: a caller dumping more is a
+// caller bug (and the 16 KB body cap binds long before this anyway).
+// Server-side callers that fetch availability themselves may raise the
+// bound via `maxSlots` — ranking is measured in tens of milliseconds at
+// several hundred slots, and truncating BEFORE ranking could discard a
+// slot the tenant's policy would have ranked first.
+const MAX_SLOTS = 200;
 
 /**
  * @param {{
@@ -40,7 +46,7 @@ const MAX_SLOTS = 200; // bounded input: a provider dumping more is a caller bug
  * }} args
  */
 function selectOfferedSlots({
-  configService, organizationKey, slots, request = {}, limit = 10,
+  configService, organizationKey, slots, request = {}, limit = 10, maxSlots = MAX_SLOTS,
   telemetry, correlationId, sessionId,
 }) {
   if (!Array.isArray(slots)) {
@@ -48,9 +54,9 @@ function selectOfferedSlots({
       { field: 'slots', message: 'must be an array' },
     ]);
   }
-  if (slots.length > MAX_SLOTS) {
-    throw new ValidationError(`slots is capped at ${MAX_SLOTS} entries per selection.`, [
-      { field: 'slots', message: `at most ${MAX_SLOTS} entries` },
+  if (slots.length > maxSlots) {
+    throw new ValidationError(`slots is capped at ${maxSlots} entries per selection.`, [
+      { field: 'slots', message: `at most ${maxSlots} entries` },
     ]);
   }
   const emit = telemetry ? telemetry.event.bind(telemetry) : () => {};

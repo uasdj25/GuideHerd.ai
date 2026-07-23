@@ -74,7 +74,8 @@ test('prompt: the Martinson & Beason prompt renders from SQLite configuration �
   assert.match(prompt, /Include timezone\s+America\/Chicago\./, 'outcome reporting carries the timezone ID');
   assert.match(prompt, /convert them to Central Time before speaking/, 'time-zone section conversion');
   assert.match(prompt, /Convert UTC to Central Time before speaking/, 'workflow step 9 conversion');
-  assert.match(prompt, /Convert UTC to Central Time\./, 'workflow step 11 fallback conversion');
+  assert.equal((prompt.match(/Central Time/g) || []).length, 3,
+    'the display timezone appears exactly where the corrected prompt uses it');
 
   // The approved tenant-neutral guardrail — prepared-session values win;
   // no tenant default attorney exists or is required.
@@ -124,18 +125,37 @@ test('prompt: no default-attorney configuration exists — and none is required 
   assert.ok(renderSchedulingPrompt({ configService, organizationKey: FIRM }).length > 0);
 });
 
-test('prompt: the Issue #66 scheduling-policy workflow text is preserved by the abstraction', () => {
+test('prompt: the Issue #66 scheduling-policy workflow is preserved through the consolidated offered-slots tool', () => {
   const prompt = renderSchedulingPrompt({ configService: seededConfigService(), organizationKey: FIRM });
-  assert.match(prompt, /call the select_offered_slots tool exactly once/);
-  assert.match(prompt, /Pass every\s+slot returned by Get Available Slots/);
-  assert.match(prompt, /Never filter, reorder, or invent\s+slots before calling the tool/);
-  assert.match(prompt, /Pass the sessionId only if one was returned by\s+get_prepared_caller/);
-  assert.match(prompt, /Present only\s+the first two returned appointment options/);
-  assert.match(prompt, /Preserve the returned\s+order/);
-  assert.match(prompt, /timeout, network failure, HTTP\s+500, or HTTP 503/);
-  assert.match(prompt, /Fall back to the original Get Available Slots\s+results/);
-  assert.match(prompt, /fails for any other reason:\s+- Apologize\.\s+- Do not offer appointment times/);
+
+  // ONE small availability tool, called exactly once per check, with only
+  // established context — and no other source of appointment times.
+  assert.match(prompt, /Call the get_offered_slots tool exactly once per availability check/);
+  assert.match(prompt, /only when they were established earlier in the conversation/);
+  assert.match(prompt, /Pass the sessionId only if one was returned by get_prepared_caller/);
+  assert.match(prompt, /Never obtain appointment times from any other tool or source/);
+  assert.match(prompt, /covering only the caller's stated preference/);
+  assert.match(prompt, /covering the next seven days/);
+
+  // Response handling: offered, no-availability, and everything else
+  // escalates. There is deliberately NO fallback state — every failure
+  // means no times are offered from any other source.
+  assert.match(prompt, /returns status "offered":\s+- Present only the first two returned appointment options\.\s+- Preserve the returned order\./);
+  assert.match(prompt, /returns status "no-availability": Say:/);
+  assert.match(prompt, /fails or returns any error:\s+- Apologize\.\s+- Do not offer appointment times/);
+  assert.ok(!prompt.includes('status "fallback"'), 'no raw-slot fallback state exists in the approved policy');
+
+  // The direct calendar-availability path is GONE — the model can no
+  // longer choose it, and the old batch-transport tool is unreferenced.
+  assert.ok(!prompt.includes('Get Available Slots'), 'the direct Cal.com availability tool is removed from the prompt');
+  assert.ok(!prompt.includes('select_offered_slots'), 'the batch-transport tool is removed from the prompt');
+
+  // Everything downstream of slot presentation is untouched.
+  assert.match(prompt, /Never invent appointment availability\./);
+  assert.match(prompt, /use the Create Booking tool\s+exactly once/);
+  assert.match(prompt, /Never tell the\s+caller the appointment has been scheduled unless the Create Booking tool\s+explicitly reports success/);
   assert.match(prompt, /report_scheduling_outcome tool exactly once/);
+  assert.match(prompt, /Never report booked based only on the caller selecting a time\./);
 });
 
 test('prompt: missing required configuration refuses to render and lists every gap', () => {

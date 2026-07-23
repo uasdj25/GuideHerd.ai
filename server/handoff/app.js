@@ -6,6 +6,8 @@ const { createHandoffService } = require('./service');
 const { normalizeCreate, normalizeRedeem } = require('./validation');
 const { DEMO_FIRM_ID } = require('./demo-bridge');
 const { selectOfferedSlots } = require('../scheduling/selection');
+const { createCalcomAvailabilityProvider, clampTimeoutMs, AvailabilityError } = require('../scheduling/availability');
+const { offerSlots, validateOfferedSlotsRequest } = require('../scheduling/offered-slots');
 const { buildConsultationSummary, renderSummaryHtml } = require('./summary');
 const { NoCompletedSummaryError , TooManyLoginAttemptsError } = require('./errors');
 const { createMailer } = require('./mailer');
@@ -156,7 +158,7 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, workflowStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore, configurationAuthority, healthCheckTimeoutMs, userSessionStore, trustProxy } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, workflowStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore, configurationAuthority, healthCheckTimeoutMs, userSessionStore, trustProxy, availabilityProvider } = {}) {
   // Configuration authority (ADR-0022): who owns configuration truth in this
   // deployment. server.js computes the real descriptor from the seed mode;
   // the default describes every other composition (tests, dev, demos), where
@@ -328,6 +330,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   const deps = {
     service,
     store,
+    clock,
     allowedOrigins,
     // Mailer is injectable so automated tests never touch Microsoft endpoints.
     mailer: mailer || createMailer({ telemetry: observedTelemetry }),
@@ -345,6 +348,30 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     trustForwardedFor,
   };
   deps.telemetry = observedTelemetry;
+
+  // Server-side availability: the offered-slots route fetches Cal.com
+  // itself so the language model never transports slot batches.
+  // Injectable so tests never touch Cal.com; the default reads
+  // CALCOM_API_KEY from the environment and fails closed
+  // (availability_not_configured) when absent. The provider timeout is
+  // explicit and clamped to the interactive-voice range (default 1200 ms,
+  // hard maximum 1500 ms) — GUIDEHERD_AVAILABILITY_TIMEOUT_MS overrides
+  // within that range only.
+  deps.availabilityProvider = availabilityProvider
+    || createCalcomAvailabilityProvider({
+      apiKey: process.env.CALCOM_API_KEY || null,
+      timeoutMs: clampTimeoutMs(process.env.GUIDEHERD_AVAILABILITY_TIMEOUT_MS),
+    });
+  // Policy-bypass detection: sessions that received a policy-governed
+  // offered-slots response, pruned lazily. If an outcome reports BOOKED
+  // for a prepared session that never got one, appointment times were
+  // spoken from some other source — that must be loud, never silent.
+  // DIAGNOSTIC ONLY: the map is in-process memory. It matches the
+  // deployment's single-replica topology, but a restart empties it, so
+  // a booking that spans a restart can warn falsely; it is a detector,
+  // not enforcement. Durable enforcement would be an Operations Store
+  // enhancement if multi-instance deployment ever becomes relevant.
+  deps.offeredSlotsSessions = new Map();
 
   // GuideHerd Notifications (ADR-0011): Core owns notification intent;
   // providers only deliver. The delivery store makes every notification
@@ -601,6 +628,9 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   const handler = makeHandler(deps);
   return {
     handler, store, service, clock, allowedOrigins, alerting, retention,
+    // DIAGNOSTIC visibility only (tests, operations): the in-memory
+    // bypass-detection bookkeeping. Never authoritative enforcement.
+    diagnostics: { offeredSlotsSessions: deps.offeredSlotsSessions },
     mailer: deps.mailer, events, adapters, conversations: deps.conversations,
     identity: { registry: identityProviders, service: identityService },
     authorization: authz,
@@ -648,7 +678,7 @@ function corsHeadersFor(req, allowedOrigins) {
 }
 
 /** Build the raw Node http request handler. */
-function makeHandler({ service, store, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode, operations, administration, loginLimiter, trustForwardedFor }) {
+function makeHandler({ service, store, clock, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode, operations, administration, loginLimiter, trustForwardedFor, availabilityProvider, offeredSlotsSessions }) {
   /**
    * Resolve the active Conversation Adapter for a firm. Provider selection
    * comes from the Configuration Store (connect/conversation-provider),
@@ -680,6 +710,31 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
       auditSuccess: true, // privileged, low-frequency service operations
     });
     return identity;
+  };
+
+  /**
+   * Tenant-generic variant for reusable scheduling routes: authenticate,
+   * then authorize the permission against the IDENTITY'S OWN
+   * organization — never a pinned demo organization. Cross-tenant access
+   * is impossible by construction (the authorization target IS the
+   * identity's organization), and an identity without an organization is
+   * returned unauthorized-to-any-tenant for the route to refuse with a
+   * typed failure.
+   */
+  const authorizeTenantAssistant = async (req, permission) => {
+    let identity;
+    try {
+      identity = await identityService.authenticate(req, {});
+    } catch (err) {
+      if (err instanceof IdentityNotConfiguredError) throw new BridgeNotConfiguredError();
+      throw err;
+    }
+    if (!identity.organizationKey) return { identity, organizationKey: null };
+    authz.authorize({ identity }, permission, {
+      organizationKey: identity.organizationKey,
+      auditSuccess: true,
+    });
+    return { identity, organizationKey: identity.organizationKey };
   };
 
   /** Cookie parsing (no dependencies; values are opaque tokens only). */
@@ -1120,6 +1175,94 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
         return sendJson(res, status, result, null, correlationId);
       }
 
+      // ── Consolidated offered-slots ──────────────────────────────────
+      // ONE small request replaces the model-mediated two-tool slot
+      // transport (calendar tool result -> LLM re-emits the batch ->
+      // slot selection) whose token-generation latency and silent policy
+      // bypass failed the Issue #66 voice test. The route only
+      // authorizes, parses, invokes the scheduling service, and maps the
+      // typed result to HTTP — orchestration lives in
+      // scheduling/offered-slots.js.
+      //
+      // Response contract (see docs/api/offered-slots.md):
+      //   200 { status: "offered",         slots: [ranked, at most 2] }
+      //   200 { status: "no-availability", slots: [] }
+      //   4xx/5xx error envelope — the assistant must NOT offer times.
+      //   There is NO raw-slot fallback state: every provider or
+      //   processing failure fails closed to escalation.
+      if (method === 'POST' && path === '/api/v1/scheduling/offered-slots') {
+        const { organizationKey: tenantKey } = await authorizeTenantAssistant(req, 'scheduling:select');
+        // A reusable scheduling endpoint requires a TENANT-SCOPED
+        // identity. No demo fallback: an identity without an
+        // organization can neither resolve nor probe any tenant's
+        // calendar configuration.
+        if (!tenantKey) {
+          status = 403;
+          return sendJson(res, status, {
+            error: { code: 'organization_unresolved', message: 'The authenticated identity is not scoped to an organization.', correlationId },
+          }, null, correlationId);
+        }
+        if (!configService) {
+          status = 503;
+          return sendJson(res, status, {
+            error: { code: 'config_unavailable', message: 'The configuration store is not available.', correlationId },
+          }, null, correlationId);
+        }
+        const body = await readJsonBody(req);
+        const offeredRequest = validateOfferedSlotsRequest(body);
+        sessionId = offeredRequest.sessionId ?? null;
+        const requestStarted = Date.now();
+        let result;
+        try {
+          result = await offerSlots({
+            configService,
+            availabilityProvider,
+            organizationKey: tenantKey,
+            request: offeredRequest,
+            telemetry,
+            correlationId,
+          });
+        } catch (err) {
+          if (err instanceof AvailabilityError) {
+            telemetry.event('scheduling.availability_failed', {
+              severity: 'warn', component: 'calendar-provider', operation: 'offered-slots',
+              organizationKey: tenantKey, correlationId, sessionId,
+              code: err.code, httpStatus: err.httpStatus, totalMs: Date.now() - requestStarted,
+            });
+            status = err.code === 'availability_timeout' ? 504
+              : (err.code === 'availability_not_configured' ? 503 : 502);
+            return sendJson(res, status, {
+              error: { code: err.code, message: err.message, correlationId },
+            }, null, correlationId);
+          }
+          // Validation, configuration, and UNKNOWN errors propagate to
+          // the global handler — fail closed; no catch-all ever turns a
+          // processing failure into spoken appointment times.
+          throw err;
+        }
+
+        // Bypass-detection bookkeeping (diagnostic; see the outcome
+        // route): this session received a policy-governed offer. Lazy 1h
+        // prune keeps the map bounded.
+        if (offeredRequest.sessionId) {
+          const cutoff = clock.now() - 60 * 60 * 1000;
+          for (const [key, at] of offeredSlotsSessions) {
+            if (at < cutoff) offeredSlotsSessions.delete(key);
+          }
+          offeredSlotsSessions.set(offeredRequest.sessionId, clock.now());
+        }
+
+        telemetry.event('scheduling.slots_offered', {
+          severity: 'info', component: 'scheduling', operation: 'offered-slots',
+          organizationKey: tenantKey, correlationId, sessionId,
+          status: result.kind, ...result.counts, ...result.timings,
+        });
+        status = 200;
+        return sendJson(res, status, {
+          status: result.kind, slots: result.slots, window: result.window,
+        }, null, correlationId);
+      }
+
       if (method === 'POST' && path === '/api/v1/demo/outcome') {
         adoptSuppliedCorrelation(await authorizeAssistant(req, 'conversation:complete'));
         const adapter = adapterFor(DEMO_FIRM_ID);
@@ -1129,6 +1272,18 @@ function makeHandler({ service, store, allowedOrigins, mailer, configService, ad
         const { sessionId: outcomeSessionId, outcome } = adapter.translateOutcome(body);
         const result = await conversations.complete(outcomeSessionId, outcome, adapter.providerKey, { correlationId });
         sessionId = result.sessionId;
+        // Policy-bypass detector (diagnostic): a BOOKED outcome for a
+        // prepared session that never received a policy-governed offer
+        // means appointment times were spoken from some other source.
+        // That must be loud — the failed Issue #66 voice test proved a
+        // silent bypass is otherwise invisible. In-memory bookkeeping:
+        // a warning after a restart can be a false positive.
+        if (outcome && outcome.status === 'booked' && !offeredSlotsSessions.has(outcomeSessionId)) {
+          telemetry.event('scheduling.policy_bypass_suspected', {
+            severity: 'warn', component: 'scheduling', operation: 'outcome',
+            organizationKey: DEMO_FIRM_ID, correlationId, sessionId: outcomeSessionId,
+          });
+        }
         status = 200;
         return sendJson(res, status, result, null, correlationId);
       }

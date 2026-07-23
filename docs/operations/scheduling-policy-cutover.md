@@ -268,6 +268,58 @@ assistant calls it.
 
 ---
 
+## Consolidated availability cutover (SUPERSEDES the two-tool wiring above)
+
+The failed 2026-07-22 voice test (2–3 minutes of caller-facing latency;
+`select_offered_slots` never received; policy silently bypassed) retired
+the two-tool integration this runbook originally described. Availability
+now flows through ONE small GuideHerd tool — `get_offered_slots`
+(`POST /api/v1/scheduling/offered-slots`, `docs/api/offered-slots.md`);
+the language model never transports slot batches, and there is no
+raw-slot fallback: every failure escalates without offering times.
+
+### ElevenLabs cutover checklist (execute in a validation window)
+
+1. Create the `get_offered_slots` webhook tool
+   (`docs/demo/elevenlabs-get-offered-slots-tool.json`; the auth
+   connection ID is environment-specific).
+2. Attach `get_offered_slots` to the demo agent.
+3. Remove or detach the Cal.com **Get Available Slots** tool from the agent.
+4. Remove or detach **select_offered_slots** from the agent.
+5. Verify **Create Booking** remains attached.
+6. Verify **get_prepared_caller** remains attached.
+7. Verify **report_scheduling_outcome** remains attached.
+8. Verify **End conversation** remains attached.
+9. Inspect the agent's EFFECTIVE tool list after saving — exactly the
+   five tools above, nothing more.
+10. Run a test conversation proving no direct Cal.com availability tool
+    can be called (ask for times; confirm the transcript shows only
+    `get_offered_slots` supplying them).
+
+### Booking-consistency gate (MANDATORY before the demo)
+
+The booking tool's configured Cal.com event type MUST equal the
+`scheduling/calcom-availability` `eventTypeId` (and any per-attorney
+mapping must match on both sides). Availability from one calendar must
+never be booked into another. Verify in the console against the Railway
+configuration before any voice test.
+
+### Deployment configuration checklist (status as of 2026-07-23)
+
+| Item | Where | Status |
+|---|---|---|
+| Organization key (`martinson-beason`) | production SQLite | present and verified (serving traffic) |
+| Cal.com event type ID (`6287134`, Initial Consultation) | `scheduling/calcom-availability` | **known and repository-configured** (operator-established 2026-07-23), subject to final booking-tool PARITY verification in the console; production SQLite **not yet updated** — requires deployment/import |
+| Attorney→event mappings | same setting | none defined by design — single shared event type for the pilot |
+| Default duration (30 minutes) | same setting | known and repository-configured; production import pending |
+| `CALCOM_API_KEY` | Railway variable | **secret requiring manual entry — missing** |
+| Provider timeout | `GUIDEHERD_AVAILABILITY_TIMEOUT_MS` (optional) | default 1200 ms, clamped ≤ 1500 ms; unset is correct |
+| Agent auth connection | ElevenLabs workspace | present (used by `get_prepared_caller` — verified working 2026-07-22) |
+| Tenant timezone (`America/Chicago`) | organization record | known and repository-configured; production organization predates this work — expected present, verify at import |
+| Default consultation type (`initial-consultation`) | `scheduling/default-consultation-type` | known and repository-configured; production import pending |
+| Rendered prompt artifact | `docs/demo/martinson-beason-scheduling-prompt.md` | repository version exists — paste at cutover |
+| Attached agent tool list | ElevenLabs console | old two-tool wiring live — replace per the consolidated-tool checklist above |
+
 ## Notes
 
 - ADR-0018 (Scheduler Contract) governs background reminders/scheduled actions —

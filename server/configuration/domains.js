@@ -18,6 +18,7 @@
 const { normalizePolicy } = require('../scheduling/policy');
 const { normalizeBrandingDocument } = require('../notifications/branding');
 const { normalizeSchedulingPromptProfile } = require('../connect/prompt-renderer');
+const { normalizeCalcomAvailabilityConfig } = require('../scheduling/availability');
 
 function isPlainObject(v) {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -96,6 +97,25 @@ function registerProductionDomains(framework) {
         return { value: null, issues: ['must be a consultation type key (a nonblank string)'] };
       }
       return { value: raw.trim(), issues: [] };
+    },
+  });
+
+  // Cal.com availability configuration — which Cal.com event type(s)
+  // serve an organization's availability checks, and the appointment
+  // length. Consumed by the server-side offered-slots service; the
+  // Cal.com API KEY is environment configuration (CALCOM_API_KEY),
+  // never a Configuration Store value. FAILS CLOSED: an organization
+  // without a real configured event type cannot offer availability.
+  framework.register({
+    id: 'calcom-availability',
+    title: 'Cal.com availability',
+    owner: 'scheduling',
+    namespace: 'scheduling',
+    key: 'calcom-availability',
+    live: true,
+    schemaVersion: 1,
+    normalize(raw) {
+      return normalizeCalcomAvailabilityConfig(raw);
     },
   });
 

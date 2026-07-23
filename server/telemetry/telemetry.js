@@ -71,6 +71,11 @@ const EVENTS = Object.freeze([
   // governing real offers, and the loud everything-excluded case.
   'scheduling.slots_selected',
   'scheduling.slots_exhausted',
+  // Consolidated offered-slots: per-check timing + counts, and the
+  // diagnostic policy-bypass detector (a booked outcome with no
+  // offered-slots call for the session).
+  'scheduling.slots_offered',
+  'scheduling.policy_bypass_suspected',
   // Data retention (ADR-0006 / #63): one event per sweep, counts only.
   'retention.swept',
   // Failure alerting (#68): raised conditions are ALWAYS loud here,
@@ -129,6 +134,18 @@ const ALLOWED_FIELDS = Object.freeze([
   'receivedCount',
   'offeredCount',
   'removedCount',
+  // Offered-slots timing components: small millisecond integers measured
+  // server-side, never content. Provider timing splits header arrival
+  // from body completion (finer network phases are not observable
+  // through fetch).
+  'configMs',
+  'providerMs',
+  'providerHeadersMs',
+  'providerBodyMs',
+  'rankMs',
+  'totalMs',
+  'inWindowCount',
+  'status',
   'count',
   'code',
   'notificationType',

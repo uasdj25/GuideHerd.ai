@@ -1,9 +1,9 @@
 {
-  "_provisioning_note": "ElevenLabs Create Tool payload for the consolidated availability tool (POST https://api.elevenlabs.io/v1/convai/tools, xi-api-key header). AUTH_CONNECTION_ID is environment-specific — substitute the workspace's GuideHerd auth connection before submitting; the API key and bearer secret never appear in source control. Response behavior expected by the prompt: 200 status 'offered' (present the first two slots in order), 200 'no-availability' (offer another day), any error (apologize, offer no times, escalate).",
+  "_provisioning_note": "ElevenLabs Create Tool payload for the consolidated availability tool (POST https://api.elevenlabs.io/v1/convai/tools, xi-api-key header). AUTH_CONNECTION_ID is environment-specific — substitute the workspace's GuideHerd auth connection before submitting; the API key and bearer secret never appear in source control. Response behavior expected by the prompt: 200 status 'offered' (present the first two slots in order and RETAIN the returned bookingContext for create_booking), 200 'no-availability' (offer another day), any error (apologize, offer no times, escalate). GuideHerd resolves the calendar server-side from the attorney/practice-area keys — the agent never sees or chooses event types.",
   "tool_config": {
     "type": "webhook",
     "name": "get_offered_slots",
-    "description": "Get the appointment times to offer the caller. Call this exactly once per availability check, immediately after the caller gives a date or time preference (or use the next seven days if they have none). Pass only the date window and any attorney, consultation type, duration, or sessionId already established in the conversation — never invent values and never send slot lists. Offer the caller only the times this tool returns, in the returned order.",
+    "description": "Get the appointment times to offer the caller. Call this exactly once per availability check, immediately after the caller gives a date or time preference (or use the next seven days if they have none). Pass only the date window and any attorney, practice area, consultation type, duration, or sessionId already established in the conversation — never invent values and never send slot lists. Offer the caller only the times this tool returns, in the returned order. The response also contains an opaque bookingContext string: keep it exactly as returned for the create_booking call, never speak it, never modify it.",
     "response_timeout_secs": 5,
     "api_schema": {
       "url": "https://api.guideherd.ai/api/v1/scheduling/offered-slots",
@@ -28,6 +28,10 @@
           "attorneyId": {
             "type": "string",
             "description": "The attorney established for this caller: scheduling.attorneyId from get_prepared_caller copied exactly, or the attorney the caller explicitly asked for. Omit if none was established."
+          },
+          "practiceAreaId": {
+            "type": "string",
+            "description": "The practice area established for this caller: scheduling.practiceAreaId from get_prepared_caller copied exactly, or the practice area the caller described. Omit if none was established. GuideHerd routes practice-area appointments to the right attorney group server-side."
           },
           "consultationTypeId": {
             "type": "string",

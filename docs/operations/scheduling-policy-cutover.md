@@ -278,47 +278,96 @@ now flows through ONE small GuideHerd tool — `get_offered_slots`
 the language model never transports slot batches, and there is no
 raw-slot fallback: every failure escalates without offering times.
 
+**Governed booking (Gate 10 finding, 2026-07-22):** the direct Cal.com
+`calcom_create_booking` integration resolved event types from a
+three-way prose mapping executed by the language model, while
+server-side availability resolved independently — a booking-parity gap.
+Booking now flows through GuideHerd too — `create_booking`
+(`POST /api/v1/scheduling/book`, `docs/api/booking.md`) books strictly
+inside the durable booking context the availability check issued;
+parity is structural. Multi-attorney and practice-area routing are
+preserved server-side: Clay Martinson → 6287134, Doug Martinson →
+6330128, probate routing group (round robin) → 6330099, plus the
+explicit default path (6287134) for callers with no established context.
+
 ### ElevenLabs cutover checklist (execute in a validation window)
 
 1. Create the `get_offered_slots` webhook tool
    (`docs/demo/elevenlabs-get-offered-slots-tool.json`; the auth
    connection ID is environment-specific).
-2. Attach `get_offered_slots` to the demo agent.
-3. Remove or detach the Cal.com **Get Available Slots** tool from the agent.
-4. Remove or detach **select_offered_slots** from the agent.
-5. Verify **Create Booking** remains attached.
-6. Verify **get_prepared_caller** remains attached.
-7. Verify **report_scheduling_outcome** remains attached.
-8. Verify **End conversation** remains attached.
-9. Inspect the agent's EFFECTIVE tool list after saving — exactly the
-   five tools above, nothing more.
-10. Run a test conversation proving no direct Cal.com availability tool
-    can be called (ask for times; confirm the transcript shows only
-    `get_offered_slots` supplying them).
+2. Create the `create_booking` webhook tool
+   (`docs/demo/elevenlabs-create-booking-tool.json`; same auth
+   connection).
+3. Attach `get_offered_slots` and `create_booking` to the demo agent.
+4. Remove or detach the Cal.com **Get Available Slots** tool from the agent.
+5. Remove or detach **select_offered_slots** from the agent.
+6. Remove or detach the Cal.com **Create Booking**
+   (`calcom_create_booking`) integration tool from the agent — booking
+   is governed now; the direct path must not remain callable.
+7. Verify **get_prepared_caller** remains attached.
+8. Verify **report_scheduling_outcome** remains attached.
+9. Verify **End conversation** remains attached.
+10. Paste the regenerated rendered prompt
+    (`docs/demo/martinson-beason-scheduling-prompt.md`) and read it back.
+11. Inspect the agent's EFFECTIVE tool list after saving — exactly:
+    `get_prepared_caller`, `get_offered_slots`, `create_booking`,
+    `report_scheduling_outcome`, End conversation. Nothing more.
+12. Run a test conversation proving neither direct Cal.com tool can be
+    called (ask for times and book; confirm the transcript shows only
+    `get_offered_slots` supplying times and only `create_booking`
+    creating the appointment, with the bookingContext never spoken).
 
-### Booking-consistency gate (MANDATORY before the demo)
+### Booking-consistency gate — now STRUCTURAL
 
-The booking tool's configured Cal.com event type MUST equal the
-`scheduling/calcom-availability` `eventTypeId` (and any per-attorney
-mapping must match on both sides). Availability from one calendar must
-never be booked into another. Verify in the console against the Railway
-configuration before any voice test.
+Availability and booking share one durable server-side routing decision
+(the booking context); the agent transports only an opaque value and
+cannot supply an event type. The former console-parity verification is
+replaced by: (a) confirming the OLD `calcom_create_booking` tool is
+detached (step 6), and (b) one supervised voice test per route (Clay,
+Doug, probate) confirming the Cal.com booking lands on the expected
+calendar.
+
+### Verification-required handling (new operational state)
+
+A booking whose outcome could not be confirmed (provider timeout after
+transmission, connection loss, 5xx, or persistence failure after
+confirmation) is persisted as `verification_required` and emitted as
+`scheduling.booking_verification_required` (error severity). An
+operator MUST resolve each occurrence before telling the caller
+anything definitive, following the authoritative procedure in
+`docs/api/booking.md` ("Reconciliation procedure"): work from the
+booking-context record's own fields (event type, selected timestamp,
+duration, organization, route identity, `booking_context_id`), query
+Cal.com over the narrowest event-type and date/time window, and match
+candidates by `metadata.guideherdBookingContextId` — the context holds
+no attendee PII, so attendee email is usable only when independently
+available (e.g. from a prepared session), and a same-time booking
+without the metadata match proves nothing. No automatic retry, no
+automatic resolution.
 
 ### Deployment configuration checklist (status as of 2026-07-23)
 
 | Item | Where | Status |
 |---|---|---|
 | Organization key (`martinson-beason`) | production SQLite | present and verified (serving traffic) |
-| Cal.com event type ID (`6287134`, Initial Consultation) | `scheduling/calcom-availability` | **known and repository-configured** (operator-established 2026-07-23), subject to final booking-tool PARITY verification in the console; production SQLite **not yet updated** — requires deployment/import |
-| Attorney→event mappings | same setting | none defined by design — single shared event type for the pilot |
-| Default duration (30 minutes) | same setting | known and repository-configured; production import pending |
-| `CALCOM_API_KEY` | Railway variable | **secret requiring manual entry — missing** |
-| Provider timeout | `GUIDEHERD_AVAILABILITY_TIMEOUT_MS` (optional) | default 1200 ms, clamped ≤ 1500 ms; unset is correct |
+| Cal.com availability + routing mappings (`eventTypeId` 6287134; attorney mappings clay→6287134, doug→6330128; routing-group mapping probate→6330099; 30 min) | `scheduling/calcom-availability` | repository-configured (read back from the live Create Booking tool at Gate 10, 2026-07-22); production SQLite **not yet updated** — targeted producer-gated write at deployment |
+| PostgreSQL operational provider | `GUIDEHERD_OPERATIONAL_PROVIDER` | **`postgres` verified in production (2026-07-23)** — required for durable booking contexts; migration 0008 auto-applies at deploy |
+| `CALCOM_API_KEY` | Railway variable | present (availability verified live at Gate 9); now also serves governed booking |
+| Provider timeouts | `GUIDEHERD_AVAILABILITY_TIMEOUT_MS` / `GUIDEHERD_BOOKING_TIMEOUT_MS` (optional) | defaults 1200 ms (≤1500) / 2500 ms (≤5000); unset is correct |
 | Agent auth connection | ElevenLabs workspace | present (used by `get_prepared_caller` — verified working 2026-07-22) |
-| Tenant timezone (`America/Chicago`) | organization record | known and repository-configured; production organization predates this work — expected present, verify at import |
-| Default consultation type (`initial-consultation`) | `scheduling/default-consultation-type` | known and repository-configured; production import pending |
-| Rendered prompt artifact | `docs/demo/martinson-beason-scheduling-prompt.md` | repository version exists — paste at cutover |
-| Attached agent tool list | ElevenLabs console | old two-tool wiring live — replace per the consolidated-tool checklist above |
+| Tenant timezone (`America/Chicago`) | organization record | verified in production SQLite (Gate 8) |
+| Default consultation type (`initial-consultation`) | `scheduling/default-consultation-type` | verified in production SQLite (Gate 8) |
+| Rendered prompt artifact | `docs/demo/martinson-beason-scheduling-prompt.md` | regenerated for governed booking — paste at cutover |
+| Attached agent tool list | ElevenLabs console | old wiring live (incl. `calcom_create_booking`) — replace per the checklist above |
+
+### Routing coverage note (fail-closed by design)
+
+Only the three read-back mappings exist. A caller naming any attorney
+other than Clay/Doug, or any practice area other than probate (without
+a mapped attorney), fails closed to escalation — previously these paths
+were left to language-model improvisation against a prose table.
+Extending coverage is tenant configuration (add mappings through the
+producer gate), not code.
 
 ## Notes
 

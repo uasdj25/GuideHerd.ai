@@ -83,6 +83,17 @@ function seedOnBoot({ configService, filePath, mode, log = () => {} }) {
   }
 
   const result = configService.importOrganization(tree);
+  // Import gate (ADR-0016): the generic settings layer knows nothing of
+  // domains, so run every registered domain's STRICT producer validation —
+  // including cross-entity rules (mapped attorneys/routing groups must be
+  // real and active) — against what was just written. A seed that fails
+  // refuses to boot rather than serving silently-degraded configuration.
+  const { validateStoredDomainSettings } = require('../configuration/framework');
+  const problems = validateStoredDomainSettings(configService, result.organization);
+  if (problems.length > 0) {
+    const detail = problems.map((p) => `${p.domain}: ${p.issues.join('; ')}`).join(' | ');
+    throw new Error(`Seed settings failed domain validation — ${detail}`);
+  }
   return { action: 'imported', ...result };
 }
 

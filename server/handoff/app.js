@@ -8,6 +8,11 @@ const { DEMO_FIRM_ID } = require('./demo-bridge');
 const { selectOfferedSlots } = require('../scheduling/selection');
 const { createCalcomAvailabilityProvider, clampTimeoutMs, AvailabilityError } = require('../scheduling/availability');
 const { offerSlots, validateOfferedSlotsRequest } = require('../scheduling/offered-slots');
+const { createInMemoryBookingContextStore } = require('../scheduling/booking-context-store');
+const {
+  createCalcomBookingProvider, clampBookingTimeoutMs, validateBookingRequest,
+  bookAppointment, reconcileStaleBookingContexts,
+} = require('../scheduling/booking');
 const { buildConsultationSummary, renderSummaryHtml } = require('./summary');
 const { NoCompletedSummaryError , TooManyLoginAttemptsError } = require('./errors');
 const { createMailer } = require('./mailer');
@@ -158,7 +163,7 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, workflowStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore, configurationAuthority, healthCheckTimeoutMs, userSessionStore, trustProxy, availabilityProvider } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, workflowStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore, configurationAuthority, healthCheckTimeoutMs, userSessionStore, trustProxy, availabilityProvider, bookingContextStore, bookingProvider } = {}) {
   // Configuration authority (ADR-0022): who owns configuration truth in this
   // deployment. server.js computes the real descriptor from the seed mode;
   // the default describes every other composition (tests, dev, demos), where
@@ -361,6 +366,19 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     || createCalcomAvailabilityProvider({
       apiKey: process.env.CALCOM_API_KEY || null,
       timeoutMs: clampTimeoutMs(process.env.GUIDEHERD_AVAILABILITY_TIMEOUT_MS),
+    });
+  // Durable booking contexts (Issue #74 booking parity): the resolved
+  // routing decision availability and booking share, claimable exactly
+  // once. server.js supplies the PostgreSQL store under the postgres
+  // operational provider; the in-memory reference is the default —
+  // production booking correctness requires postgres, never process
+  // memory. The booking provider shares CALCOM_API_KEY with availability
+  // but has its own, longer timeout budget (a terminal action).
+  deps.bookingContexts = bookingContextStore || createInMemoryBookingContextStore({ clock });
+  deps.bookingProvider = bookingProvider
+    || createCalcomBookingProvider({
+      apiKey: process.env.CALCOM_API_KEY || null,
+      timeoutMs: clampBookingTimeoutMs(process.env.GUIDEHERD_BOOKING_TIMEOUT_MS),
     });
   // Policy-bypass detection: sessions that received a policy-governed
   // offered-slots response, pruned lazily. If an outcome reports BOOKED
@@ -631,6 +649,26 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     // DIAGNOSTIC visibility only (tests, operations): the in-memory
     // bypass-detection bookkeeping. Never authoritative enforcement.
     diagnostics: { offeredSlotsSessions: deps.offeredSlotsSessions },
+    // Booking-context store + boot reconciliation (server.js calls this
+    // next to the outbox drain: stranded booking_in_progress rows flip
+    // loudly to verification_required after a crash or redeploy).
+    bookingContexts: deps.bookingContexts,
+    reconcileBookingContexts: async () => {
+      try {
+        return await reconcileStaleBookingContexts({
+          bookingContexts: deps.bookingContexts, telemetry: observedTelemetry,
+        });
+      } catch (err) {
+        // A reconciliation failure is NEVER silent: the store threw, so
+        // stranded rows may still await an operator. Identifiers and the
+        // sanitized error only — no contexts, hashes, or payloads.
+        observedTelemetry.event('internal.unexpected_error', {
+          severity: 'error', component: 'scheduling',
+          operation: 'booking-reconciliation', ...sanitizeError(err),
+        });
+        return [];
+      }
+    },
     mailer: deps.mailer, events, adapters, conversations: deps.conversations,
     identity: { registry: identityProviders, service: identityService },
     authorization: authz,
@@ -678,7 +716,7 @@ function corsHeadersFor(req, allowedOrigins) {
 }
 
 /** Build the raw Node http request handler. */
-function makeHandler({ service, store, clock, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode, operations, administration, loginLimiter, trustForwardedFor, availabilityProvider, offeredSlotsSessions }) {
+function makeHandler({ service, store, clock, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode, operations, administration, loginLimiter, trustForwardedFor, availabilityProvider, offeredSlotsSessions, bookingContexts, bookingProvider }) {
   /**
    * Resolve the active Conversation Adapter for a firm. Provider selection
    * comes from the Configuration Store (connect/conversation-provider),
@@ -1217,6 +1255,8 @@ function makeHandler({ service, store, clock, allowedOrigins, mailer, configServ
           result = await offerSlots({
             configService,
             availabilityProvider,
+            bookingContexts,
+            clock,
             organizationKey: tenantKey,
             request: offeredRequest,
             telemetry,
@@ -1229,8 +1269,11 @@ function makeHandler({ service, store, clock, allowedOrigins, mailer, configServ
               organizationKey: tenantKey, correlationId, sessionId,
               code: err.code, httpStatus: err.httpStatus, totalMs: Date.now() - requestStarted,
             });
+            // Configuration-family failures (missing event type, coverage
+            // gap, ambiguous routing) are 503; the provider's own
+            // failures are 502; only a real timeout is 504.
             status = err.code === 'availability_timeout' ? 504
-              : (err.code === 'availability_not_configured' ? 503 : 502);
+              : (['availability_not_configured', 'routing_unresolved'].includes(err.code) ? 503 : 502);
             return sendJson(res, status, {
               error: { code: err.code, message: err.message, correlationId },
             }, null, correlationId);
@@ -1255,11 +1298,95 @@ function makeHandler({ service, store, clock, allowedOrigins, mailer, configServ
         telemetry.event('scheduling.slots_offered', {
           severity: 'info', component: 'scheduling', operation: 'offered-slots',
           organizationKey: tenantKey, correlationId, sessionId,
-          status: result.kind, ...result.counts, ...result.timings,
+          status: result.kind, routeKind: result.routeKind,
+          // The booking-context ID only — the raw opaque value exists
+          // solely in the response body, never in telemetry or logs.
+          bookingContextId: result.bookingContextId,
+          ...result.counts, ...result.timings,
         });
         status = 200;
         return sendJson(res, status, {
           status: result.kind, slots: result.slots, window: result.window,
+          ...(result.bookingContext ? { bookingContext: result.bookingContext } : {}),
+        }, null, correlationId);
+      }
+
+      // ── Governed booking ────────────────────────────────────────────
+      // Books INSIDE a booking context issued by offered-slots: the event
+      // type, duration, and permissible timestamps come from the durable
+      // context row (PostgreSQL under the postgres operational provider)
+      // — the model transports only the opaque context value, a chosen
+      // timestamp, and attendee contact details.
+      //
+      // TOOL-FACING STATUS ENVELOPE: booking OUTCOMES ride HTTP 200 with
+      // a deterministic `status` the agent always receives and can act on
+      // (booked | rejected | expired | verification_required) — official
+      // ElevenLabs documentation does not guarantee that non-2xx response
+      // bodies reach the model, and mis-hearing a booking outcome is a
+      // caller-facing failure. Request/auth errors (400/401/403/503)
+      // remain HTTP errors: the prompt's "any error → escalate" branch
+      // covers them. "booked" is present ONLY when Cal.com confirmed AND
+      // the outcome row committed.
+      if (method === 'POST' && path === '/api/v1/scheduling/book') {
+        const { organizationKey: tenantKey } = await authorizeTenantAssistant(req, 'scheduling:book');
+        if (!tenantKey) {
+          status = 403;
+          return sendJson(res, status, {
+            error: { code: 'organization_unresolved', message: 'The authenticated identity is not scoped to an organization.', correlationId },
+          }, null, correlationId);
+        }
+        if (!configService) {
+          status = 503;
+          return sendJson(res, status, {
+            error: { code: 'config_unavailable', message: 'The configuration store is not available.', correlationId },
+          }, null, correlationId);
+        }
+        const bookingRequest = validateBookingRequest(await readJsonBody(req));
+        sessionId = bookingRequest.sessionId ?? null;
+        const result = await bookAppointment({
+          bookingContexts,
+          bookingProvider,
+          configService,
+          organizationKey: tenantKey,
+          request: bookingRequest,
+          clock,
+        });
+        sessionId = result.sessionId ?? sessionId;
+        const bookingTelemetry = {
+          organizationKey: tenantKey, correlationId, sessionId,
+          bookingContextId: result.bookingContextId, routeKind: result.routeKind,
+          code: result.reason, httpStatus: result.httpStatus,
+          ...result.timings,
+        };
+        if (result.outcome === 'booked') {
+          telemetry.event('scheduling.booking_created', {
+            severity: 'info', component: 'scheduling', operation: 'book',
+            ...bookingTelemetry, status: 'booked',
+          });
+          // A governed booking is bypass-detector evidence, same as a
+          // governed offer (diagnostic bookkeeping only).
+          if (sessionId) offeredSlotsSessions.set(sessionId, clock.now());
+        } else if (result.outcome === 'verification_required') {
+          telemetry.event('scheduling.booking_verification_required', {
+            severity: 'error', component: 'scheduling', operation: 'book',
+            ...bookingTelemetry, status: 'verification_required',
+          });
+        } else {
+          telemetry.event('scheduling.booking_rejected', {
+            severity: 'warn', component: 'scheduling', operation: 'book',
+            ...bookingTelemetry, status: result.outcome,
+          });
+        }
+        status = 200;
+        return sendJson(res, status, {
+          status: result.outcome,
+          ...(result.outcome === 'booked'
+            ? {
+              startsAt: result.startsAt,
+              durationMinutes: result.durationMinutes,
+              ...(result.attorneyId ? { attorneyId: result.attorneyId } : {}),
+            }
+            : { reason: result.reason }),
         }, null, correlationId);
       }
 

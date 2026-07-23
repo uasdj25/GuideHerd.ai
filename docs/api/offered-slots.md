@@ -22,6 +22,7 @@ organization, and only that organization's configuration is resolved.
   "dateFrom": "2026-09-01",
   "dateTo": "2026-09-07",
   "attorneyId": "clay-martinson",
+  "practiceAreaId": "probate",
   "consultationTypeId": "initial-consultation",
   "durationMinutes": 30,
   "sessionId": "optional, correlation + bypass diagnostics"
@@ -31,9 +32,12 @@ organization, and only that organization's configuration is resolved.
 - `dateFrom` / `dateTo` — required `YYYY-MM-DD`, **inclusive calendar
   days in the organization's configured timezone**; window capped at 31
   days. **No slot array exists in this contract.**
-- `attorneyId`, `consultationTypeId`, `durationMinutes`, `sessionId` —
-  optional; sent only when established in the conversation, never
-  fabricated. Duration defaults from configuration.
+- `attorneyId`, `practiceAreaId`, `consultationTypeId`,
+  `durationMinutes`, `sessionId` — optional; sent only when established
+  in the conversation, never fabricated. Duration defaults from
+  configuration. Attorney, practice-area, and consultation-type keys are
+  **catalog-validated**: an unknown or inactive key is a `400`, never a
+  routing input — the model can only transmit keys that exist.
 
 ### Window semantics (the GuideHerd contract)
 
@@ -49,13 +53,47 @@ never omitted or extended.
 ## Configuration (SQLite Configuration Store)
 
 `scheduling/calcom-availability`:
-`{ "eventTypeId": <real Cal.com event type id>, "attorneyEventTypes": { "<attorneyKey>": <id> }, "durationMinutes": 30 }`.
-A mapped attorney queries that attorney's event type and attributes the
-slots; otherwise the org-wide event type is queried and slots stay
-unattributed. **Provisioning fails closed** (`availability_not_configured`)
-until a real event type is configured — no placeholder ships in any seed.
-The Cal.com API key is environment configuration (`CALCOM_API_KEY`),
-never a store value.
+
+```json
+{
+  "eventTypeId": 6287134,
+  "attorneyEventTypes": { "<attorneyKey>": 6287134 },
+  "routingGroupEventTypes": { "<routingGroupKey>": 6330099 },
+  "durationMinutes": 30
+}
+```
+
+`eventTypeId` is the **explicitly configured default path**: its presence
+is the tenant's permission for no-context availability checks; removing
+it disables that path. All ids must be positive **safe** integers.
+Producer-gated writes and the seed-import gate run strict cross-entity
+validation: every `attorneyEventTypes` key must reference an active
+provider, every `routingGroupEventTypes` key an active routing group
+whose service area has exactly one active group (unambiguous). The
+Cal.com API key is environment configuration (`CALCOM_API_KEY`), never a
+store value.
+
+## Routing resolution — ONE decision shared with booking
+
+Every check resolves exactly one route, persisted in a durable **booking
+context** the booking endpoint later books inside (see
+[booking.md](booking.md)). Precedence — **every miss FAILS CLOSED**
+(`503 routing_unresolved`; no provider call, no times):
+
+1. **Attorney + practice area** — honored only when the attorney belongs
+   to the single active routing group for that practice area (membership
+   is the Martinson & Beason tenant's configured eligibility policy for
+   this demo, not a platform assumption) AND has an `attorneyEventTypes`
+   mapping. A member without a mapping fails closed — a caller who asked
+   for a specific attorney is never silently round-robined.
+2. **Attorney only** — that attorney's mapping; unmapped fails closed
+   (never silently rebooked onto the default calendar).
+3. **Practice area only** — the single active routing group's
+   `routingGroupEventTypes` mapping; the group's calendar (e.g. a
+   Cal.com round-robin event) assigns the host, so slots stay
+   unattributed — attribution is never fabricated.
+4. **Neither** — the org-wide `eventTypeId`, only because its presence
+   is the explicit permission (`availability_not_configured` otherwise).
 
 ## Provider fetch (interactive-voice discipline)
 
@@ -73,9 +111,15 @@ and legacy `{ "slots": { "YYYY-MM-DD": [ { "time": ISO } ] } }`.
 ## Response — what the assistant can distinguish
 
 ```json
-{ "status": "offered",         "slots": [ { "startsAt": "…", "durationMinutes": 30, "attorneyId": "…" } ], "window": { "dateFrom": "…", "dateTo": "…" } }
+{ "status": "offered",         "slots": [ { "startsAt": "…", "durationMinutes": 30, "attorneyId": "…" } ], "window": { "dateFrom": "…", "dateTo": "…" }, "bookingContext": "bct_…" }
 { "status": "no-availability", "slots": [], "window": { … } }
 ```
+
+`bookingContext` (offered only) is a cryptographically random opaque
+value the assistant must retain verbatim for `create_booking` — it is
+single-use, expires after 10 minutes, and its SHA-256 hash keys the
+durable routing decision in PostgreSQL. The raw value appears nowhere
+else: not in storage, logs, or telemetry.
 
 - `offered` — ranked by the ADR-0012 engine over the COMPLETE in-window
   set (no pre-ranking truncation — a late slot the tenant's policy
@@ -103,24 +147,25 @@ TYPED transient ranking-only failure, and business-hours/duration/tenant
 validation still enforced — no such typed condition exists today, so no
 fallback is pretended.
 
-## Booking consistency (mandatory demo gate)
+## Booking consistency — STRUCTURAL
 
-Availability is resolved from `scheduling/calcom-availability`; booking
-is created by the conversation layer's booking tool against ITS
-configured Cal.com event type. **These must be the same event type** —
-availability from one calendar must never be booked into another. With
-per-attorney mappings, the booking tool must vary identically; for the
-pilot, one shared event type on both sides is the verified
-configuration. This parity is deployment verification (see the cutover
-runbook), not yet server-enforced.
+Availability and booking share one server-side routing decision: the
+resolved event type and the exact offered timestamps persist in the
+booking context, and `POST /api/v1/scheduling/book` books strictly
+inside it (see [booking.md](booking.md)). The conversation layer
+transports only the opaque `bookingContext` — it cannot supply, see, or
+override an event type, so availability from one calendar can never be
+booked into another. The former deployment-verification gate is now
+enforced by construction.
 
 ## Telemetry
 
 Every check emits `scheduling.slots_offered` with `configMs`,
 `providerMs` (split `providerHeadersMs`/`providerBodyMs` — finer network
 phases are not observable through fetch), `rankMs`, `totalMs`,
-`receivedCount`, `inWindowCount`, `offeredCount`, and status —
-content-free. A `booked` outcome for a prepared session with no
+`receivedCount`, `inWindowCount`, `offeredCount`, `routeKind`,
+`bookingContextId` (the internal `bc_…` id — never the opaque value),
+and status — content-free. A `booked` outcome for a prepared session with no
 offered-slots call emits `scheduling.policy_bypass_suspected` (warn) —
 **diagnostic, not enforcement**: the bookkeeping is process memory on a
 single-replica deployment, so a restart can produce a false warning.

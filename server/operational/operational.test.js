@@ -21,9 +21,13 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 
 const { createInMemoryHandoffStore } = require('../handoff/store');
+const { createInMemoryBookingContextStore } = require('../scheduling/booking-context-store');
 const { createApp } = require('../handoff/app');
 const { fixedClock } = require('../handoff/clock');
 const { runHandoffRepositoryContractSuite, makeSession, BOOKED_OUTCOME } = require('./contract-suite');
+const {
+  runBookingContextContractSuite, makeContext, SLOT_A,
+} = require('./booking-context-contract-suite');
 
 const T0 = Date.parse('2026-07-12T15:15:00Z');
 const PG_URL = process.env.GUIDEHERD_TEST_DATABASE_URL;
@@ -33,6 +37,7 @@ const PG_URL = process.env.GUIDEHERD_TEST_DATABASE_URL;
 // ---------------------------------------------------------------------------
 
 runHandoffRepositoryContractSuite('memory', async ({ clock }) => createInMemoryHandoffStore({ clock }));
+runBookingContextContractSuite('memory', async ({ clock }) => createInMemoryBookingContextStore({ clock }));
 
 // ---------------------------------------------------------------------------
 // PostgreSQL
@@ -70,6 +75,7 @@ if (!PG_URL) {
     await pool.query('DROP TABLE IF EXISTS outbox_deliveries');
     await pool.query('DROP TABLE IF EXISTS outbox_events');
     await pool.query('DROP TABLE IF EXISTS scheduled_actions');
+    await pool.query('DROP TABLE IF EXISTS booking_contexts');
     await pool.query('DROP TABLE IF EXISTS handoff_sessions');
     await pool.query('DROP TABLE IF EXISTS notification_deliveries');
     await pool.query('DROP TABLE IF EXISTS operational_schema_migrations');
@@ -79,18 +85,18 @@ if (!PG_URL) {
     sharedPool = createOperationalPool({ connectionString: PG_URL });
     await resetDatabase(sharedPool);
 
-    assert.equal(await migrate(sharedPool), 7, 'all pending migrations apply');
+    assert.equal(await migrate(sharedPool), 8, 'all pending migrations apply');
     assert.equal(await migrate(sharedPool), 0, 're-run is a no-op');
 
     // Concurrent boots: several runners at once, advisory lock serializes.
     await resetDatabase(sharedPool);
     const pools = [createOperationalPool({ connectionString: PG_URL }), createOperationalPool({ connectionString: PG_URL })];
     const results = await Promise.all([migrate(sharedPool), migrate(pools[0]), migrate(pools[1])]);
-    assert.equal(results.reduce((a, b) => a + b, 0), 7, 'exactly one runner applies the migrations');
+    assert.equal(results.reduce((a, b) => a + b, 0), 8, 'exactly one runner applies the migrations');
     await Promise.all(pools.map((p) => p.end()));
 
     const { rows } = await sharedPool.query('SELECT count(*)::int AS n FROM operational_schema_migrations');
-    assert.equal(rows[0].n, 7);
+    assert.equal(rows[0].n, 8);
   });
 
   // Contract suite against PostgreSQL. Each test gets a truncated table on
@@ -99,6 +105,153 @@ if (!PG_URL) {
     await sharedPool.query('TRUNCATE handoff_sessions');
     const store = createPostgresHandoffStore({ pool: sharedPool, clock });
     return { ...store, close: async () => {} }; // suite stores share the pool
+  });
+
+  const { createPostgresBookingContextStore } = require('./booking-context-repository');
+
+  runBookingContextContractSuite('postgres', async ({ clock }) => {
+    await sharedPool.query('TRUNCATE booking_contexts');
+    return createPostgresBookingContextStore({ pool: sharedPool, clock });
+  });
+
+  test('[postgres] booking contexts: the DATABASE enforces route-kind consistency, not just the JS layer', async () => {
+    await sharedPool.query('TRUNCATE booking_contexts');
+    // Raw INSERTs bypass assertRouteConsistency entirely — the CHECK
+    // constraints must reject them on their own.
+    const insert = (cols) => sharedPool.query(
+      `INSERT INTO booking_contexts (
+         booking_context_id, context_token_hash, organization_key,
+         route_kind, attorney_id, routing_group_key, practice_area_id,
+         event_type_id, duration_minutes, offered_slots, status,
+         created_at, updated_at, expires_at
+       ) VALUES ($1,$2,'org-a',$3,$4,$5,$6,$7,$8,'["2026-09-01T14:00:00.000Z"]','offered',now(),now(),now())`,
+      cols,
+    );
+    // attorney route without an attorney.
+    await assert.rejects(() => insert(['bc_x1', 'h1', 'attorney', null, null, null, 6287134, 30]),
+      /booking_contexts_route_consistency/);
+    // routing-group route carrying an attorney.
+    await assert.rejects(() => insert(['bc_x2', 'h2', 'routing-group', 'clay-martinson', 'probate', 'probate', 6330099, 30]),
+      /booking_contexts_route_consistency/);
+    // routing-group route without a practice area.
+    await assert.rejects(() => insert(['bc_x3', 'h3', 'routing-group', null, 'probate', null, 6330099, 30]),
+      /booking_contexts_route_consistency/);
+    // default route carrying a routing group.
+    await assert.rejects(() => insert(['bc_x4', 'h4', 'default', null, 'probate', null, 6287134, 30]),
+      /booking_contexts_route_consistency/);
+    // unknown route kind, nonpositive event type, nonpositive duration.
+    await assert.rejects(() => insert(['bc_x5', 'h5', 'walk-in', null, null, null, 6287134, 30]), /route/);
+    await assert.rejects(() => insert(['bc_x6', 'h6', 'default', null, null, null, 0, 30]), /event_type_id/);
+    await assert.rejects(() => insert(['bc_x7', 'h7', 'default', null, null, null, 6287134, 0]), /duration_minutes/);
+    // The three valid shapes insert cleanly.
+    await insert(['bc_ok1', 'h8', 'attorney', 'clay-martinson', null, null, 6287134, 30]);
+    await insert(['bc_ok2', 'h9', 'routing-group', null, 'probate', 'probate', 6330099, 30]);
+    await insert(['bc_ok3', 'h10', 'default', null, null, null, 6287134, 30]);
+  });
+
+  test('[postgres] booking contexts: restart persistence — a claim survives a full process handover and completes on the next instance', async () => {
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE booking_contexts');
+
+    // "Instance one" offers and claims, then shuts down entirely.
+    const poolA = createOperationalPool({ connectionString: PG_URL });
+    const storeA = createPostgresBookingContextStore({ pool: poolA, clock });
+    const input = makeContext();
+    await storeA.create(input);
+    await storeA.claim({ bookingContextId: input.bookingContextId, startsAt: SLOT_A });
+    await poolA.end(); // the process is gone
+
+    // "Instance two" starts fresh: state and status are intact, and the
+    // outcome records durably.
+    const poolB = createOperationalPool({ connectionString: PG_URL });
+    const storeB = createPostgresBookingContextStore({ pool: poolB, clock });
+    const reloaded = await storeB.findByTokenHash({
+      contextTokenHash: input.contextTokenHash, organizationKey: 'org-a',
+    });
+    assert.equal(reloaded.status, 'booking_in_progress');
+    assert.equal(reloaded.eventTypeId, 6287134);
+    assert.deepEqual(reloaded.offeredSlots, input.offeredSlots);
+    const booked = await storeB.complete({
+      bookingContextId: input.bookingContextId, status: 'booked', calcomBookingUid: 'uid_handover',
+    });
+    assert.equal(booked.status, 'booked');
+    await poolB.end();
+  });
+
+  test('[postgres] migration 0008 is ADDITIVE: applies cleanly onto an existing 0007 database without touching prior data', async () => {
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const pathMod = require('node:path');
+    await resetDatabase(sharedPool);
+    // A database exactly as the previous release left it: 0001–0007 only.
+    const stagedDir = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'gh-mig-'));
+    for (const file of fs.readdirSync(pathMod.join(__dirname, 'migrations')).sort().slice(0, 7)) {
+      fs.copyFileSync(pathMod.join(__dirname, 'migrations', file), pathMod.join(stagedDir, file));
+    }
+    assert.equal(await migrate(sharedPool, { dir: stagedDir }), 7, 'the 0007-era schema applies');
+    const clock = fixedClock(T0);
+    const legacyStore = createPostgresHandoffStore({ pool: sharedPool, clock });
+    const { session } = makeSession();
+    await legacyStore.create(session);
+    // The new release boots: exactly 0008 applies; prior rows are intact.
+    assert.equal(await migrate(sharedPool), 1, 'only 0008 is pending');
+    assert.equal(await migrate(sharedPool), 0, 'second run applies nothing');
+    assert.equal((await legacyStore.get(session.sessionId)).status, 'awaiting-transfer', 'existing data untouched');
+    const { rows } = await sharedPool.query('SELECT count(*)::int AS n FROM booking_contexts');
+    assert.equal(rows[0].n, 0, 'the new table exists and is empty');
+    // Restore the fully-migrated shared database for later tests.
+    fs.rmSync(stagedDir, { recursive: true, force: true });
+  });
+
+  test('[postgres] migration 0008 details: jsonb round-trips, bigint precision, unique hash, and the intended index predicates', async () => {
+    const clock = fixedClock(T0);
+    await sharedPool.query('TRUNCATE booking_contexts');
+    const store = createPostgresBookingContextStore({ pool: sharedPool, clock });
+
+    // bigint event_type_id: the largest safe JS integer round-trips
+    // exactly as a NUMBER (no string leakage, no precision loss).
+    const big = makeContext({ eventTypeId: Number.MAX_SAFE_INTEGER });
+    await store.create(big);
+    const reloaded = await store.get(big.bookingContextId);
+    assert.equal(typeof reloaded.eventTypeId, 'number');
+    assert.equal(reloaded.eventTypeId, 9007199254740991);
+
+    // jsonb: offered_slots and booking_result store and return structure.
+    const { rows: jsonbRows } = await sharedPool.query(
+      "SELECT jsonb_typeof(offered_slots) AS t, offered_slots->0 AS first FROM booking_contexts WHERE booking_context_id = $1",
+      [big.bookingContextId],
+    );
+    assert.equal(jsonbRows[0].t, 'array');
+    assert.equal(jsonbRows[0].first, SLOT_A);
+    await store.claim({ bookingContextId: big.bookingContextId, startsAt: SLOT_A });
+    await store.complete({
+      bookingContextId: big.bookingContextId, status: 'booked',
+      calcomBookingUid: 'uid_json', bookingResult: { uid: 'uid_json', start: SLOT_A },
+    });
+    const { rows: resultRows } = await sharedPool.query(
+      "SELECT jsonb_typeof(booking_result) AS t, booking_result->>'uid' AS uid FROM booking_contexts WHERE booking_context_id = $1",
+      [big.bookingContextId],
+    );
+    assert.equal(resultRows[0].t, 'object');
+    assert.equal(resultRows[0].uid, 'uid_json');
+
+    // context_token_hash is UNIQUE at the database.
+    await assert.rejects(() => sharedPool.query(
+      `INSERT INTO booking_contexts (booking_context_id, context_token_hash, organization_key, route_kind,
+         attorney_id, event_type_id, duration_minutes, offered_slots, status, created_at, updated_at, expires_at)
+       VALUES ('bc_dup', $1, 'org-a', 'attorney', 'clay-martinson', 1, 30, '[]', 'offered', now(), now(), now())`,
+      [big.contextTokenHash],
+    ), /unique|duplicate/i);
+
+    // The partial indexes exist with the intended predicates.
+    const { rows: indexes } = await sharedPool.query(
+      "SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'booking_contexts' ORDER BY indexname",
+    );
+    const byName = Object.fromEntries(indexes.map((r) => [r.indexname, r.indexdef]));
+    assert.match(byName.booking_contexts_open_idx, /WHERE.*booking_in_progress.*verification_required/s,
+      'reconciliation scans are supported by the open-status partial index');
+    assert.match(byName.booking_contexts_session_idx, /WHERE.*session_id IS NOT NULL/s);
+    assert.ok(byName.booking_contexts_context_token_hash_key, 'the unique hash constraint is index-backed (claim lookups)');
   });
 
   test('[postgres] restart persistence: sessions survive a full process handover', async () => {

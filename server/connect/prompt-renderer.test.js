@@ -82,8 +82,10 @@ test('prompt: the Martinson & Beason prompt renders from SQLite configuration â€
   assert.match(prompt, /Never substitute a different attorney or consultation\s+type when different values were returned by get_prepared_caller/,
     'the approved tenant-neutral guardrail renders');
   assert.ok(!prompt.includes('Mr. Martinson'), 'no demo-specific attorney wording renders');
-  assert.match(prompt, /If no attorney has been provided, ask which attorney the\s+caller would prefer/,
-    'without an established attorney the workflow asks the caller');
+  assert.match(prompt, /If no attorney has been provided but a practice area was, continue\s+with the practice area/,
+    'practice-area-only callers proceed through routing-group scheduling');
+  assert.match(prompt, /If neither an attorney nor a practice area has been provided, ask\s+which attorney the\s+caller would prefer/,
+    'without any established routing context the workflow asks the caller');
   assert.match(prompt, /use\s+Initial Consultation as the default/,
     'the configured default consultation type renders in the workflow');
 
@@ -150,12 +152,28 @@ test('prompt: the Issue #66 scheduling-policy workflow is preserved through the 
   assert.ok(!prompt.includes('Get Available Slots'), 'the direct Cal.com availability tool is removed from the prompt');
   assert.ok(!prompt.includes('select_offered_slots'), 'the batch-transport tool is removed from the prompt');
 
-  // Everything downstream of slot presentation is untouched.
+  // Governed booking (#74 booking parity): the model transports only the
+  // opaque bookingContext, one exact returned timestamp, attendee contact
+  // details, and the optional sessionId â€” it can neither see nor choose
+  // event types, routes, or calendars.
   assert.match(prompt, /Never invent appointment availability\./);
-  assert.match(prompt, /use the Create Booking tool\s+exactly once/);
-  assert.match(prompt, /Never tell the\s+caller the appointment has been scheduled unless the Create Booking tool\s+explicitly reports success/);
+  assert.match(prompt, /Keep it exactly as returned for the booking step\. Never speak it,\s+never display it, never modify it\./,
+    'the bookingContext is opaque and internal');
+  assert.match(prompt, /call the create_booking tool exactly\s+once/);
+  assert.match(prompt, /bookingContext: the exact value returned by the most recent\s+get_offered_slots response/);
+  assert.match(prompt, /startsAt: the exact startsAt value of the appointment option the\s+caller selected/);
+  assert.match(prompt, /Never construct or adjust an appointment time yourself\./);
+  assert.match(prompt, /"verification_required": do not tell the caller the appointment is\s+scheduled, and do not tell them it failed\./,
+    'the ambiguous outcome is neither success nor failure to the caller');
+  assert.match(prompt, /Never tell the caller the appointment has been scheduled unless\s+create_booking explicitly returns status "booked"\./);
+  assert.ok(!prompt.includes('Create Booking'), 'the direct Cal.com booking tool is removed from the prompt');
+  assert.ok(!/event.type/i.test(prompt), 'no event-type language reaches the model');
+  assert.ok(!prompt.includes('routing group') && !prompt.includes('routeKind'),
+    'routing internals never reach the model');
+  assert.match(prompt, /never choose, name, or reason\s+about calendars or scheduling routes yourself/);
   assert.match(prompt, /report_scheduling_outcome tool exactly once/);
   assert.match(prompt, /Never report booked based only on the caller selecting a time\./);
+  assert.match(prompt, /Never report booked unless create_booking returned status "booked"\./);
 });
 
 test('prompt: missing required configuration refuses to render and lists every gap', () => {

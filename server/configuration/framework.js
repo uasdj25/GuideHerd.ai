@@ -149,6 +149,33 @@ function createConfigurationFramework() {
       const { namespace, key } = requireDomain(id);
       return { namespace, key };
     },
+
+    /**
+     * IMPORT gate: strict validation of every STORED domain document for
+     * one organization — the same producer gate the Administration
+     * Framework runs, applied after a seed/import wrote settings through
+     * the generic store layer (which by design knows nothing of domains).
+     * Unset domains are skipped (defaults are always valid); a stored
+     * document with issues is reported so the importer can FAIL rather
+     * than boot with silently-degraded configuration.
+     * @returns {Array<{ domain: string, issues: string[] }>}
+     */
+    validateStored(configService, organizationKey, context = {}) {
+      const problems = [];
+      for (const domain of domains.values()) {
+        let raw = null;
+        try {
+          const setting = configService.settings.get(organizationKey, domain.namespace, domain.key);
+          raw = setting ? setting.value : null;
+        } catch {
+          raw = null;
+        }
+        if (raw === null) continue;
+        const { ok, issues } = api.validate(domain.id, raw, { configService, organizationKey, ...context });
+        if (!ok) problems.push({ domain: domain.id, issues });
+      }
+      return problems;
+    },
   };
   return api;
 }
@@ -186,11 +213,17 @@ function domainAddress(id) {
   return withProductionDomains().addressOf(id);
 }
 
+/** Import gate against the default registry (seed/import validation). */
+function validateStoredDomainSettings(configService, organizationKey, context = {}) {
+  return withProductionDomains().validateStored(configService, organizationKey, context);
+}
+
 module.exports = {
   createConfigurationFramework,
   readDomain,
   validateDomain,
   domainDescriptors,
   domainAddress,
+  validateStoredDomainSettings,
   UnknownConfigurationDomainError,
 };

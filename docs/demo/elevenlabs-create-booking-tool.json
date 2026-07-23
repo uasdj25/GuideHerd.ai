@@ -1,0 +1,55 @@
+{
+  "_provisioning_note": "ElevenLabs Create Tool payload for the GOVERNED booking tool (POST https://api.elevenlabs.io/v1/convai/tools, xi-api-key header). Replaces the direct Cal.com 'calcom_create_booking' integration: booking goes through GuideHerd, which books strictly inside the durable booking context issued by get_offered_slots — the agent cannot supply an event type, route, or arbitrary timestamp. AUTH_CONNECTION_ID is environment-specific — substitute the workspace's GuideHerd auth connection before submitting; secrets never appear in source control. Booking OUTCOMES ride HTTP 200 with a deterministic status the agent must act on: 'booked' (confirmed and durably recorded — only now may the agent say the appointment is scheduled), 'rejected'/'expired' (NOT scheduled — apologize, offer a fresh availability check), 'verification_required' (neither confirm nor deny — the office follows up; report the outcome as escalated). Any HTTP error: apologize, never claim booked, escalate.",
+  "tool_config": {
+    "type": "webhook",
+    "name": "create_booking",
+    "description": "Book the appointment the caller selected. Call this exactly once, only after the caller confirms their selection. Pass the bookingContext exactly as returned by the most recent get_offered_slots response, the exact startsAt of the option the caller chose, and the caller's contact details collected earlier. Never construct or adjust a time yourself; if the caller wants a different time, run a new availability check instead. Act on the returned status: 'booked' means scheduled; 'rejected' or 'expired' mean NOT scheduled; 'verification_required' means the office must confirm — do not tell the caller it is scheduled and do not tell them it failed.",
+    "response_timeout_secs": 10,
+    "api_schema": {
+      "url": "https://api.guideherd.ai/api/v1/scheduling/book",
+      "method": "POST",
+      "content_type": "application/json",
+      "auth_connection": {
+        "auth_connection_id": "<AUTH_CONNECTION_ID>"
+      },
+      "request_body_schema": {
+        "type": "object",
+        "required": ["bookingContext", "startsAt", "attendee"],
+        "description": "One governed booking attempt inside a booking context issued by get_offered_slots. GuideHerd validates, books the correct calendar server-side, and records the durable outcome.",
+        "properties": {
+          "bookingContext": {
+            "type": "string",
+            "description": "The opaque bookingContext value from the most recent get_offered_slots response, copied exactly. Never alter, shorten, or invent it."
+          },
+          "startsAt": {
+            "type": "string",
+            "description": "The exact startsAt timestamp of the appointment option the caller selected, copied exactly as get_offered_slots returned it (ISO 8601 UTC). Must be one of the returned options."
+          },
+          "attendee": {
+            "type": "object",
+            "required": ["name", "email"],
+            "description": "The caller's contact details collected earlier in the conversation.",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "The caller's full name."
+              },
+              "email": {
+                "type": "string",
+                "description": "The caller's email address for the appointment confirmation."
+              },
+              "phoneNumber": {
+                "type": "string",
+                "description": "The caller's callback phone number in international format (e.g. +12565550100). Omit if not collected."
+              }
+            }
+          },
+          "sessionId": {
+            "type": "string",
+            "description": "The sessionId returned by get_prepared_caller, copied exactly, when a prepared session exists. Omit it entirely otherwise — never fabricate one."
+          }
+        }
+      }
+    }
+  }
+}

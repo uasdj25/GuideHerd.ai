@@ -146,6 +146,13 @@
       "key": "calcom-availability",
       "value": {
         "eventTypeId": 6287134,
+        "attorneyEventTypes": {
+          "clay-martinson": 6287134,
+          "doug-martinson": 6330128
+        },
+        "routingGroupEventTypes": {
+          "probate": 6330099
+        },
         "durationMinutes": 30
       }
     },

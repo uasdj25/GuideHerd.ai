@@ -94,6 +94,7 @@ async function main() {
   let userSessionStore; // undefined -> in-memory default (ADR-0013 / #64)
   let outboxStore; // undefined -> in-memory default (ADR-0017)
   let scheduledActionStore; // undefined -> in-memory default (ADR-0018)
+  let bookingContextStore; // undefined -> in-memory default (#74 booking parity)
   let operationalMigrationsApplied = null;
   if (OPERATIONAL_PROVIDER === 'postgres') {
     const { createOperationalPool } = require('./operational/db');
@@ -117,6 +118,11 @@ async function main() {
       // Durable login sessions (#64): restarts no longer sign users out,
       // and sessions are valid across instances.
       userSessionStore = createPostgresUserSessionStore({ pool, clock: systemClock() });
+      // Durable booking contexts (#74): the routing decision availability
+      // and booking share — expiry, single-use, and the booking outcome
+      // are PostgreSQL-authoritative, never process memory.
+      const { createPostgresBookingContextStore } = require('./operational/booking-context-repository');
+      bookingContextStore = createPostgresBookingContextStore({ pool, clock: systemClock() });
     } catch (err) {
       fatal('Operational Store (postgres) is unavailable; refusing to start.', {
         error: { message: String(err.message || err) },
@@ -129,7 +135,7 @@ async function main() {
 
   // Browser origins are allowlisted via CORS_ALLOWED_ORIGINS (comma-separated).
   // Defaults to https://guideherd.ai and http://localhost:8080. Never `*`.
-  const app = createApp({ configService, configDb, handoffStore, notificationDeliveryStore, integrationDeliveryStore, workflowStore, outboxStore, scheduledActionStore, configurationAuthority, userSessionStore });
+  const app = createApp({ configService, configDb, handoffStore, notificationDeliveryStore, integrationDeliveryStore, workflowStore, outboxStore, scheduledActionStore, configurationAuthority, userSessionStore, bookingContextStore });
   const { handler } = app;
   const server = http.createServer(handler);
 
@@ -138,6 +144,10 @@ async function main() {
   // before/while serving traffic.
   app.outbox.drain().catch(() => {});
   app.scheduler.drain().catch(() => {});
+  // Booking reconciliation (#74): rows a previous instance stranded in
+  // booking_in_progress flip LOUDLY to verification_required — a crash
+  // mid-booking is never silent and never claims success.
+  app.reconcileBookingContexts().catch(() => {});
   app.workflow.drain().catch(() => {});
 
   // Liveness (ADR-0017 §3): post-commit nudges give low latency; ONE
@@ -151,7 +161,10 @@ async function main() {
     fatal(`Invalid GUIDEHERD_OUTBOX_POLL_INTERVAL_MS "${RAW_POLL_INTERVAL}" (expected a positive number of milliseconds).`);
   }
   const outboxPoller = createOutboxPoller({
-    outbox: { drain: () => Promise.all([app.outbox.drain(), app.scheduler.drain(), app.workflow.drain(), app.alerting.evaluate(), app.retention.sweep()]) },
+    // Booking-context reconciliation rides the same poller: a row
+    // stranded in booking_in_progress LESS than the stale threshold
+    // before boot is caught by a later tick, not only at startup (#74).
+    outbox: { drain: () => Promise.all([app.outbox.drain(), app.scheduler.drain(), app.workflow.drain(), app.alerting.evaluate(), app.retention.sweep(), app.reconcileBookingContexts()]) },
     intervalMs: OUTBOX_POLL_INTERVAL_MS,
   });
   server.on('close', () => outboxPoller.stop());

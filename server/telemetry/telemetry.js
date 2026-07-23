@@ -76,6 +76,12 @@ const EVENTS = Object.freeze([
   // offered-slots call for the session).
   'scheduling.slots_offered',
   'scheduling.policy_bypass_suspected',
+  // Governed booking (#74 booking parity): confirmed creations, controlled
+  // rejections, and the LOUD ambiguous-outcome state an operator must
+  // verify against the calendar provider (never auto-resolved).
+  'scheduling.booking_created',
+  'scheduling.booking_rejected',
+  'scheduling.booking_verification_required',
   // Data retention (ADR-0006 / #63): one event per sweep, counts only.
   'retention.swept',
   // Failure alerting (#68): raised conditions are ALWAYS loud here,
@@ -146,6 +152,11 @@ const ALLOWED_FIELDS = Object.freeze([
   'totalMs',
   'inWindowCount',
   'status',
+  // Booking parity (#74): the resolved route kind (enum) and the internal
+  // booking-context ID (bc_…) — NEVER the opaque bookingContext value the
+  // conversation layer holds (that value appears in no log or event).
+  'routeKind',
+  'bookingContextId',
   'count',
   'code',
   'notificationType',

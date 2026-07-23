@@ -194,3 +194,40 @@ test('describeAuthority: live is claimed only when durability is evidenced', () 
     { mode: 'live', seedOnBoot: true, lastBootImport: 'none' },
   );
 });
+
+test('seed import gate (ADR-0016): settings that fail domain validation — including cross-entity mapping rules — refuse to import', () => {
+  const h = harness();
+  try {
+    const seed = JSON.parse(fs.readFileSync(EXAMPLE_FILE, 'utf8'));
+    // The real example seed passes the gate.
+    const ok = seedOnBoot({ configService: h.service, filePath: h.writeDoc('ok.json', seed), mode: 'bootstrap', log: h.log });
+    assert.equal(ok.action, 'imported');
+
+    // A mapping to a NONEXISTENT attorney refuses to boot.
+    const ghost = structuredClone(seed);
+    ghost.organization.key = 'ghost-firm';
+    ghost.settings.find((s) => s.key === 'calcom-availability').value.attorneyEventTypes = { 'no-such-attorney': 123 };
+    assert.throws(
+      () => seedOnBoot({ configService: h.service, filePath: h.writeDoc('ghost.json', ghost), mode: 'bootstrap', log: h.log }),
+      /calcom-availability.*no-such-attorney.*unknown attorney/,
+    );
+
+    // A mapping to an INACTIVE routing group refuses to boot.
+    const inactive = structuredClone(seed);
+    inactive.organization.key = 'inactive-firm';
+    inactive.routingGroups.find((g) => g.key === 'probate').active = false;
+    assert.throws(
+      () => seedOnBoot({ configService: h.service, filePath: h.writeDoc('inactive.json', inactive), mode: 'bootstrap', log: h.log }),
+      /routingGroupEventTypes\.probate.*not active/,
+    );
+
+    // An UNSAFE integer event type refuses to boot (normalize is strict at import).
+    const unsafe = structuredClone(seed);
+    unsafe.organization.key = 'unsafe-firm';
+    unsafe.settings.find((s) => s.key === 'calcom-availability').value.eventTypeId = 2 ** 53;
+    assert.throws(
+      () => seedOnBoot({ configService: h.service, filePath: h.writeDoc('unsafe.json', unsafe), mode: 'bootstrap', log: h.log }),
+      /eventTypeId must be a positive safe integer/,
+    );
+  } finally { h.cleanup(); }
+});

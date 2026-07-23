@@ -117,6 +117,38 @@ function registerProductionDomains(framework) {
     normalize(raw) {
       return normalizeCalcomAvailabilityConfig(raw);
     },
+    // STRICT write/import-time cross-entity rules (ADR-0007 §6 pattern):
+    // every mapped key must reference a real, ACTIVE catalog entity, and
+    // routing-group mappings must stay unambiguous for practice-area
+    // resolution. Runs whenever the producer supplies configService +
+    // organizationKey (administration writes and the seed-import gate);
+    // consumers stay fail-safe — runtime resolution independently fails
+    // closed on any unknown or unmapped key.
+    validate(value, context) {
+      const { configService, organizationKey } = context || {};
+      if (!configService || !organizationKey) return [];
+      const issues = [];
+      const row = (catalog, key) => {
+        try { return catalog.get(organizationKey, key); } catch { return null; }
+      };
+      for (const key of Object.keys(value.attorneyEventTypes)) {
+        const attorney = row(configService.providers, key);
+        if (!attorney) issues.push(`attorneyEventTypes.${key}: unknown attorney`);
+        else if (attorney.active === false) issues.push(`attorneyEventTypes.${key}: attorney is not active`);
+      }
+      let groups = [];
+      try { groups = configService.routingGroups.list(organizationKey); } catch { groups = []; }
+      for (const key of Object.keys(value.routingGroupEventTypes)) {
+        const group = groups.find((g) => g.key === key);
+        if (!group) { issues.push(`routingGroupEventTypes.${key}: unknown routing group`); continue; }
+        if (group.active === false) { issues.push(`routingGroupEventTypes.${key}: routing group is not active`); continue; }
+        const sharing = groups.filter((g) => g.active !== false && g.serviceArea === group.serviceArea);
+        if (sharing.length > 1) {
+          issues.push(`routingGroupEventTypes.${key}: practice area "${group.serviceArea}" has ${sharing.length} active routing groups — resolution would be ambiguous`);
+        }
+      }
+      return issues;
+    },
   });
 
   // Scheduling-assistant prompt profile — the tenant wording the rendered

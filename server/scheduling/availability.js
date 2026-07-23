@@ -77,6 +77,21 @@ class AvailabilityMalformedError extends AvailabilityError {
 }
 
 /**
+ * The established caller context cannot be routed to a configured Cal.com
+ * event type — coverage or configuration is missing, or the routing is
+ * ambiguous. FAIL CLOSED: the assistant apologizes, offers no times, and
+ * escalates; nothing ever guesses a calendar. `reason` is a small enum for
+ * telemetry (attorney_unmapped, attorney_not_permitted, no_routing_group,
+ * ambiguous_routing_group, routing_group_unmapped).
+ */
+class RoutingUnresolvedError extends AvailabilityError {
+  constructor(reason, message) {
+    super('routing_unresolved', message);
+    this.reason = reason;
+  }
+}
+
+/**
  * Parse a Cal.com slots response into neutral `{ startsAt }` entries —
  * chronologically sorted, deterministically deduplicated.
  *
@@ -211,42 +226,59 @@ function createCalcomAvailabilityProvider({
  * until a real event type is configured. No placeholder is ever shipped.
  *
  *   {
- *     "eventTypeId": <real Cal.com event type id>,     // org-wide
- *     "attorneyEventTypes": { "<attorneyKey>": <id> }, // optional per-attorney
- *     "durationMinutes": 30                            // appointment length
+ *     "eventTypeId": <real Cal.com event type id>,         // explicit default path
+ *     "attorneyEventTypes": { "<attorneyKey>": <id> },     // optional per-attorney
+ *     "routingGroupEventTypes": { "<groupKey>": <id> },    // optional per routing group
+ *     "durationMinutes": 30                                // appointment length
  *   }
+ *
+ * `eventTypeId` is the EXPLICITLY configured default path: its presence is
+ * the tenant's permission for no-context availability checks; removing it
+ * disables that path. Attorney and routing-group maps serve the resolved
+ * routes (see resolveBookingRoute).
  */
 function normalizeCalcomAvailabilityConfig(raw) {
-  const empty = { eventTypeId: null, attorneyEventTypes: {}, durationMinutes: 30 };
+  const empty = {
+    eventTypeId: null, attorneyEventTypes: {}, routingGroupEventTypes: {}, durationMinutes: 30,
+  };
   if (raw === null || raw === undefined) return { value: empty, issues: [] };
   if (typeof raw !== 'object' || Array.isArray(raw)) {
     return { value: empty, issues: ['must be an object like { "eventTypeId": <id>, "durationMinutes": 30 }'] };
   }
   const issues = [];
   for (const k of Object.keys(raw)) {
-    if (!['eventTypeId', 'attorneyEventTypes', 'durationMinutes'].includes(k)) issues.push(`unknown field: ${k}`);
+    if (!['eventTypeId', 'attorneyEventTypes', 'routingGroupEventTypes', 'durationMinutes'].includes(k)) {
+      issues.push(`unknown field: ${k}`);
+    }
   }
   let eventTypeId = null;
   if (raw.eventTypeId !== undefined && raw.eventTypeId !== null) {
-    if (Number.isInteger(raw.eventTypeId) && raw.eventTypeId > 0) eventTypeId = raw.eventTypeId;
-    else issues.push('eventTypeId must be a positive integer');
+    // SAFE integers only: an id beyond 2^53-1 cannot round-trip JSON/JS
+    // exactly, and a silently-shifted event type books the wrong calendar.
+    if (Number.isSafeInteger(raw.eventTypeId) && raw.eventTypeId > 0) eventTypeId = raw.eventTypeId;
+    else issues.push('eventTypeId must be a positive safe integer');
   }
-  const attorneyEventTypes = {};
-  if (raw.attorneyEventTypes !== undefined) {
-    if (typeof raw.attorneyEventTypes !== 'object' || raw.attorneyEventTypes === null || Array.isArray(raw.attorneyEventTypes)) {
-      issues.push('attorneyEventTypes must map attorney keys to event type ids');
-    } else {
-      for (const [attorney, id] of Object.entries(raw.attorneyEventTypes)) {
-        if (typeof attorney !== 'string' || attorney.trim() === '') {
-          issues.push('attorneyEventTypes keys must be nonblank attorney keys');
-        } else if (!Number.isInteger(id) || id <= 0) {
-          issues.push(`attorneyEventTypes.${attorney} must be a positive integer event type id`);
-        } else {
-          attorneyEventTypes[attorney.trim()] = id;
-        }
+  /** Shared shape for the two key→event-type maps. */
+  const eventTypeMap = (field, keyNoun) => {
+    const map = {};
+    if (raw[field] === undefined) return map;
+    if (typeof raw[field] !== 'object' || raw[field] === null || Array.isArray(raw[field])) {
+      issues.push(`${field} must map ${keyNoun} keys to event type ids`);
+      return map;
+    }
+    for (const [key, id] of Object.entries(raw[field])) {
+      if (typeof key !== 'string' || key.trim() === '') {
+        issues.push(`${field} keys must be nonblank ${keyNoun} keys`);
+      } else if (!Number.isSafeInteger(id) || id <= 0) {
+        issues.push(`${field}.${key} must be a positive safe integer event type id`);
+      } else {
+        map[key.trim()] = id;
       }
     }
-  }
+    return map;
+  };
+  const attorneyEventTypes = eventTypeMap('attorneyEventTypes', 'attorney');
+  const routingGroupEventTypes = eventTypeMap('routingGroupEventTypes', 'routing-group');
   let durationMinutes = 30;
   if (raw.durationMinutes !== undefined) {
     if (Number.isInteger(raw.durationMinutes) && raw.durationMinutes > 0 && raw.durationMinutes <= 480) {
@@ -255,32 +287,115 @@ function normalizeCalcomAvailabilityConfig(raw) {
       issues.push('durationMinutes must be an integer between 1 and 480');
     }
   }
-  return { value: { eventTypeId, attorneyEventTypes, durationMinutes }, issues };
+  return { value: { eventTypeId, attorneyEventTypes, routingGroupEventTypes, durationMinutes }, issues };
 }
 
 /**
- * Resolve which event type one availability check should query.
- * A mapped attorney uses THAT attorney's event type (slots are then
- * attributable to them); otherwise the org-wide event type is queried and
- * slots stay unattributed — attribution is never fabricated.
+ * Resolve the ONE routing decision an availability check and its
+ * subsequent booking share. The resolved route is persisted in the
+ * durable booking context; booking reads the event type from that row —
+ * availability from one calendar can never be booked into another BY
+ * CONSTRUCTION (the conversation layer transports only an opaque value).
  *
- * BOOKING CONSISTENCY: the event type resolved here MUST be the same
- * event type the conversation layer's booking tool creates against; see
- * docs/api/offered-slots.md ("Booking consistency") — availability from
- * one calendar must never be booked into another.
- * @returns {{ eventTypeId: number|null, attributedAttorneyId: string|null }}
+ * Precedence (every miss FAILS CLOSED — nothing ever guesses a calendar):
+ *
+ *  1. attorney + practice area — the attorney override is honored only
+ *     when the attorney is a member of the single active routing group
+ *     configured for that practice area AND has an attorneyEventTypes
+ *     mapping. Membership-as-eligibility is the Martinson & Beason
+ *     tenant's configured policy for this demo, NOT a universal platform
+ *     assumption: a future explicit provider-to-service-area eligibility
+ *     model can replace this check without changing the booking-context
+ *     contract (the persisted route shape is unchanged).
+ *  2. attorney only — that attorney's attorneyEventTypes mapping.
+ *  3. practice area only — exactly one active routing group for the
+ *     area, mapped through routingGroupEventTypes. The group's calendar
+ *     (e.g. a Cal.com round-robin event) assigns the host; slots stay
+ *     unattributed — attribution is never fabricated.
+ *  4. neither — the org-wide eventTypeId, ONLY because its presence is
+ *     the tenant's explicit permission for the default path.
+ *
+ * Inputs are catalog-validated upstream (unknown/inactive keys are 400s
+ * before resolution runs).
+ *
+ * @param {{
+ *   config: { eventTypeId: number|null,
+ *             attorneyEventTypes: Record<string, number>,
+ *             routingGroupEventTypes: Record<string, number> },
+ *   attorneyId?: string|null,
+ *   practiceAreaId?: string|null,
+ *   routingGroups?: Array<{ key: string, serviceArea: string,
+ *                           providers: string[], active?: boolean }>,
+ * }} args
+ * @returns {{ routeKind: 'attorney'|'routing-group'|'default',
+ *             eventTypeId: number,
+ *             attorneyId: string|null, routingGroupKey: string|null,
+ *             practiceAreaId: string|null,
+ *             attributedAttorneyId: string|null }}
+ * @throws {RoutingUnresolvedError|AvailabilityError} fail closed
  */
-function resolveEventType(config, attorneyId) {
-  if (attorneyId && config.attorneyEventTypes[attorneyId]) {
-    return { eventTypeId: config.attorneyEventTypes[attorneyId], attributedAttorneyId: attorneyId };
+function resolveBookingRoute({ config, attorneyId = null, practiceAreaId = null, routingGroups = [] }) {
+  const singleActiveGroupFor = (areaKey) => {
+    const groups = routingGroups.filter((g) => g.active !== false && g.serviceArea === areaKey);
+    if (groups.length === 0) {
+      throw new RoutingUnresolvedError('no_routing_group',
+        `No active routing group serves practice area "${areaKey}".`);
+    }
+    if (groups.length > 1) {
+      throw new RoutingUnresolvedError('ambiguous_routing_group',
+        `More than one active routing group serves practice area "${areaKey}".`);
+    }
+    return groups[0];
+  };
+  const attorneyRoute = (withArea) => {
+    const eventTypeId = config.attorneyEventTypes[attorneyId];
+    if (!eventTypeId) {
+      throw new RoutingUnresolvedError('attorney_unmapped',
+        `Attorney "${attorneyId}" has no configured availability event type.`);
+    }
+    return {
+      routeKind: 'attorney', eventTypeId, attorneyId,
+      routingGroupKey: null, practiceAreaId: withArea ? practiceAreaId : null,
+      attributedAttorneyId: attorneyId,
+    };
+  };
+
+  if (attorneyId && practiceAreaId) {
+    const group = singleActiveGroupFor(practiceAreaId);
+    if (!Array.isArray(group.providers) || !group.providers.includes(attorneyId)) {
+      throw new RoutingUnresolvedError('attorney_not_permitted',
+        `Attorney "${attorneyId}" is not configured for practice area "${practiceAreaId}".`);
+    }
+    return attorneyRoute(true);
   }
-  return { eventTypeId: config.eventTypeId, attributedAttorneyId: null };
+  if (attorneyId) return attorneyRoute(false);
+  if (practiceAreaId) {
+    const group = singleActiveGroupFor(practiceAreaId);
+    const eventTypeId = config.routingGroupEventTypes[group.key];
+    if (!eventTypeId) {
+      throw new RoutingUnresolvedError('routing_group_unmapped',
+        `Routing group "${group.key}" has no configured availability event type.`);
+    }
+    return {
+      routeKind: 'routing-group', eventTypeId, attorneyId: null,
+      routingGroupKey: group.key, practiceAreaId, attributedAttorneyId: null,
+    };
+  }
+  if (config.eventTypeId) {
+    return {
+      routeKind: 'default', eventTypeId: config.eventTypeId, attorneyId: null,
+      routingGroupKey: null, practiceAreaId: null, attributedAttorneyId: null,
+    };
+  }
+  // The default path is not permitted (no explicit eventTypeId).
+  throw new AvailabilityError('availability_not_configured',
+    'No availability event type is configured for this organization.');
 }
 
 module.exports = {
   createCalcomAvailabilityProvider,
   normalizeCalcomAvailabilityConfig,
-  resolveEventType,
+  resolveBookingRoute,
   parseCalcomSlots,
   clampTimeoutMs,
   AvailabilityError,
@@ -288,6 +403,7 @@ module.exports = {
   AvailabilityTimeoutError,
   AvailabilityProviderError,
   AvailabilityMalformedError,
+  RoutingUnresolvedError,
   DEFAULT_TIMEOUT_MS,
   MAX_TIMEOUT_MS,
   MAX_PROVIDER_SLOTS,

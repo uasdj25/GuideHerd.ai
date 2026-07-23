@@ -57,10 +57,30 @@ function fixtureConfig({ policy, calcom } = {}) {
   const configService = createConfigService({ db });
   configService.organizations.create({ key: FIRM, name: 'Martinson & Beason, P.C.', timezone: CHI });
   configService.locations.create(FIRM, { key: 'huntsville', name: 'Huntsville Office', timezone: CHI, officeHours: HOURS });
+  // Catalog entities: routing inputs must reference real, active entries.
+  for (const key of ['clay-martinson', 'doug-martinson', 'raina-baugher']) {
+    configService.providers.create(FIRM, { key, name: key, active: true });
+  }
+  configService.providers.create(FIRM, { key: 'retired-attorney', name: 'Retired', active: false });
+  for (const key of ['probate', 'personal-injury', 'family-law']) {
+    configService.serviceAreas.create(FIRM, { key, name: key, active: true });
+  }
+  configService.consultationTypes.create(FIRM, { key: 'initial-consultation', name: 'Initial Consultation', active: true });
+  // The probate routing group: membership is the tenant's configured
+  // attorney-eligibility policy for the practice area.
+  configService.routingGroups.create(FIRM, {
+    key: 'probate', name: 'Probate', serviceArea: 'probate', active: true,
+    providers: ['clay-martinson', 'doug-martinson'],
+  });
   if (policy) configService.settings.set(FIRM, 'scheduling', 'policy', policy);
   if (calcom !== null) {
     configService.settings.set(FIRM, 'scheduling', 'calcom-availability',
-      calcom || { eventTypeId: 111, attorneyEventTypes: { 'clay-martinson': 222 }, durationMinutes: 30 });
+      calcom || {
+        eventTypeId: 111,
+        attorneyEventTypes: { 'clay-martinson': 222 },
+        routingGroupEventTypes: { probate: 333 },
+        durationMinutes: 30,
+      });
   }
   return configService;
 }
@@ -177,11 +197,58 @@ test('offered-slots: tenant configuration comes from SQLite — absent Cal.com c
 test('offered-slots: the Martinson & Beason seed carries the ESTABLISHED Cal.com event type — never a placeholder', () => {
   const seed = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'data', 'martinson-beason.example.json'), 'utf8'));
   const calcom = seed.settings.find((s) => s.key === 'calcom-availability');
-  // 6287134 is the demo tenant's established Initial Consultation event
-  // type (operator-supplied 2026-07-23); booking-tool parity is the
-  // cutover runbook's mandatory verification gate.
-  assert.deepEqual(calcom.value, { eventTypeId: 6287134, durationMinutes: 30 });
+  // The three live mappings were read back from the deployed Create
+  // Booking integration during the Gate 10 inspection (2026-07-22) and
+  // are treated as established production configuration: 6287134 (Clay
+  // Martinson / Initial Consultation, also the explicit default path),
+  // 6330128 (Doug Martinson), 6330099 (probate round-robin group).
+  // Booking parity is now structural — booking reads the event type from
+  // the same durable routing decision that produced the offered slots.
+  assert.deepEqual(calcom.value, {
+    eventTypeId: 6287134,
+    attorneyEventTypes: { 'clay-martinson': 6287134, 'doug-martinson': 6330128 },
+    routingGroupEventTypes: { probate: 6330099 },
+    durationMinutes: 30,
+  });
   assert.ok(!JSON.stringify(seed).includes('123456'), 'no placeholder id anywhere in the tenant artifact');
+  // The mapped keys are real catalog entries in the same seed.
+  assert.ok(seed.providers.some((p) => p.key === 'clay-martinson' && p.active));
+  assert.ok(seed.providers.some((p) => p.key === 'doug-martinson' && p.active));
+  assert.ok(seed.routingGroups.some((g) => g.key === 'probate' && g.active
+    && g.providers.includes('clay-martinson') && g.providers.includes('doug-martinson')));
+});
+
+test('calcom-availability domain: producer-gate cross-entity validation — mappings must reference real, active, unambiguous catalog entities', () => {
+  const { validateDomain } = require('../configuration/framework');
+  const configService = fixtureConfig();
+  const context = { configService, organizationKey: FIRM };
+  const base = {
+    eventTypeId: 111,
+    attorneyEventTypes: { 'clay-martinson': 222 },
+    routingGroupEventTypes: { probate: 333 },
+    durationMinutes: 30,
+  };
+  assert.equal(validateDomain('calcom-availability', base, context).ok, true);
+
+  const issueOf = (doc) => validateDomain('calcom-availability', doc, context).issues.join(' | ');
+  assert.match(issueOf({ ...base, attorneyEventTypes: { 'no-such-attorney': 1 } }), /unknown attorney/);
+  assert.match(issueOf({ ...base, attorneyEventTypes: { 'retired-attorney': 1 } }), /not active/);
+  assert.match(issueOf({ ...base, routingGroupEventTypes: { 'no-such-group': 1 } }), /unknown routing group/);
+  assert.match(issueOf({ ...base, eventTypeId: 2 ** 53 }), /positive safe integer/);
+  assert.match(issueOf({ ...base, attorneyEventTypes: { 'clay-martinson': 2 ** 53 + 2 } }), /positive safe integer/);
+
+  // A SECOND active group on the same service area makes the mapped
+  // group ambiguous for practice-area resolution — rejected at write.
+  configService.routingGroups.create(FIRM, {
+    key: 'probate-overflow', name: 'Probate Overflow', serviceArea: 'probate', active: true,
+    providers: ['doug-martinson'],
+  });
+  assert.match(issueOf(base), /ambiguous/);
+
+  // Without producer context the cross-entity rules are skipped (the
+  // consumer read stays fail-safe); runtime resolution independently
+  // fails closed on any unknown key.
+  assert.equal(validateDomain('calcom-availability', base, {}).ok, true);
 });
 
 // ── Tenant-local window semantics ───────────────────────────────────────────
@@ -238,20 +305,67 @@ test('window: a tenant-local evening slot stays in its local day, and the provid
 
 // ── Attorney/event resolution and duration propagation ──────────────────────
 
-test('offered-slots: a mapped attorney queries THAT event type and attributes slots; unmapped stays unattributed', async () => {
+test('offered-slots: routing — mapped attorney, routing group, explicit default; every unmapped or ineligible path FAILS CLOSED', async () => {
   const provider = mockProvider({ slots: [{ startsAt: SEP_TUE_9AM }] });
   await withServer({ configService: fixtureConfig(), availabilityProvider: provider }, async (base) => {
+    // Mapped attorney -> that attorney's event type, slots attributed.
     const mapped = await (await offered(base, { ...WEEK, attorneyId: 'clay-martinson' })).json();
     assert.equal(provider.calls[0].eventTypeId, 222);
     assert.equal(mapped.slots[0].attorneyId, 'clay-martinson');
 
-    const unmapped = await (await offered(base, { ...WEEK, attorneyId: 'raina-baugher' })).json();
-    assert.equal(provider.calls[1].eventTypeId, 111);
-    assert.ok(!('attorneyId' in unmapped.slots[0]), 'attribution is never fabricated — and null fields are omitted');
+    // Practice area -> the single active routing group's event type,
+    // slots UNATTRIBUTED (the round-robin calendar assigns the host).
+    const grouped = await (await offered(base, { ...WEEK, practiceAreaId: 'probate' })).json();
+    assert.equal(provider.calls[1].eventTypeId, 333);
+    assert.ok(!('attorneyId' in grouped.slots[0]), 'attribution is never fabricated');
 
+    // Attorney + practice area: honored only when the attorney belongs
+    // to the area's routing group AND is mapped.
+    const permitted = await (await offered(base, { ...WEEK, attorneyId: 'clay-martinson', practiceAreaId: 'probate' })).json();
+    assert.equal(provider.calls[2].eventTypeId, 222, 'permitted attorney override wins over the group');
+    assert.equal(permitted.slots[0].attorneyId, 'clay-martinson');
+
+    // No context -> the EXPLICITLY configured default path.
     await offered(base, WEEK);
-    assert.equal(provider.calls[2].eventTypeId, 111);
-    assert.equal(provider.calls.length, 3, 'one bounded fetch per availability check — never a fan-out');
+    assert.equal(provider.calls[3].eventTypeId, 111);
+    assert.equal(provider.calls.length, 4, 'one bounded fetch per availability check — never a fan-out');
+
+    // FAIL CLOSED (503 routing_unresolved; no provider call, no times):
+    // an unmapped attorney is never silently rebooked onto the default
+    // calendar; an attorney outside the area's group is ineligible; an
+    // unmapped practice area cannot be guessed.
+    const unmapped = await offered(base, { ...WEEK, attorneyId: 'raina-baugher' });
+    assert.equal(unmapped.status, 503);
+    assert.equal((await unmapped.json()).error.code, 'routing_unresolved');
+    const notPermitted = await offered(base, { ...WEEK, attorneyId: 'raina-baugher', practiceAreaId: 'probate' });
+    assert.equal(notPermitted.status, 503, 'attorney incompatible with the practice area fails closed');
+    const memberUnmapped = await offered(base, { ...WEEK, attorneyId: 'doug-martinson', practiceAreaId: 'probate' });
+    assert.equal(memberUnmapped.status, 503, 'group member without an attorney mapping fails closed (never silently round-robined)');
+    const areaUnmapped = await offered(base, { ...WEEK, practiceAreaId: 'personal-injury' });
+    assert.equal(areaUnmapped.status, 503, 'practice area without a routing-group mapping fails closed');
+    assert.equal(provider.calls.length, 4, 'failed routing never reaches the provider');
+
+    // Unknown or inactive catalog keys are request errors (400), never
+    // routing inputs.
+    assert.equal((await offered(base, { ...WEEK, attorneyId: 'made-up-attorney' })).status, 400);
+    assert.equal((await offered(base, { ...WEEK, attorneyId: 'retired-attorney' })).status, 400);
+    assert.equal((await offered(base, { ...WEEK, practiceAreaId: 'made-up-area' })).status, 400);
+  });
+});
+
+test('offered-slots: the default path is UNAVAILABLE when eventTypeId is omitted — its presence is the tenant permission', async () => {
+  const provider = mockProvider({ slots: [{ startsAt: SEP_TUE_9AM }] });
+  const configService = fixtureConfig({
+    calcom: { attorneyEventTypes: { 'clay-martinson': 222 }, routingGroupEventTypes: { probate: 333 }, durationMinutes: 30 },
+  });
+  await withServer({ configService, availabilityProvider: provider }, async (base) => {
+    const noContext = await offered(base, WEEK);
+    assert.equal(noContext.status, 503);
+    assert.equal((await noContext.json()).error.code, 'availability_not_configured');
+    assert.equal(provider.calls.length, 0);
+    // Mapped routes still work without a default.
+    assert.equal((await offered(base, { ...WEEK, attorneyId: 'clay-martinson' })).status, 200);
+    assert.equal((await offered(base, { ...WEEK, practiceAreaId: 'probate' })).status, 200);
   });
 });
 
@@ -287,7 +401,13 @@ test('offered-slots: the EXISTING ranking pipeline governs the offer — policy 
     assert.deepEqual(first.window, WEEK);
 
     const second = await (await offered(base, WEEK)).json();
-    assert.deepEqual(second, first, 'identical configuration + availability -> identical response');
+    // Deterministic EXCEPT the booking context: each availability check
+    // issues a fresh single-use opaque value.
+    const { bookingContext: bc1, ...firstRest } = first;
+    const { bookingContext: bc2, ...secondRest } = second;
+    assert.deepEqual(secondRest, firstRest, 'identical configuration + availability -> identical offer');
+    assert.match(bc1, /^bct_[A-Za-z0-9_-]{40,}$/, 'an offered response carries the opaque booking context');
+    assert.notEqual(bc2, bc1, 'each check issues a fresh single-use context');
   });
 });
 

@@ -69,6 +69,7 @@ const PERMISSIONS = Object.freeze([
   'conversation:complete',
   'summary:read',
   'scheduling:select',
+  'scheduling:book',
   'configuration:read',
   'operations:read',
   'administration:read',
@@ -90,7 +91,7 @@ const DEFAULT_POLICY = Object.freeze({
     // its organization; holds only what that workflow performs.
     'scheduling-assistant': Object.freeze({
       scope: 'organization',
-      permissions: Object.freeze(['conversation:connect', 'conversation:complete', 'summary:read', 'scheduling:select']),
+      permissions: Object.freeze(['conversation:connect', 'conversation:complete', 'summary:read', 'scheduling:select', 'scheduling:book']),
     }),
 
     // Reception Console users (ADR-0013): authenticated receptionists hold

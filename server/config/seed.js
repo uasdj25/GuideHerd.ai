@@ -77,6 +77,16 @@ function run({ dbPath, filePath }) {
     const migrationsApplied = migrate(db);
     const service = createConfigService({ db });
     const result = service.importOrganization(tree);
+    // Same import gate the boot path runs (ADR-0016): imported settings
+    // must pass every registered domain's strict validation, including
+    // cross-entity mapping rules. Lazy require: bootstrap.js requires
+    // this module, and the framework loads domains on first use.
+    const { validateStoredDomainSettings } = require('../configuration/framework');
+    const problems = validateStoredDomainSettings(service, result.organization);
+    if (problems.length > 0) {
+      const detail = problems.map((p) => `${p.domain}: ${p.issues.join('; ')}`).join(' | ');
+      throw new Error(`Seed settings failed domain validation — ${detail}`);
+    }
     return { migrationsApplied, ...result };
   } finally {
     db.close();

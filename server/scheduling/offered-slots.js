@@ -37,9 +37,12 @@
  *   (everything else is a thrown typed error)
  */
 
+const crypto = require('node:crypto');
+
 const { ValidationError } = require('../handoff/errors');
+const { UnknownEntityError } = require('../config/errors');
 const { selectOfferedSlots } = require('./selection');
-const { resolveEventType, AvailabilityError } = require('./availability');
+const { resolveBookingRoute } = require('./availability');
 
 /** The assistant presents two options; it receives exactly what it presents. */
 const MAX_OFFERED_TO_AGENT = 2;
@@ -50,9 +53,12 @@ const MAX_WINDOW_DAYS = 31;
  *  provider responses are rejected upstream — never truncated before
  *  ranking, which could discard a slot policy would rank first. */
 const MAX_RANKING_SLOTS = 3000;
+/** How long an offered booking context stays claimable — generous for a
+ *  voice call, short enough that stale offers die on their own. */
+const BOOKING_CONTEXT_TTL_MS = 10 * 60 * 1000;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const REQUEST_FIELDS = ['dateFrom', 'dateTo', 'attorneyId', 'consultationTypeId', 'durationMinutes', 'sessionId'];
+const REQUEST_FIELDS = ['dateFrom', 'dateTo', 'attorneyId', 'practiceAreaId', 'consultationTypeId', 'durationMinutes', 'sessionId'];
 
 /**
  * Validate the small offered-slots request. Optional context stays
@@ -89,6 +95,7 @@ function validateOfferedSlotsRequest(body) {
     return v.trim();
   };
   const attorneyId = optionalString('attorneyId');
+  const practiceAreaId = optionalString('practiceAreaId');
   const consultationTypeId = optionalString('consultationTypeId');
   const sessionId = optionalString('sessionId');
   let durationMinutes;
@@ -103,7 +110,7 @@ function validateOfferedSlotsRequest(body) {
     if (!REQUEST_FIELDS.includes(k)) problems.push({ field: k, message: 'unknown field' });
   }
   if (problems.length > 0) throw new ValidationError('One or more fields are invalid.', problems);
-  return { dateFrom, dateTo, attorneyId, consultationTypeId, durationMinutes, sessionId };
+  return { dateFrom, dateTo, attorneyId, practiceAreaId, consultationTypeId, durationMinutes, sessionId };
 }
 
 /** Timezone offset (localAsUTC - utc) at one instant, via Intl. */
@@ -150,39 +157,79 @@ function localWindowUtc(dateFrom, dateTo, timeZone) {
 }
 
 /**
- * One availability check: fetch -> map -> rank -> trim. Throws typed
- * errors per the failure policy above; never returns partial or unsafe
- * results.
+ * Established caller context must reference REAL, active catalog entries
+ * — the conversation layer can only transmit keys that exist; unknown or
+ * inactive keys are request errors, never fabricated routing inputs.
+ * @throws {ValidationError}
+ */
+function requireActiveCatalogKey(catalog, organizationKey, key, field, entityNoun) {
+  if (!key) return;
+  let row;
+  try {
+    row = catalog.get(organizationKey, key);
+  } catch (err) {
+    if (err instanceof UnknownEntityError) {
+      throw new ValidationError('One or more fields are invalid.', [
+        { field, message: `unknown ${entityNoun}` },
+      ]);
+    }
+    throw err;
+  }
+  if (row.active === false) {
+    throw new ValidationError('One or more fields are invalid.', [
+      { field, message: `${entityNoun} is not active` },
+    ]);
+  }
+}
+
+/**
+ * One availability check: fetch -> map -> rank -> trim -> issue the
+ * booking context. Throws typed errors per the failure policy above;
+ * never returns partial or unsafe results.
+ *
+ * The BOOKING CONTEXT is the durable routing decision (PostgreSQL under
+ * the postgres operational provider): the resolved event type and the
+ * exact offered timestamps persist against the SHA-256 hash of an opaque
+ * random value. Only that opaque value crosses the conversation layer —
+ * the model can neither read nor influence the route. The raw value is
+ * returned ONCE here and must never reach logs or telemetry.
  *
  * @returns {Promise<{ kind: 'offered'|'no-availability',
  *   slots: Array<{ startsAt: string, durationMinutes: number, attorneyId?: string }>,
  *   window: { dateFrom: string, dateTo: string },
+ *   routeKind: 'attorney'|'routing-group'|'default',
+ *   bookingContext: string|null, bookingContextId: string|null,
  *   timings: { configMs: number, providerMs: number, providerHeadersMs: number,
  *              providerBodyMs: number, rankMs: number, totalMs: number },
  *   counts: { receivedCount: number, inWindowCount: number, offeredCount: number } }>}
  */
 async function offerSlots({
-  configService, availabilityProvider, organizationKey, request, telemetry, correlationId,
+  configService, availabilityProvider, bookingContexts = null, clock = null,
+  organizationKey, request, telemetry, correlationId,
 }) {
   const totalStarted = Date.now();
 
   // Tenant configuration (SQLite): timezone from the organization,
-  // event types + duration from the calcom-availability domain.
+  // event types + duration from the calcom-availability domain, routing
+  // eligibility from the routing-group catalog.
   const organization = configService.organizations.get(organizationKey); // throws unknown_organization
+  requireActiveCatalogKey(configService.providers, organizationKey, request.attorneyId, 'attorneyId', 'attorney');
+  requireActiveCatalogKey(configService.serviceAreas, organizationKey, request.practiceAreaId, 'practiceAreaId', 'practice area');
+  requireActiveCatalogKey(configService.consultationTypes, organizationKey, request.consultationTypeId, 'consultationTypeId', 'consultation type');
   const { readDomain } = require('../configuration/framework');
   const { value: calcomConfig } = readDomain(configService, 'calcom-availability', organizationKey);
-  const { eventTypeId, attributedAttorneyId } = resolveEventType(calcomConfig, request.attorneyId);
+  const route = resolveBookingRoute({
+    config: calcomConfig,
+    attorneyId: request.attorneyId ?? null,
+    practiceAreaId: request.practiceAreaId ?? null,
+    routingGroups: request.practiceAreaId ? configService.routingGroups.list(organizationKey) : [],
+  });
   const configMs = Date.now() - totalStarted;
-  if (!eventTypeId) {
-    const err = new AvailabilityError('availability_not_configured',
-      'No availability event type is configured for this organization.');
-    throw err;
-  }
 
   // ONE bounded provider fetch over the tenant-local window.
   const { startUtcMs, endUtcMs } = localWindowUtc(request.dateFrom, request.dateTo, organization.timezone);
   const fetchStarted = Date.now();
-  const fetched = await availabilityProvider.fetchAvailability({ eventTypeId, startUtcMs, endUtcMs });
+  const fetched = await availabilityProvider.fetchAvailability({ eventTypeId: route.eventTypeId, startUtcMs, endUtcMs });
   const providerMs = Date.now() - fetchStarted;
 
   // Map to the neutral contract; enforce the tenant-local window as a
@@ -195,7 +242,7 @@ async function offerSlots({
   const mapped = inWindow.map((s) => ({
     startsAt: s.startsAt,
     durationMinutes,
-    ...(attributedAttorneyId ? { attorneyId: attributedAttorneyId } : {}),
+    ...(route.attributedAttorneyId ? { attorneyId: route.attributedAttorneyId } : {}),
   }));
 
   // Rank the COMPLETE in-window set (no pre-ranking truncation — that
@@ -227,10 +274,41 @@ async function offerSlots({
     ...(s.attorneyId ? { attorneyId: s.attorneyId } : {}),
   }));
 
+  // Durable booking context: the routing decision these slots came from,
+  // claimable exactly once by the booking endpoint. The raw opaque value
+  // exists only in this return value; the store keeps its hash.
+  let bookingContext = null;
+  let bookingContextId = null;
+  if (slots.length > 0 && bookingContexts) {
+    const raw = `bct_${crypto.randomBytes(32).toString('base64url')}`;
+    const nowMs = clock ? clock.now() : Date.now();
+    const created = await bookingContexts.create({
+      bookingContextId: `bc_${crypto.randomUUID()}`,
+      contextTokenHash: crypto.createHash('sha256').update(raw, 'utf8').digest('hex'),
+      organizationKey,
+      sessionId: request.sessionId ?? null,
+      routeKind: route.routeKind,
+      attorneyId: route.attorneyId,
+      routingGroupKey: route.routingGroupKey,
+      practiceAreaId: route.practiceAreaId,
+      consultationTypeId: request.consultationTypeId ?? null,
+      eventTypeId: route.eventTypeId,
+      durationMinutes,
+      offeredSlots: slots.map((s) => s.startsAt),
+      createdAtMs: nowMs,
+      expiresAtMs: nowMs + BOOKING_CONTEXT_TTL_MS,
+    });
+    bookingContext = raw;
+    bookingContextId = created.bookingContextId;
+  }
+
   return {
     kind: slots.length > 0 ? 'offered' : 'no-availability',
     slots,
     window: { dateFrom: request.dateFrom, dateTo: request.dateTo },
+    routeKind: route.routeKind,
+    bookingContext,
+    bookingContextId,
     timings: {
       configMs,
       providerMs,
@@ -252,4 +330,5 @@ module.exports = {
   MAX_OFFERED_TO_AGENT,
   MAX_WINDOW_DAYS,
   MAX_RANKING_SLOTS,
+  BOOKING_CONTEXT_TTL_MS,
 };

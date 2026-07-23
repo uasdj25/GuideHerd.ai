@@ -17,6 +17,7 @@
 
 const { normalizePolicy } = require('../scheduling/policy');
 const { normalizeBrandingDocument } = require('../notifications/branding');
+const { normalizeSchedulingPromptProfile } = require('../connect/prompt-renderer');
 
 function isPlainObject(v) {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -72,6 +73,47 @@ function registerProductionDomains(framework) {
     normalize(raw) {
       const { policy, issues } = normalizePolicy(raw);
       return { value: policy, issues };
+    },
+  });
+
+  // Default consultation type — what the assistant books when the caller
+  // establishes none (real workflow behavior). Adopts the EXISTING seeded
+  // setting address (scheduling/default-consultation-type): the value is
+  // a consultation-type KEY; display wording is resolved from the catalog
+  // entity by the consumer. There is deliberately NO default attorney —
+  // when no attorney is established, the workflow asks the caller.
+  framework.register({
+    id: 'default-consultation-type',
+    title: 'Default consultation type',
+    owner: 'scheduling',
+    namespace: 'scheduling',
+    key: 'default-consultation-type',
+    live: true,
+    schemaVersion: 1,
+    normalize(raw) {
+      if (raw === null || raw === undefined) return { value: null, issues: [] };
+      if (typeof raw !== 'string' || raw.trim() === '') {
+        return { value: null, issues: ['must be a consultation type key (a nonblank string)'] };
+      }
+      return { value: raw.trim(), issues: [] };
+    },
+  });
+
+  // Scheduling-assistant prompt profile — the tenant wording the rendered
+  // ElevenLabs system prompt needs beyond the entity stores (timezone
+  // display name, closing message). Validator owned by the prompt
+  // renderer (connect); entity values (firm name, address, timezone)
+  // come from the organization/location stores, never duplicated here.
+  framework.register({
+    id: 'scheduling-prompt',
+    title: 'Scheduling-assistant prompt profile',
+    owner: 'connect',
+    namespace: 'connect',
+    key: 'scheduling-prompt',
+    live: true,
+    schemaVersion: 1,
+    normalize(raw) {
+      return normalizeSchedulingPromptProfile(raw);
     },
   });
 

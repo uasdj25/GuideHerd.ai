@@ -148,6 +148,14 @@
         "provider": "elevenlabs",
         "agentId": "agent_1501kx9f51t0fg8atbgdrvrjvf2b"
       }
+    },
+    {
+      "namespace": "connect",
+      "key": "scheduling-prompt",
+      "value": {
+        "timeZoneDisplayName": "Central Time",
+        "closingMessage": "Thank you for calling Martinson & Beason. We look forward to speaking with you. Have a wonderful day."
+      }
     }
   ]
 }

@@ -527,8 +527,11 @@ test('calcom client: ONE bounded request with exact UTC instants, auth header, a
   assert.equal(seen.length, 1, 'exactly one request, no retry');
   const { url, options } = seen[0];
   assert.ok(url.includes('eventTypeId=111'));
-  assert.ok(url.includes(encodeURIComponent('2026-09-01T05:00:00.000Z')));
-  assert.ok(url.includes(encodeURIComponent('2026-09-08T05:00:00.000Z')));
+  // cal-api-version 2024-09-04 uses `start`/`end`; the legacy
+  // startTime/endTime names are rejected by the live API (HTTP 400).
+  assert.ok(url.includes(`start=${encodeURIComponent('2026-09-01T05:00:00.000Z')}`));
+  assert.ok(url.includes(`end=${encodeURIComponent('2026-09-08T05:00:00.000Z')}`));
+  assert.ok(!url.includes('startTime='), 'legacy range parameter names must not be sent');
   assert.equal(options.headers['cal-api-version'], '2024-09-04');
   assert.ok(options.headers.authorization.startsWith('Bearer '));
   assert.ok(options.signal, 'every request carries an abort signal');

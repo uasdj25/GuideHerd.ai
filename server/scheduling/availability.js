@@ -160,9 +160,12 @@ function createCalcomAvailabilityProvider({
      */
     async fetchAvailability({ eventTypeId, startUtcMs, endUtcMs }) {
       if (!apiKey) throw new AvailabilityNotConfiguredError();
+      // cal-api-version 2024-09-04 names the range `start`/`end` (the
+      // older `startTime`/`endTime` names are rejected with HTTP 400 —
+      // verified against the live API during Gate 9 deployment checks).
       const url = `${baseUrl}/slots?eventTypeId=${encodeURIComponent(eventTypeId)}`
-        + `&startTime=${encodeURIComponent(new Date(startUtcMs).toISOString())}`
-        + `&endTime=${encodeURIComponent(new Date(endUtcMs).toISOString())}`;
+        + `&start=${encodeURIComponent(new Date(startUtcMs).toISOString())}`
+        + `&end=${encodeURIComponent(new Date(endUtcMs).toISOString())}`;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), budgetMs);
       const started = Date.now();

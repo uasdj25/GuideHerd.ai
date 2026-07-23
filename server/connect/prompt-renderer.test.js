@@ -176,6 +176,41 @@ test('prompt: the Issue #66 scheduling-policy workflow is preserved through the 
   assert.match(prompt, /Never report booked unless create_booking returned status "booked"\./);
 });
 
+test('prompt: the call-closing contract — hard question-turn boundary, answer recency, and farewell-gated End conversation', () => {
+  const prompt = renderSchedulingPrompt({ configService: seededConfigService(), organizationKey: FIRM });
+
+  // The "anything else" question is a HARD turn boundary: it is the
+  // final SPOKEN content of its turn, and Skip Turn is the ONLY tool
+  // permitted there (the sole exception to the no-tools rule) — End
+  // conversation, report_scheduling_outcome, and every business tool
+  // are forbidden in that turn.
+  assert.match(prompt, /Then ask, as the LAST words of that turn:\s+"Is there anything else I can help you with today\?"/);
+  assert.match(prompt, /The question must be the FINAL spoken content of that turn\./);
+  assert.match(prompt, /Skip Turn is the ONLY tool you may\s+call — the sole exception to the no-tools rule/);
+  assert.match(prompt, /immediately after asking the question, invoke Skip Turn so control\s+yields to the caller\./);
+  assert.match(prompt, /Never call End conversation,\s+report_scheduling_outcome, or any scheduling, availability, or booking\s+tool in that turn\./);
+
+  // Only the caller's message immediately AFTER the question answers it —
+  // earlier appointment-detail confirmations never count.
+  assert.match(prompt, /Only the caller's NEXT message after this question can answer it\./);
+  assert.match(prompt, /"yes," "correct," or\s+"everything's right" spoken while confirming appointment details\s+confirms those details only, never this question\./);
+
+  // A caller request continues the conversation instead of ending it.
+  assert.match(prompt, /continue helping them\s+naturally\. Do not invoke End conversation\. Repeat this closing\s+sequence later when appropriate\./);
+
+  // The COMPLETE farewell precedes End conversation, in the same final
+  // turn, and only a post-question decline or full silence gets there.
+  assert.match(prompt, /Only when the caller's message immediately following your final\s+question declines further help — or the caller remains silent until the\s+system returns the turn to you — respond with the complete farewell/);
+  assert.match(prompt, /Invoke the End conversation tool exactly once, in that same farewell\s+turn, only after the full farewell text\./);
+  assert.match(prompt, /The farewell audio finishes\s+playing before the call ends\./);
+
+  // The never-block forbids ending in the question turn, off stale
+  // confirmations, or without the farewell.
+  assert.match(prompt, /Never invoke the End conversation tool:\s+- in the same turn as the "anything else" question;/);
+  assert.match(prompt, /- based on any confirmation the caller gave earlier in the conversation;/);
+  assert.match(prompt, /- in any turn that does not contain the complete spoken farewell\./);
+});
+
 test('prompt: missing required configuration refuses to render and lists every gap', () => {
   // No prompt profile, no default type, no addressed location: ALL reported.
   const bare = bareConfigService();

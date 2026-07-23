@@ -134,7 +134,7 @@ test('prompt: the Issue #66 scheduling-policy workflow text is preserved by the 
   assert.match(prompt, /Preserve the returned\s+order/);
   assert.match(prompt, /timeout, network failure, HTTP\s+500, or HTTP 503/);
   assert.match(prompt, /Fall back to the original Get Available Slots\s+results/);
-  assert.match(prompt, /fails for any other\s+reason: - Apologize\. - Do not offer appointment times/);
+  assert.match(prompt, /fails for any other reason:\s+- Apologize\.\s+- Do not offer appointment times/);
   assert.match(prompt, /report_scheduling_outcome tool exactly once/);
 });
 
@@ -248,6 +248,31 @@ test('prompt: tenant prompt configuration lives in SQLite only — PostgreSQL is
   // And rendering succeeds with a SQLite-backed config service alone (no
   // operational store exists anywhere in these tests).
   assert.ok(renderSchedulingPrompt({ configService: seededConfigService(), organizationKey: FIRM }).length > 0);
+});
+
+test('prompt: readable Markdown formatting — no collapsed bullets, no collapsed workflow steps, no separators', () => {
+  const template = fs.readFileSync(TEMPLATE_PATH, 'utf8');
+  const rendered = renderSchedulingPrompt({ configService: seededConfigService(), organizationKey: FIRM });
+
+  for (const [name, text] of [['template', template], ['rendered prompt', rendered]]) {
+    const lines = text.split('\n');
+    // Collapsed top-level bullets ("- name - email address"): a bullet
+    // marker may only start a line, never continue one.
+    const collapsedBullets = lines.filter((l) => /\S.* - \S/.test(l));
+    assert.deepEqual(collapsedBullets, [], `${name}: collapsed bullet items on one line`);
+    // Collapsed numbered steps ("waiting. 2. Clearly confirm"): a step
+    // marker may only start a line, never follow sentence text.
+    const collapsedSteps = lines.filter((l) => /\S.* \d{1,2}\. [A-Z]/.test(l));
+    assert.deepEqual(collapsedSteps, [], `${name}: numbered steps collapsed into a paragraph`);
+    // No ASCII separator rules — structure comes from ## headings.
+    assert.ok(!/^-{4,}/m.test(text), `${name}: ASCII separator lines`);
+    assert.ok(/^## /m.test(text), `${name}: sections use ## headings`);
+  }
+  // Every numbered workflow step is visually distinct (line-initial),
+  // and the rendered artifact carries no unresolved tenant variables.
+  assert.equal((rendered.match(/^\d{1,2}\. /gm) || []).length >= 18 + 8, true,
+    'workflow and closing steps each start their own line');
+  assert.doesNotThrow(() => assertNoUnresolvedPlaceholders(rendered));
 });
 
 test('prompt: rendering stays OUT of the live call path — only provisioning code touches the renderer', () => {

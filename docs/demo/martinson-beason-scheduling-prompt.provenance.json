@@ -1,7 +1,7 @@
 {
   "organizationKey": "martinson-beason",
   "templatePath": "connect/prompts/law-firm-scheduling.template.md",
-  "templateSha256": "029543faf11d1a18cc4ca00b5c094a71dada21b45ce24b2b32be0de9bbc3f262",
+  "templateSha256": "3e5335649ae0a2fe474c93e84810c5ec6d965942ef93fe2719c68009f741db7c",
   "configurationSha256": "f46dfb06e66ab31d4978e876c45b8a1db10846716fedbc009d04c7540a0c6344",
-  "promptSha256": "ae09971dec171548d4440bf5cea8c1b71b24a3831dd53c9aef24da973244526d"
+  "promptSha256": "c8ba25249f1171eb153887321b67aa6cb7ed63f3fa939e94f3a2c51f8b2915c6"
 }

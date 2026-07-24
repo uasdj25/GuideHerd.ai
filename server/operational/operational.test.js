@@ -86,18 +86,18 @@ if (!PG_URL) {
     sharedPool = createOperationalPool({ connectionString: PG_URL });
     await resetDatabase(sharedPool);
 
-    assert.equal(await migrate(sharedPool), 9, 'all pending migrations apply');
+    assert.equal(await migrate(sharedPool), 10, 'all pending migrations apply');
     assert.equal(await migrate(sharedPool), 0, 're-run is a no-op');
 
     // Concurrent boots: several runners at once, advisory lock serializes.
     await resetDatabase(sharedPool);
     const pools = [createOperationalPool({ connectionString: PG_URL }), createOperationalPool({ connectionString: PG_URL })];
     const results = await Promise.all([migrate(sharedPool), migrate(pools[0]), migrate(pools[1])]);
-    assert.equal(results.reduce((a, b) => a + b, 0), 9, 'exactly one runner applies the migrations');
+    assert.equal(results.reduce((a, b) => a + b, 0), 10, 'exactly one runner applies the migrations');
     await Promise.all(pools.map((p) => p.end()));
 
     const { rows } = await sharedPool.query('SELECT count(*)::int AS n FROM operational_schema_migrations');
-    assert.equal(rows[0].n, 9);
+    assert.equal(rows[0].n, 10);
   });
 
   // Contract suite against PostgreSQL. Each test gets a truncated table on
@@ -195,7 +195,7 @@ if (!PG_URL) {
     const { session } = makeSession();
     await legacyStore.create(session);
     // The new release boots: exactly 0008 applies; prior rows are intact.
-    assert.equal(await migrate(sharedPool), 2, 'exactly 0008 and 0009 are pending');
+    assert.equal(await migrate(sharedPool), 3, 'exactly 0008, 0009, and 0010 are pending');
     assert.equal(await migrate(sharedPool), 0, 'second run applies nothing');
     assert.equal((await legacyStore.get(session.sessionId)).status, 'awaiting-transfer', 'existing data untouched');
     const { rows } = await sharedPool.query('SELECT count(*)::int AS n FROM booking_contexts');
@@ -229,7 +229,7 @@ if (!PG_URL) {
     );
     // The new release boots: exactly 0009 applies; the legacy row is intact
     // and fully operable through the NEW repository.
-    assert.equal(await migrate(sharedPool), 1, 'only 0009 is pending');
+    assert.equal(await migrate(sharedPool), 2, 'exactly 0009 and 0010 are pending');
     const clock = fixedClock(T0);
     const store = createPostgresBookingContextStore({ pool: sharedPool, clock });
     const reloaded = await store.get(legacy.bookingContextId);

@@ -230,6 +230,7 @@ function normalizeBookingWindowConfig(raw) {
     minimumNoticeMinutes: 0,
     horizonDays: 60,
     slotGranularityMinutes: 30,
+    cancellationCutoffMinutes: 0,
     exceptions: [],
     attorneyHours: {},
   };
@@ -252,6 +253,7 @@ function normalizeBookingWindowConfig(raw) {
   intField('minimumNoticeMinutes', 0, 40320); // up to 4 weeks
   intField('horizonDays', 1, 365);
   intField('slotGranularityMinutes', 5, 240);
+  intField('cancellationCutoffMinutes', 0, 40320);
   if (raw.exceptions !== undefined) {
     if (!Array.isArray(raw.exceptions)) {
       issues.push('exceptions must be an array of { "date": "YYYY-MM-DD" }');

@@ -209,20 +209,56 @@ function createPostgresBookingContextStore({ pool, clock, audit = null }) {
       return completed;
     },
 
+    async beginCancellation({ bookingContextId, actor = 'operator' }) {
+      const { rows } = await pool.query(
+        `UPDATE booking_contexts
+            SET status = 'cancellation_pending', updated_at = $2
+          WHERE booking_context_id = $1 AND status = 'booked'
+          RETURNING *`,
+        [bookingContextId, nowDate()],
+      );
+      if (rows.length === 0) return null;
+      const pending = toContext(rows[0]);
+      await emitAudit('cancellation_pending', pending, { actor });
+      return pending;
+    },
+
+    async completeCancellation({ bookingContextId, status, rejectionReason, actor = 'operator' }) {
+      if (![BookingContextStatus.CANCELLED, BookingContextStatus.VERIFICATION_REQUIRED,
+        BookingContextStatus.BOOKED].includes(status)) {
+        throw new TypeError(`completeCancellation() cannot target status: ${status}`);
+      }
+      const { rows } = await pool.query(
+        `UPDATE booking_contexts
+            SET status = $2, rejection_reason = $3, updated_at = $4
+          WHERE booking_context_id = $1 AND status = 'cancellation_pending'
+          RETURNING *`,
+        [bookingContextId, status, rejectionReason ?? null, nowDate()],
+      );
+      if (rows.length === 0) return null;
+      const done = toContext(rows[0]);
+      await emitAudit(status === BookingContextStatus.BOOKED ? 'cancellation_reverted' : status, done, {
+        actor, detail: rejectionReason ? { reason: rejectionReason } : null,
+      });
+      return done;
+    },
+
     async reconcileStale({ staleMs = STALE_BOOKING_MS } = {}) {
       const now = nowDate();
       const { rows } = await pool.query(
         `UPDATE booking_contexts
             SET status = 'verification_required',
-                rejection_reason = 'stale_booking_in_progress', updated_at = $1
-          WHERE status = 'booking_in_progress' AND updated_at <= $2
+                rejection_reason = CASE status WHEN 'booking_in_progress'
+                  THEN 'stale_booking_in_progress' ELSE 'stale_cancellation_pending' END,
+                updated_at = $1
+          WHERE status IN ('booking_in_progress', 'cancellation_pending') AND updated_at <= $2
           RETURNING *`,
         [now, new Date(clock.now() - staleMs)],
       );
       const flipped = rows.map(toContext);
       for (const context of flipped) {
         await emitAudit('verification_required', context, {
-          actor: 'reconciler', detail: { reason: 'stale_booking_in_progress' },
+          actor: 'reconciler', detail: { reason: context.rejectionReason },
         });
       }
       return flipped;

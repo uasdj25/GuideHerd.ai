@@ -361,6 +361,79 @@ function runBookingContextContractSuite(label, makeStore) {
       ['verification_required', 'reconciler']);
   });
 
+  test(`booking-context contract [${label}]: cancellation lifecycle — booked -> pending -> cancelled, slot held then released`, async () => {
+    const clock = fixedClock(T0);
+    const audit = createInMemoryAuditLog();
+    const store = await makeStore({ clock, audit });
+    const booked = makeNativeContext();
+    await store.create(booked);
+    await store.claim({ bookingContextId: booked.bookingContextId, startsAt: SLOT_A });
+    await store.complete({ bookingContextId: booked.bookingContextId, status: BookingContextStatus.BOOKED, providerEventId: 'evt-c1' });
+
+    // Only booked rows can begin cancellation.
+    const offeredOnly = makeNativeContext();
+    await store.create(offeredOnly);
+    assert.equal(await store.beginCancellation({ bookingContextId: offeredOnly.bookingContextId }), null);
+
+    const pending = await store.beginCancellation({ bookingContextId: booked.bookingContextId, actor: 'operator' });
+    assert.equal(pending.status, BookingContextStatus.CANCELLATION_PENDING);
+    // A pending cancellation still OCCUPIES the slot: the event exists
+    // until the provider confirms.
+    const contender = makeNativeContext();
+    await store.create(contender);
+    assert.equal(await store.claim({ bookingContextId: contender.bookingContextId, startsAt: SLOT_A }), null,
+      'cancellation_pending still guards the calendar instant');
+
+    const done = await store.completeCancellation({
+      bookingContextId: booked.bookingContextId, status: BookingContextStatus.CANCELLED, actor: 'operator',
+    });
+    assert.equal(done.status, BookingContextStatus.CANCELLED);
+    // Cancelled releases the slot.
+    assert.ok(await store.claim({ bookingContextId: contender.bookingContextId, startsAt: SLOT_A }));
+
+    const trail = await audit.listByContext(booked.bookingContextId);
+    assert.deepEqual(trail.map((r) => [r.action, r.actor]).slice(-2),
+      [['cancellation_pending', 'operator'], ['cancelled', 'operator']]);
+  });
+
+  test(`booking-context contract [${label}]: a definitive cancel refusal REVERTS to booked; concurrent cancels have one winner`, async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const booked = makeNativeContext();
+    await store.create(booked);
+    await store.claim({ bookingContextId: booked.bookingContextId, startsAt: SLOT_A });
+    await store.complete({ bookingContextId: booked.bookingContextId, status: BookingContextStatus.BOOKED, providerEventId: 'evt-c2' });
+
+    const [a, b] = await Promise.all([
+      store.beginCancellation({ bookingContextId: booked.bookingContextId }),
+      store.beginCancellation({ bookingContextId: booked.bookingContextId }),
+    ]);
+    assert.equal([a, b].filter(Boolean).length, 1, 'exactly one concurrent cancel proceeds');
+
+    const reverted = await store.completeCancellation({
+      bookingContextId: booked.bookingContextId, status: BookingContextStatus.BOOKED,
+      rejectionReason: 'cancel_rejected_provider_rejected_400',
+    });
+    assert.equal(reverted.status, BookingContextStatus.BOOKED, 'the appointment still stands');
+    // And it can be cancelled again later.
+    assert.ok(await store.beginCancellation({ bookingContextId: booked.bookingContextId }));
+  });
+
+  test(`booking-context contract [${label}]: a stranded cancellation_pending reconciles to verification_required`, async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const booked = makeNativeContext();
+    await store.create(booked);
+    await store.claim({ bookingContextId: booked.bookingContextId, startsAt: SLOT_A });
+    await store.complete({ bookingContextId: booked.bookingContextId, status: BookingContextStatus.BOOKED, providerEventId: 'evt-c3' });
+    await store.beginCancellation({ bookingContextId: booked.bookingContextId });
+    clock.advance(STALE_BOOKING_MS + 1);
+    const flipped = await store.reconcileStale({});
+    assert.equal(flipped.length, 1);
+    assert.equal(flipped[0].status, BookingContextStatus.VERIFICATION_REQUIRED);
+    assert.equal(flipped[0].rejectionReason, 'stale_cancellation_pending');
+  });
+
   test(`booking-context contract [${label}]: a THROWING audit sink never fails a transition`, async () => {
     const clock = fixedClock(T0);
     const store = await makeStore({

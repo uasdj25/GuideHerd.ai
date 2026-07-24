@@ -39,7 +39,16 @@ const BookingContextStatus = Object.freeze({
   REJECTED: 'rejected',
   EXPIRED: 'expired',
   VERIFICATION_REQUIRED: 'verification_required',
+  CANCELLATION_PENDING: 'cancellation_pending',
+  CANCELLED: 'cancelled',
 });
+
+/** Statuses that OCCUPY a calendar instant (the slot-guard predicate):
+ *  a cancellation still in flight keeps its event until the provider
+ *  confirms, so it keeps its slot too. */
+const SLOT_OCCUPYING_STATUSES = Object.freeze([
+  'booking_in_progress', 'booked', 'cancellation_pending',
+]);
 
 const ROUTE_KINDS = Object.freeze(['attorney', 'routing-group', 'default']);
 
@@ -255,7 +264,7 @@ function createInMemoryBookingContextStore({ clock, audit = null }) {
             && other.organizationKey === row.organizationKey
             && other.calendarRef === calendarRef
             && other.selectedStartsAt === selected
-            && [BookingContextStatus.BOOKING_IN_PROGRESS, BookingContextStatus.BOOKED].includes(other.status)) {
+            && SLOT_OCCUPYING_STATUSES.includes(other.status)) {
             return null; // guard: the row stays OFFERED, unconsumed
           }
         }
@@ -291,6 +300,45 @@ function createInMemoryBookingContextStore({ clock, audit = null }) {
     },
 
     /**
+     * Atomic single-winner start of a cancellation: booked ->
+     * cancellation_pending (mirrors the booking claim — two concurrent
+     * cancel requests can never both drive the provider call). Returns
+     * the pending context or null when the row is not cancellable from
+     * its current state.
+     */
+    async beginCancellation({ bookingContextId, actor = 'operator' }) {
+      const row = byId.get(bookingContextId);
+      if (!row || row.status !== BookingContextStatus.BOOKED) return null;
+      row.status = BookingContextStatus.CANCELLATION_PENDING;
+      row.updatedAtMs = clock.now();
+      await emitAudit('cancellation_pending', row, { actor });
+      return present(row);
+    },
+
+    /**
+     * Record the cancellation outcome: cancellation_pending -> cancelled
+     * (provider confirmed, or the event definitively no longer exists) |
+     * verification_required (ambiguous — the intent stays recorded) |
+     * booked (a definitive provider refusal REVERTS: the appointment
+     * still stands). Conditional; nothing is ever overwritten.
+     */
+    async completeCancellation({ bookingContextId, status, rejectionReason, actor = 'operator' }) {
+      if (![BookingContextStatus.CANCELLED, BookingContextStatus.VERIFICATION_REQUIRED,
+        BookingContextStatus.BOOKED].includes(status)) {
+        throw new TypeError(`completeCancellation() cannot target status: ${status}`);
+      }
+      const row = byId.get(bookingContextId);
+      if (!row || row.status !== BookingContextStatus.CANCELLATION_PENDING) return null;
+      row.status = status;
+      row.rejectionReason = rejectionReason ?? null;
+      row.updatedAtMs = clock.now();
+      await emitAudit(status === BookingContextStatus.BOOKED ? 'cancellation_reverted' : status, row, {
+        actor, detail: rejectionReason ? { reason: rejectionReason } : null,
+      });
+      return present(row);
+    },
+
+    /**
      * Startup/periodic reconciliation: booking_in_progress rows stranded
      * longer than `staleMs` (crash mid-booking — the provider call may or
      * may not have succeeded) flip to verification_required so an operator
@@ -300,13 +348,15 @@ function createInMemoryBookingContextStore({ clock, audit = null }) {
       const nowMs = clock.now();
       const flipped = [];
       for (const row of byId.values()) {
-        if (row.status === BookingContextStatus.BOOKING_IN_PROGRESS
-          && row.updatedAtMs <= nowMs - staleMs) {
+        const staleKind = row.status === BookingContextStatus.BOOKING_IN_PROGRESS
+          ? 'stale_booking_in_progress'
+          : (row.status === BookingContextStatus.CANCELLATION_PENDING ? 'stale_cancellation_pending' : null);
+        if (staleKind && row.updatedAtMs <= nowMs - staleMs) {
           row.status = BookingContextStatus.VERIFICATION_REQUIRED;
-          row.rejectionReason = 'stale_booking_in_progress';
+          row.rejectionReason = staleKind;
           row.updatedAtMs = nowMs;
           await emitAudit('verification_required', row, {
-            actor: 'reconciler', detail: { reason: 'stale_booking_in_progress' },
+            actor: 'reconciler', detail: { reason: staleKind },
           });
           flipped.push(present(row));
         }
@@ -321,6 +371,7 @@ module.exports = {
   createInMemoryAuditLog,
   BookingContextStatus,
   ROUTE_KINDS,
+  SLOT_OCCUPYING_STATUSES,
   STALE_BOOKING_MS,
   assertRouteConsistency,
 };

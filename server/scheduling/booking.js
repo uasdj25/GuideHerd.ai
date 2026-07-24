@@ -40,6 +40,10 @@
 
 const { ValidationError } = require('../handoff/errors');
 const { BookingContextStatus } = require('./booking-context-store');
+const {
+  CalendarWriteRejectedError,
+  CalendarWriteUnverifiedError,
+} = require('./calendar-provider');
 
 const DEFAULT_BASE_URL = 'https://api.cal.com/v2';
 const DEFAULT_BOOKING_TIMEOUT_MS = 2500;
@@ -257,7 +261,7 @@ function validateBookingRequest(body) {
  *   calcomBookingUid?: string, timings: { providerMs: number, totalMs: number } }>}
  */
 async function bookAppointment({
-  bookingContexts, bookingProvider, configService, organizationKey, request, clock,
+  bookingContexts, bookingProvider, calendarProviders = {}, configService, organizationKey, request, clock,
 }) {
   const totalStarted = Date.now();
   const finish = (result, providerMs = 0) => ({
@@ -265,9 +269,11 @@ async function bookAppointment({
     timings: { providerMs, totalMs: Date.now() - totalStarted },
   });
 
-  // An unconfigured provider is a controlled rejection BEFORE the claim —
-  // the context stays claimable for after the configuration is fixed.
-  if (!bookingProvider || !bookingProvider.configured) {
+  // A pure-legacy deployment (no native calendar providers registered)
+  // with an unconfigured booking provider preserves the original
+  // behavior exactly: a controlled rejection before even the lookup.
+  const hasNativeProviders = Object.keys(calendarProviders).length > 0;
+  if (!hasNativeProviders && (!bookingProvider || !bookingProvider.configured)) {
     return finish({ outcome: 'rejected', reason: 'booking_not_configured', bookingContextId: null });
   }
 
@@ -285,6 +291,19 @@ async function bookAppointment({
     return finish({ outcome: 'rejected', reason: 'booking_context_used', bookingContextId: context.bookingContextId });
   }
 
+  // The context row decides its own path: a native providerKey books
+  // through the ADR-0024 calendar-provider contract; a legacy row books
+  // through the deployed booking provider. Either way an unconfigured
+  // provider is a controlled rejection BEFORE the claim — the context
+  // stays claimable for after the configuration is fixed.
+  const isNative = Boolean(context.providerKey);
+  const nativeProvider = isNative ? calendarProviders[context.providerKey] : null;
+  if (isNative ? !nativeProvider : (!bookingProvider || !bookingProvider.configured)) {
+    return finish({
+      outcome: 'rejected', reason: 'booking_not_configured', bookingContextId: context.bookingContextId,
+    });
+  }
+
   // The requested timestamp must be EXACTLY one of the offered
   // timestamps (compared as instants; echoed back in canonical form).
   const requestedMs = Date.parse(request.startsAt);
@@ -294,18 +313,34 @@ async function bookAppointment({
     return finish({ outcome: 'rejected', reason: 'timestamp_not_offered', bookingContextId: context.bookingContextId });
   }
 
-  // Atomic single-use claim; a concurrent winner or a just-passed expiry
-  // shows up as a failed claim, classified by re-reading.
+  // Atomic single-use claim; a concurrent winner, a just-passed expiry,
+  // or (native) the slot guard shows up as a failed claim, classified by
+  // re-reading: a row STILL OFFERED after a refused claim means the
+  // calendar+instant was taken by another live context — a definitive
+  // rejection that does NOT consume this context (the caller may still
+  // take its other offered slot).
   const claimed = await bookingContexts.claim({
     bookingContextId: context.bookingContextId, startsAt: canonicalStartsAt,
   });
   if (!claimed) {
     const after = await bookingContexts.get(context.bookingContextId);
+    if (after && after.status === BookingContextStatus.OFFERED) {
+      return finish({
+        outcome: 'rejected', reason: 'slot_no_longer_available', bookingContextId: context.bookingContextId,
+      });
+    }
     const outcome = after && after.status === BookingContextStatus.EXPIRED ? 'expired' : 'rejected';
     return finish({
       outcome,
       reason: outcome === 'expired' ? 'booking_context_expired' : 'booking_context_used',
       bookingContextId: context.bookingContextId,
+    });
+  }
+
+  if (isNative) {
+    return bookNativeAppointment({
+      bookingContexts, provider: nativeProvider, configService, organizationKey,
+      request, context, claimed, canonicalStartsAt, finish,
     });
   }
 
@@ -391,6 +426,144 @@ async function bookAppointment({
     durationMinutes: context.durationMinutes,
     ...(context.routeKind === 'attorney' && context.attorneyId ? { attorneyId: context.attorneyId } : {}),
     calcomBookingUid: confirmed.uid,
+  }, providerMs);
+}
+
+/**
+ * The NATIVE half of the pipeline (GitLab #80): books through the
+ * ADR-0024 calendar-provider contract, strictly inside the claimed
+ * context. The claim has already bound the exact calendar target for the
+ * selected start (pool attribution became THE calendar) — booking never
+ * re-chooses a route.
+ *
+ * Conflict prevention beyond the GuideHerd slot guard: a just-before-
+ * create busy re-check catches provider-side conflicts (an event created
+ * directly in the attorney's calendar). A failed RE-CHECK is a
+ * DEFINITIVE rejection — no provider write was attempted, so nothing is
+ * ambiguous; ambiguity classification is reserved for after the create
+ * attempt (CalendarWriteUnverifiedError -> verification_required).
+ */
+async function bookNativeAppointment({
+  bookingContexts, provider, configService, organizationKey,
+  request, context, claimed, canonicalStartsAt, finish,
+}) {
+  const common = {
+    bookingContextId: context.bookingContextId,
+    routeKind: context.routeKind,
+    sessionId: request.sessionId ?? context.sessionId ?? null,
+  };
+  const attributedAttorneyId = claimed.offeredTargets
+    ? (claimed.offeredTargets[canonicalStartsAt]?.attorneyId ?? claimed.attorneyId ?? null)
+    : (claimed.attorneyId ?? null);
+  const startMs = Date.parse(canonicalStartsAt);
+  const endMs = startMs + claimed.durationMinutes * 60_000;
+  const providerStarted = Date.now();
+
+  // Just-before-create re-verification: the slot must still be free on
+  // the target calendar. Overlap OR an unreadable calendar both reject —
+  // the context is consumed (claimed), the caller re-checks availability
+  // for a fresh offer.
+  let recheck;
+  try {
+    recheck = await provider.fetchBusyIntervals({
+      calendarRef: claimed.calendarRef, startUtcMs: startMs, endUtcMs: endMs,
+    });
+  } catch {
+    await bookingContexts.complete({
+      bookingContextId: context.bookingContextId,
+      status: BookingContextStatus.REJECTED,
+      rejectionReason: 'availability_recheck_failed',
+    });
+    return finish({ ...common, outcome: 'rejected', reason: 'availability_recheck_failed' },
+      Date.now() - providerStarted);
+  }
+  const conflicted = recheck.intervals.some(
+    (b) => Date.parse(b.startsAt) < endMs && Date.parse(b.endsAt) > startMs,
+  );
+  if (conflicted) {
+    await bookingContexts.complete({
+      bookingContextId: context.bookingContextId,
+      status: BookingContextStatus.REJECTED,
+      rejectionReason: 'slot_no_longer_available',
+    });
+    return finish({ ...common, outcome: 'rejected', reason: 'slot_no_longer_available' },
+      Date.now() - providerStarted);
+  }
+
+  const organization = configService.organizations.get(organizationKey);
+  let confirmed;
+  try {
+    confirmed = await provider.createEvent({
+      calendarRef: claimed.calendarRef,
+      startsAt: canonicalStartsAt,
+      durationMinutes: claimed.durationMinutes,
+      summary: `${organization.displayName || organization.name} — Consultation with ${request.attendee.name}`,
+      attendee: {
+        name: request.attendee.name,
+        email: request.attendee.email,
+        ...(request.attendee.phoneNumber ? { phoneNumber: request.attendee.phoneNumber } : {}),
+      },
+      // Operator correlation, no PII: the booking-context internal id —
+      // reconciliation finds the event by this, never by attendee identity.
+      correlationId: context.bookingContextId,
+    });
+  } catch (err) {
+    const providerMs = Date.now() - providerStarted;
+    if (err instanceof CalendarWriteRejectedError) {
+      await bookingContexts.complete({
+        bookingContextId: context.bookingContextId,
+        status: BookingContextStatus.REJECTED,
+        rejectionReason: `provider_rejected_${err.detail}`,
+      });
+      return finish({ ...common, outcome: 'rejected', reason: 'provider_rejected' }, providerMs);
+    }
+    if (err instanceof CalendarWriteUnverifiedError) {
+      await bookingContexts.complete({
+        bookingContextId: context.bookingContextId,
+        status: BookingContextStatus.VERIFICATION_REQUIRED,
+        rejectionReason: err.detail,
+      });
+      return finish({ ...common, outcome: 'verification_required', reason: err.detail }, providerMs);
+    }
+    // Unknown errors propagate (fail closed; stale-in-progress
+    // reconciliation catches the stranded row).
+    throw err;
+  }
+  const providerMs = Date.now() - providerStarted;
+
+  // Confirmed. "booked" is claimable only once the outcome is durably
+  // persisted — a persistence failure demotes to verification_required.
+  let persisted = null;
+  try {
+    persisted = await bookingContexts.complete({
+      bookingContextId: context.bookingContextId,
+      status: BookingContextStatus.BOOKED,
+      providerEventId: confirmed.providerEventId,
+      bookingResult: confirmed.sanitized,
+    });
+  } catch {
+    persisted = null;
+  }
+  if (!persisted) {
+    try {
+      await bookingContexts.complete({
+        bookingContextId: context.bookingContextId,
+        status: BookingContextStatus.VERIFICATION_REQUIRED,
+        providerEventId: confirmed.providerEventId,
+        rejectionReason: 'booked_result_persistence_failed',
+      });
+    } catch {
+      // The row stays booking_in_progress; startup reconciliation flips it.
+    }
+    return finish({ ...common, outcome: 'verification_required', reason: 'booked_result_persistence_failed' }, providerMs);
+  }
+  return finish({
+    ...common,
+    outcome: 'booked',
+    startsAt: canonicalStartsAt,
+    durationMinutes: claimed.durationMinutes,
+    ...(attributedAttorneyId ? { attorneyId: attributedAttorneyId } : {}),
+    providerEventId: confirmed.providerEventId,
   }, providerMs);
 }
 

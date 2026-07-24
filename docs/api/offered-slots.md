@@ -176,3 +176,20 @@ Durable enforcement is a future Operations Store enhancement.
 The batch endpoint remains for callers that already hold neutral slots
 (demo-organization scoped, unchanged); the voice assistant no longer
 uses it.
+
+## Native scheduling (provider-neutral) branch
+
+When a tenant's governed `scheduling/calendar-targets` configuration
+selects a native calendar provider (GitLab #79/#80), the SAME endpoint
+and response schema are served by the native engine: GuideHerd resolves
+the scheduling target set, reads busy intervals through the calendar
+provider contract (ADR-0024), generates candidate slots from the firm's
+business hours and booking-window policy, attributes every offered slot
+to a specific attorney (routing-group pools use deterministic balanced
+attribution — the attributed attorney is the attorney the booking lands
+on), ranks through the scheduling policy engine, and issues the booking
+context recording the exact calendar target behind each offered start.
+All failure behavior stays fail-closed (`routing_unresolved`,
+`availability_not_configured`, `calendar_unavailable` -> 502/503); with
+no native provider configured, the legacy path serves the tenant
+unchanged.

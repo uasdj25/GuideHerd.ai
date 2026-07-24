@@ -49,7 +49,7 @@ errors — the prompt's "any error → escalate" branch covers them.
 
 ```json
 { "status": "booked", "startsAt": "…", "durationMinutes": 30, "attorneyId": "…?" }
-{ "status": "rejected",              "reason": "booking_context_unknown | booking_context_used | timestamp_not_offered | provider_rejected | booking_not_configured" }
+{ "status": "rejected",              "reason": "booking_context_unknown | booking_context_used | timestamp_not_offered | provider_rejected | booking_not_configured | slot_no_longer_available | availability_recheck_failed" }
 { "status": "expired",               "reason": "booking_context_expired" }
 { "status": "verification_required", "reason": "provider_timeout | network_failure | provider_http_5xx | missing_booking_uid | unparseable_success_body | booked_result_persistence_failed" }
 ```
@@ -143,3 +143,34 @@ Durable booking correctness requires
 `GUIDEHERD_OPERATIONAL_PROVIDER=postgres` (verified in production). The
 in-memory reference store exists for tests, development, and the
 contract suite — never for production booking.
+
+## Native scheduling (provider-neutral) branch
+
+A tenant whose governed `scheduling/calendar-targets` configuration
+selects a native calendar provider is served by the native pipeline
+behind the SAME endpoint and envelope (GitLab #80). Differences are
+internal only:
+
+- the context row carries a provider key and calendar target instead of
+  a provider event type; the claim binds the exact offered target for
+  the selected start (routing-group pool attribution becomes THE
+  calendar — booking never re-chooses a route);
+- double-booking prevention is GuideHerd's own: an atomic slot guard
+  (one live claim/booking per organization + calendar + instant; the
+  loser is `rejected` with reason `slot_no_longer_available` and its
+  context is NOT consumed) plus a just-before-create busy re-check
+  (`slot_no_longer_available` when the calendar filled up;
+  `availability_recheck_failed` when the re-check itself could not read
+  the calendar — definitive rejections, because no provider write was
+  attempted);
+- ambiguity classification is unchanged: only a failure AFTER the
+  create attempt can be `verification_required`, and reconciliation
+  locates the event by the booking-context correlation identifier the
+  provider durably stores on every created event (ADR-0024) — never by
+  attendee identity;
+- every context transition is recorded in the append-only
+  `scheduling_audit` history (best-effort after the transition commits;
+  an audit failure is telemetry, never a booking failure).
+
+With no native provider configured (all production tenants today), the
+legacy path serves every request exactly as documented above.

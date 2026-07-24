@@ -95,6 +95,7 @@ async function main() {
   let outboxStore; // undefined -> in-memory default (ADR-0017)
   let scheduledActionStore; // undefined -> in-memory default (ADR-0018)
   let bookingContextStore; // undefined -> in-memory default (#74 booking parity)
+  let schedulingAudit; // undefined -> in-memory default (#80 audit history)
   let operationalMigrationsApplied = null;
   if (OPERATIONAL_PROVIDER === 'postgres') {
     const { createOperationalPool } = require('./operational/db');
@@ -122,7 +123,14 @@ async function main() {
       // and booking share — expiry, single-use, and the booking outcome
       // are PostgreSQL-authoritative, never process memory.
       const { createPostgresBookingContextStore } = require('./operational/booking-context-repository');
-      bookingContextStore = createPostgresBookingContextStore({ pool, clock: systemClock() });
+      // Append-only scheduling audit (#80): every context transition,
+      // durable, best-effort after the transition commits (a failed audit
+      // write is telemetry, never a booking failure).
+      const { createPostgresSchedulingAudit } = require('./operational/scheduling-audit');
+      schedulingAudit = createPostgresSchedulingAudit({ pool });
+      bookingContextStore = createPostgresBookingContextStore({
+        pool, clock: systemClock(), audit: schedulingAudit,
+      });
     } catch (err) {
       fatal('Operational Store (postgres) is unavailable; refusing to start.', {
         error: { message: String(err.message || err) },
@@ -135,7 +143,7 @@ async function main() {
 
   // Browser origins are allowlisted via CORS_ALLOWED_ORIGINS (comma-separated).
   // Defaults to https://guideherd.ai and http://localhost:8080. Never `*`.
-  const app = createApp({ configService, configDb, handoffStore, notificationDeliveryStore, integrationDeliveryStore, workflowStore, outboxStore, scheduledActionStore, configurationAuthority, userSessionStore, bookingContextStore });
+  const app = createApp({ configService, configDb, handoffStore, notificationDeliveryStore, integrationDeliveryStore, workflowStore, outboxStore, scheduledActionStore, configurationAuthority, userSessionStore, bookingContextStore, schedulingAudit });
   const { handler } = app;
   const server = http.createServer(handler);
 

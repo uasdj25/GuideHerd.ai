@@ -16,7 +16,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 
 const { fixedClock } = require('../handoff/clock');
-const { BookingContextStatus, STALE_BOOKING_MS } = require('../scheduling/booking-context-store');
+const { BookingContextStatus, STALE_BOOKING_MS, createInMemoryAuditLog } = require('../scheduling/booking-context-store');
 
 const T0 = Date.parse('2026-09-01T15:00:00Z');
 const TTL_MS = 10 * 60 * 1000;
@@ -54,6 +54,20 @@ function makeContext(overrides = {}) {
  * @param {string} label implementation name for test titles
  * @param {(deps: { clock: import('../handoff/clock').Clock }) => Promise<object>} makeStore
  */
+/** A synthetic NATIVE attorney-routed context in 'offered' state. */
+function makeNativeContext(overrides = {}) {
+  return makeContext({
+    eventTypeId: null,
+    providerKey: 'reference',
+    calendarRef: 'cal-clay',
+    offeredTargets: {
+      [SLOT_A]: { attorneyId: 'clay-martinson', calendarRef: 'cal-clay' },
+      [SLOT_B]: { attorneyId: 'clay-martinson', calendarRef: 'cal-clay' },
+    },
+    ...overrides,
+  });
+}
+
 function runBookingContextContractSuite(label, makeStore) {
   test(`booking-context contract [${label}]: create returns an offered context without the token hash`, async () => {
     const clock = fixedClock(T0);
@@ -233,6 +247,131 @@ function runBookingContextContractSuite(label, makeStore) {
     });
     assert.equal(booked.status, BookingContextStatus.BOOKED);
   });
+
+  // ── Native scheduling evolution (GitLab #80) ──────────────────────────────
+
+  test(`booking-context contract [${label}]: native contexts round-trip provider, targets, and event id`, async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const input = makeNativeContext();
+    const created = await store.create(input);
+    assert.equal(created.eventTypeId, null);
+    assert.equal(created.providerKey, 'reference');
+    assert.equal(created.providerEventId, null);
+    assert.deepEqual(created.offeredTargets, input.offeredTargets);
+
+    const claimed = await store.claim({ bookingContextId: input.bookingContextId, startsAt: SLOT_A });
+    assert.equal(claimed.calendarRef, input.offeredTargets[SLOT_A].calendarRef,
+      'the claim binds the offered target for the selected start');
+    const booked = await store.complete({
+      bookingContextId: input.bookingContextId, status: BookingContextStatus.BOOKED,
+      providerEventId: 'evt-123', bookingResult: { providerEventId: 'evt-123', startsAt: SLOT_A, status: 'confirmed' },
+    });
+    assert.equal(booked.providerEventId, 'evt-123');
+    assert.equal(booked.calcomBookingUid, null);
+  });
+
+  test(`booking-context contract [${label}]: a native context without complete targets is refused`, async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    await assert.rejects(
+      store.create(makeNativeContext({ offeredTargets: { [SLOT_A]: { attorneyId: null, calendarRef: 'cal-x' } } })),
+      /missing a calendar target/,
+    );
+    await assert.rejects(
+      store.create(makeContext({ eventTypeId: null })),
+      /eventTypeId or a native providerKey/,
+    );
+  });
+
+  test(`booking-context contract [${label}]: the slot guard — one live claim per calendar+instant; the loser stays OFFERED`, async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const winner = makeNativeContext();
+    const loser = makeNativeContext();
+    const otherTenant = makeNativeContext({ organizationKey: 'org-b' });
+    await store.create(winner);
+    await store.create(loser);
+    await store.create(otherTenant);
+
+    assert.ok(await store.claim({ bookingContextId: winner.bookingContextId, startsAt: SLOT_A }));
+    // Same organization, same calendar, same instant: refused, unconsumed.
+    assert.equal(await store.claim({ bookingContextId: loser.bookingContextId, startsAt: SLOT_A }), null);
+    assert.equal((await store.get(loser.bookingContextId)).status, BookingContextStatus.OFFERED,
+      'the refused claim does NOT consume the context');
+    // The loser can still claim its OTHER offered slot.
+    assert.ok(await store.claim({ bookingContextId: loser.bookingContextId, startsAt: SLOT_B }));
+    // A different organization never contends (tenant-scoped guard).
+    assert.ok(await store.claim({ bookingContextId: otherTenant.bookingContextId, startsAt: SLOT_A }));
+  });
+
+  test(`booking-context contract [${label}]: a BOOKED slot stays guarded; terminal rejections release it`, async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const first = makeNativeContext();
+    await store.create(first);
+    await store.claim({ bookingContextId: first.bookingContextId, startsAt: SLOT_A });
+    await store.complete({
+      bookingContextId: first.bookingContextId, status: BookingContextStatus.BOOKED, providerEventId: 'evt-1',
+    });
+    const second = makeNativeContext();
+    await store.create(second);
+    assert.equal(await store.claim({ bookingContextId: second.bookingContextId, startsAt: SLOT_A }), null,
+      'booked occupies the slot');
+
+    const rejectedFirst = makeNativeContext({
+      offeredTargets: { [SLOT_A]: { attorneyId: 'clay-martinson', calendarRef: 'cal-released' }, [SLOT_B]: { attorneyId: 'clay-martinson', calendarRef: 'cal-released' } },
+    });
+    await store.create(rejectedFirst);
+    await store.claim({ bookingContextId: rejectedFirst.bookingContextId, startsAt: SLOT_A });
+    await store.complete({
+      bookingContextId: rejectedFirst.bookingContextId, status: BookingContextStatus.REJECTED,
+      rejectionReason: 'provider_rejected_400',
+    });
+    const retry = makeNativeContext({
+      offeredTargets: { [SLOT_A]: { attorneyId: 'clay-martinson', calendarRef: 'cal-released' }, [SLOT_B]: { attorneyId: 'clay-martinson', calendarRef: 'cal-released' } },
+    });
+    await store.create(retry);
+    assert.ok(await store.claim({ bookingContextId: retry.bookingContextId, startsAt: SLOT_A }),
+      'a rejected booking releases the slot for a fresh context');
+  });
+
+  test(`booking-context contract [${label}]: every transition writes exactly one audit record`, async () => {
+    const clock = fixedClock(T0);
+    const audit = createInMemoryAuditLog();
+    const store = await makeStore({ clock, audit });
+    const input = makeNativeContext();
+    await store.create(input);
+    await store.claim({ bookingContextId: input.bookingContextId, startsAt: SLOT_A });
+    await store.complete({
+      bookingContextId: input.bookingContextId, status: BookingContextStatus.BOOKED, providerEventId: 'evt-a',
+    });
+    const trail = await audit.listByContext(input.bookingContextId);
+    assert.deepEqual(trail.map((r) => [r.action, r.actor]), [
+      ['created', 'caller-flow'], ['claimed', 'caller-flow'], ['booked', 'caller-flow'],
+    ]);
+
+    const stranded = makeNativeContext();
+    await store.create(stranded);
+    await store.claim({ bookingContextId: stranded.bookingContextId, startsAt: SLOT_B });
+    clock.advance(STALE_BOOKING_MS + 1);
+    await store.reconcileStale({});
+    const strandedTrail = await audit.listByContext(stranded.bookingContextId);
+    assert.deepEqual(strandedTrail.at(-1) && [strandedTrail.at(-1).action, strandedTrail.at(-1).actor],
+      ['verification_required', 'reconciler']);
+  });
+
+  test(`booking-context contract [${label}]: a THROWING audit sink never fails a transition`, async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({
+      clock,
+      audit: { async record() { throw new Error('audit sink down'); } },
+    });
+    const input = makeNativeContext();
+    await store.create(input);
+    const claimed = await store.claim({ bookingContextId: input.bookingContextId, startsAt: SLOT_A });
+    assert.ok(claimed, 'the transition succeeds despite the failing sink');
+  });
 }
 
-module.exports = { runBookingContextContractSuite, makeContext, hash, T0, TTL_MS, SLOT_A, SLOT_B };
+module.exports = { runBookingContextContractSuite, makeContext, makeNativeContext, hash, T0, TTL_MS, SLOT_A, SLOT_B };

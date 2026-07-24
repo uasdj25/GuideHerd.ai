@@ -8,7 +8,9 @@ const { DEMO_FIRM_ID } = require('./demo-bridge');
 const { selectOfferedSlots } = require('../scheduling/selection');
 const { createCalcomAvailabilityProvider, clampTimeoutMs, AvailabilityError } = require('../scheduling/availability');
 const { offerSlots, validateOfferedSlotsRequest } = require('../scheduling/offered-slots');
-const { createInMemoryBookingContextStore } = require('../scheduling/booking-context-store');
+const { offerNativeSlots, nativeProviderKeyFor } = require('../scheduling/native-availability');
+const { CalendarProviderError } = require('../scheduling/calendar-provider');
+const { createInMemoryBookingContextStore, createInMemoryAuditLog } = require('../scheduling/booking-context-store');
 const {
   createCalcomBookingProvider, clampBookingTimeoutMs, validateBookingRequest,
   bookAppointment, reconcileStaleBookingContexts,
@@ -163,7 +165,7 @@ function parseAllowedOrigins(raw) {
  * @param {{ clock?: import('./clock').Clock, ttlSeconds?: number, corsAllowedOrigins?: string,
  *           configService?: ReturnType<typeof import('../config/service').createConfigService> }} [deps]
  */
-function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, workflowStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore, configurationAuthority, healthCheckTimeoutMs, userSessionStore, trustProxy, availabilityProvider, bookingContextStore, bookingProvider } = {}) {
+function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mailer, demoBridgeSecret, configService, configDb, handoffStore, staticIdentitiesJson, maxPreparedSessions, authorization, telemetry, notificationDeliveryStore, integrationDeliveryStore, workflowStore, consoleAuth, devUsersJson, userAuthProviderKey, userSessionTtlSeconds, outboxStore, scheduledActionStore, configurationAuthority, healthCheckTimeoutMs, userSessionStore, trustProxy, availabilityProvider, bookingContextStore, bookingProvider, calendarProviders, schedulingAudit } = {}) {
   // Configuration authority (ADR-0022): who owns configuration truth in this
   // deployment. server.js computes the real descriptor from the seed mode;
   // the default describes every other composition (tests, dev, demos), where
@@ -374,12 +376,19 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   // production booking correctness requires postgres, never process
   // memory. The booking provider shares CALCOM_API_KEY with availability
   // but has its own, longer timeout budget (a terminal action).
-  deps.bookingContexts = bookingContextStore || createInMemoryBookingContextStore({ clock });
+  deps.schedulingAudit = schedulingAudit || createInMemoryAuditLog();
+  deps.bookingContexts = bookingContextStore
+    || createInMemoryBookingContextStore({ clock, audit: deps.schedulingAudit });
   deps.bookingProvider = bookingProvider
     || createCalcomBookingProvider({
       apiKey: process.env.CALCOM_API_KEY || null,
       timeoutMs: clampBookingTimeoutMs(process.env.GUIDEHERD_BOOKING_TIMEOUT_MS),
     });
+  // Native calendar providers (ADR-0024 registry, GitLab #80): keyed by
+  // provider key, consulted only for tenants whose calendar-targets
+  // domain selects one — with none registered (today's production), the
+  // legacy path serves every tenant exactly as before.
+  deps.calendarProviders = calendarProviders || {};
   // Policy-bypass detection: sessions that received a policy-governed
   // offered-slots response, pruned lazily. If an outcome reports BOOKED
   // for a prepared session that never got one, appointment times were
@@ -653,6 +662,9 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     // next to the outbox drain: stranded booking_in_progress rows flip
     // loudly to verification_required after a crash or redeploy).
     bookingContexts: deps.bookingContexts,
+    // The append-only scheduling audit sink (in-memory by default; the
+    // durable PostgreSQL sink under the postgres operational provider).
+    schedulingAudit: deps.schedulingAudit,
     reconcileBookingContexts: async () => {
       try {
         return await reconcileStaleBookingContexts({
@@ -716,7 +728,7 @@ function corsHeadersFor(req, allowedOrigins) {
 }
 
 /** Build the raw Node http request handler. */
-function makeHandler({ service, store, clock, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode, operations, administration, loginLimiter, trustForwardedFor, availabilityProvider, offeredSlotsSessions, bookingContexts, bookingProvider }) {
+function makeHandler({ service, store, clock, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode, operations, administration, loginLimiter, trustForwardedFor, availabilityProvider, offeredSlotsSessions, bookingContexts, bookingProvider, calendarProviders }) {
   /**
    * Resolve the active Conversation Adapter for a firm. Provider selection
    * comes from the Configuration Store (connect/conversation-provider),
@@ -1252,17 +1264,48 @@ function makeHandler({ service, store, clock, allowedOrigins, mailer, configServ
         const requestStarted = Date.now();
         let result;
         try {
-          result = await offerSlots({
-            configService,
-            availabilityProvider,
-            bookingContexts,
-            clock,
-            organizationKey: tenantKey,
-            request: offeredRequest,
-            telemetry,
-            correlationId,
-          });
+          // Per-tenant provider selection (GitLab #80): a tenant whose
+          // calendar-targets domain names a native provider is served by
+          // the native engine; every other tenant takes the deployed
+          // legacy path unchanged. Selection is governed configuration —
+          // never a header, never a request field.
+          const nativeKey = nativeProviderKeyFor(configService, tenantKey);
+          result = nativeKey
+            ? await offerNativeSlots({
+              configService,
+              calendarProviders,
+              bookingContexts,
+              clock,
+              organizationKey: tenantKey,
+              request: offeredRequest,
+              telemetry,
+              correlationId,
+            })
+            : await offerSlots({
+              configService,
+              availabilityProvider,
+              bookingContexts,
+              clock,
+              organizationKey: tenantKey,
+              request: offeredRequest,
+              telemetry,
+              correlationId,
+            });
         } catch (err) {
+          if (err instanceof CalendarProviderError) {
+            telemetry.event('scheduling.availability_failed', {
+              severity: 'warn', component: 'calendar-provider', operation: 'offered-slots',
+              organizationKey: tenantKey, correlationId, sessionId,
+              code: err.code, detail: err.detail, totalMs: Date.now() - requestStarted,
+            });
+            // Native read failures fail closed exactly like legacy
+            // provider failures: configuration-family -> 503, provider
+            // trouble -> 502. Never a raw-slot fallback.
+            status = err.code === 'calendar_provider_not_configured' ? 503 : 502;
+            return sendJson(res, status, {
+              error: { code: err.code, message: err.message, correlationId },
+            }, null, correlationId);
+          }
           if (err instanceof AvailabilityError) {
             telemetry.event('scheduling.availability_failed', {
               severity: 'warn', component: 'calendar-provider', operation: 'offered-slots',
@@ -1346,6 +1389,7 @@ function makeHandler({ service, store, clock, allowedOrigins, mailer, configServ
         const result = await bookAppointment({
           bookingContexts,
           bookingProvider,
+          calendarProviders,
           configService,
           organizationKey: tenantKey,
           request: bookingRequest,

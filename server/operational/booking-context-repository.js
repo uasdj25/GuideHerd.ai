@@ -46,9 +46,13 @@ function toContext(row) {
     routingGroupKey: row.routing_group_key,
     practiceAreaId: row.practice_area_id,
     consultationTypeId: row.consultation_type_id,
-    eventTypeId: Number(row.event_type_id),
+    eventTypeId: row.event_type_id === null ? null : Number(row.event_type_id),
     durationMinutes: row.duration_minutes,
     offeredSlots: row.offered_slots,
+    providerKey: row.provider_key,
+    calendarRef: row.calendar_ref,
+    offeredTargets: row.offered_targets,
+    providerEventId: row.provider_event_id,
     status: row.status,
     selectedStartsAt: row.selected_starts_at === null ? null : new Date(row.selected_starts_at).toISOString(),
     calcomBookingUid: row.calcom_booking_uid,
@@ -61,10 +65,28 @@ function toContext(row) {
 }
 
 /**
- * @param {{ pool: import('pg').Pool, clock: { now(): number } }} deps
+ * @param {{ pool: import('pg').Pool, clock: { now(): number },
+ *           audit?: { record(entry): Promise<void> } }} deps
  */
-function createPostgresBookingContextStore({ pool, clock }) {
+function createPostgresBookingContextStore({ pool, clock, audit = null }) {
   const nowDate = () => new Date(clock.now());
+
+  /** Best-effort audit AFTER the transition commits — never a failure path. */
+  async function emitAudit(action, context, { actor = 'caller-flow', detail = null } = {}) {
+    if (!audit || !context) return;
+    try {
+      await audit.record({
+        bookingContextId: context.bookingContextId,
+        organizationKey: context.organizationKey,
+        occurredAtMs: clock.now(),
+        actor,
+        action,
+        detail,
+      });
+    } catch {
+      // The sink owns its failure telemetry (scheduling-audit.js).
+    }
+  }
 
   /** Lazy expiry: flip an offered row past expires_at on observation. */
   async function expireIfDue(bookingContextId, now) {
@@ -84,18 +106,25 @@ function createPostgresBookingContextStore({ pool, clock }) {
            booking_context_id, context_token_hash, organization_key, session_id,
            route_kind, attorney_id, routing_group_key, practice_area_id,
            consultation_type_id, event_type_id, duration_minutes, offered_slots,
+           provider_key, calendar_ref, offered_targets,
            status, created_at, updated_at, expires_at
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'offered',$13,$13,$14)
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'offered',$16,$16,$17)
          RETURNING *`,
         [
           context.bookingContextId, context.contextTokenHash, context.organizationKey,
           context.sessionId ?? null, context.routeKind, context.attorneyId ?? null,
           context.routingGroupKey ?? null, context.practiceAreaId ?? null,
-          context.consultationTypeId ?? null, context.eventTypeId, context.durationMinutes,
-          JSON.stringify(context.offeredSlots), createdAt, new Date(context.expiresAtMs),
+          context.consultationTypeId ?? null, context.eventTypeId ?? null, context.durationMinutes,
+          JSON.stringify(context.offeredSlots),
+          context.providerKey ?? null, context.calendarRef ?? null,
+          context.offeredTargets === undefined || context.offeredTargets === null
+            ? null : JSON.stringify(context.offeredTargets),
+          createdAt, new Date(context.expiresAtMs),
         ],
       );
-      return toContext(rows[0]);
+      const created = toContext(rows[0]);
+      await emitAudit('created', created, { detail: { routeKind: created.routeKind } });
+      return created;
     },
 
     async findByTokenHash({ contextTokenHash, organizationKey }) {
@@ -124,38 +153,60 @@ function createPostgresBookingContextStore({ pool, clock }) {
 
     async claim({ bookingContextId, startsAt }) {
       const now = nowDate();
-      const { rows } = await pool.query(
-        `UPDATE booking_contexts
-            SET status = 'booking_in_progress', selected_starts_at = $2, updated_at = $3
-          WHERE booking_context_id = $1 AND status = 'offered' AND expires_at > $3
-          RETURNING *`,
-        [bookingContextId, new Date(startsAt), now],
-      );
+      // Native rows bind the offered target for the selected start during
+      // the SAME atomic claim (offered_targets is keyed by the canonical
+      // ISO string persisted at creation); the partial unique slot-guard
+      // index then refuses a second live claim of the same
+      // (organization, calendar, instant) — surfaced here as an
+      // unclaimable context with the row left OFFERED and unconsumed.
+      const selectedIso = new Date(startsAt).toISOString();
+      let rows;
+      try {
+        ({ rows } = await pool.query(
+          `UPDATE booking_contexts
+              SET status = 'booking_in_progress', selected_starts_at = $2,
+                  calendar_ref = COALESCE(offered_targets -> $4 ->> 'calendarRef', calendar_ref),
+                  updated_at = $3
+            WHERE booking_context_id = $1 AND status = 'offered' AND expires_at > $3
+            RETURNING *`,
+          [bookingContextId, new Date(startsAt), now, selectedIso],
+        ));
+      } catch (err) {
+        if (err && err.code === '23505') return null; // slot guard: row stays offered
+        throw err;
+      }
       if (rows.length === 0) {
         await expireIfDue(bookingContextId, now);
         return null;
       }
-      return toContext(rows[0]);
+      const claimed = toContext(rows[0]);
+      await emitAudit('claimed', claimed, { detail: { selectedStartsAt: claimed.selectedStartsAt } });
+      return claimed;
     },
 
-    async complete({ bookingContextId, status, calcomBookingUid, bookingResult, rejectionReason }) {
+    async complete({ bookingContextId, status, calcomBookingUid, providerEventId, bookingResult, rejectionReason, actor = 'caller-flow' }) {
       if (![BookingContextStatus.BOOKED, BookingContextStatus.REJECTED,
         BookingContextStatus.VERIFICATION_REQUIRED].includes(status)) {
         throw new TypeError(`complete() cannot target status: ${status}`);
       }
       const { rows } = await pool.query(
         `UPDATE booking_contexts
-            SET status = $2, calcom_booking_uid = $3, booking_result = $4,
-                rejection_reason = $5, updated_at = $6
+            SET status = $2, calcom_booking_uid = $3, provider_event_id = $4,
+                booking_result = $5, rejection_reason = $6, updated_at = $7
           WHERE booking_context_id = $1 AND status = 'booking_in_progress'
           RETURNING *`,
         [
-          bookingContextId, status, calcomBookingUid ?? null,
+          bookingContextId, status, calcomBookingUid ?? null, providerEventId ?? null,
           bookingResult === undefined || bookingResult === null ? null : JSON.stringify(bookingResult),
           rejectionReason ?? null, nowDate(),
         ],
       );
-      return rows.length === 0 ? null : toContext(rows[0]);
+      if (rows.length === 0) return null;
+      const completed = toContext(rows[0]);
+      await emitAudit(status, completed, {
+        actor, detail: rejectionReason ? { reason: rejectionReason } : null,
+      });
+      return completed;
     },
 
     async reconcileStale({ staleMs = STALE_BOOKING_MS } = {}) {
@@ -168,7 +219,13 @@ function createPostgresBookingContextStore({ pool, clock }) {
           RETURNING *`,
         [now, new Date(clock.now() - staleMs)],
       );
-      return rows.map(toContext);
+      const flipped = rows.map(toContext);
+      for (const context of flipped) {
+        await emitAudit('verification_required', context, {
+          actor: 'reconciler', detail: { reason: 'stale_booking_in_progress' },
+        });
+      }
+      return flipped;
     },
   };
 }

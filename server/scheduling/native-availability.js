@@ -206,4 +206,83 @@ async function computeNativeAvailability({
   };
 }
 
-module.exports = { computeNativeAvailability, mergeCandidatesBalanced };
+/** The tenant's native calendar provider key, or null (legacy path). */
+function nativeProviderKeyFor(configService, organizationKey) {
+  const { value } = readDomain(configService, 'calendar-targets', organizationKey);
+  return value.provider;
+}
+
+/**
+ * The NATIVE offered-slots service (GitLab #79/#80): compute the offer,
+ * then issue the durable booking context recording the resolved targets
+ * — the exact shape the deployed legacy service returns, so the HTTP
+ * route and the conversation layer see no difference.
+ */
+async function offerNativeSlots({
+  configService, calendarProviders = {}, bookingContexts = null, clock = null,
+  organizationKey, request, telemetry, correlationId,
+}) {
+  const crypto = require('node:crypto');
+  const { AvailabilityError: AvailErr } = require('./availability');
+  const providerKey = nativeProviderKeyFor(configService, organizationKey);
+  const calendarProvider = calendarProviders[providerKey];
+  if (!calendarProvider) {
+    // A selected-but-unregistered provider FAILS CLOSED as configuration.
+    throw new AvailErr('availability_not_configured',
+      'The selected native calendar provider is not available on this deployment.');
+  }
+  const nowMs = clock ? clock.now() : Date.now();
+  const offer = await computeNativeAvailability({
+    configService, calendarProvider, organizationKey, request, nowMs, telemetry, correlationId,
+  });
+
+  let bookingContext = null;
+  let bookingContextId = null;
+  if (offer.slots.length > 0 && bookingContexts) {
+    const raw = `bct_${crypto.randomBytes(32).toString('base64url')}`;
+    const singleTarget = offer.route.targets.length === 1 ? offer.route.targets[0].calendarRef : null;
+    const created = await bookingContexts.create({
+      bookingContextId: `bc_${crypto.randomUUID()}`,
+      contextTokenHash: crypto.createHash('sha256').update(raw, 'utf8').digest('hex'),
+      organizationKey,
+      sessionId: request.sessionId ?? null,
+      routeKind: offer.route.routeKind,
+      attorneyId: offer.route.attorneyId,
+      routingGroupKey: offer.route.routingGroupKey,
+      practiceAreaId: offer.route.practiceAreaId,
+      consultationTypeId: request.consultationTypeId ?? null,
+      eventTypeId: null,
+      providerKey,
+      calendarRef: singleTarget,
+      offeredTargets: offer.offeredTargets,
+      durationMinutes: offer.durationMinutes,
+      offeredSlots: offer.slots.map((s) => s.startsAt),
+      createdAtMs: nowMs,
+      expiresAtMs: nowMs + require('./offered-slots').BOOKING_CONTEXT_TTL_MS,
+    });
+    bookingContext = raw;
+    bookingContextId = created.bookingContextId;
+  }
+
+  return {
+    kind: offer.kind,
+    slots: offer.slots,
+    window: offer.window,
+    routeKind: offer.route.routeKind,
+    bookingContext,
+    bookingContextId,
+    timings: offer.timings,
+    counts: {
+      receivedCount: offer.counts.candidateCount,
+      inWindowCount: offer.counts.candidateCount,
+      offeredCount: offer.counts.offeredCount,
+    },
+  };
+}
+
+module.exports = {
+  computeNativeAvailability,
+  mergeCandidatesBalanced,
+  offerNativeSlots,
+  nativeProviderKeyFor,
+};

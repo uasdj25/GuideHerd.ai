@@ -37,7 +37,7 @@ const PG_URL = process.env.GUIDEHERD_TEST_DATABASE_URL;
 // ---------------------------------------------------------------------------
 
 runHandoffRepositoryContractSuite('memory', async ({ clock }) => createInMemoryHandoffStore({ clock }));
-runBookingContextContractSuite('memory', async ({ clock }) => createInMemoryBookingContextStore({ clock }));
+runBookingContextContractSuite('memory', async ({ clock, audit }) => createInMemoryBookingContextStore({ clock, audit }));
 
 // ---------------------------------------------------------------------------
 // PostgreSQL
@@ -75,6 +75,7 @@ if (!PG_URL) {
     await pool.query('DROP TABLE IF EXISTS outbox_deliveries');
     await pool.query('DROP TABLE IF EXISTS outbox_events');
     await pool.query('DROP TABLE IF EXISTS scheduled_actions');
+    await pool.query('DROP TABLE IF EXISTS scheduling_audit');
     await pool.query('DROP TABLE IF EXISTS booking_contexts');
     await pool.query('DROP TABLE IF EXISTS handoff_sessions');
     await pool.query('DROP TABLE IF EXISTS notification_deliveries');
@@ -85,18 +86,18 @@ if (!PG_URL) {
     sharedPool = createOperationalPool({ connectionString: PG_URL });
     await resetDatabase(sharedPool);
 
-    assert.equal(await migrate(sharedPool), 8, 'all pending migrations apply');
+    assert.equal(await migrate(sharedPool), 9, 'all pending migrations apply');
     assert.equal(await migrate(sharedPool), 0, 're-run is a no-op');
 
     // Concurrent boots: several runners at once, advisory lock serializes.
     await resetDatabase(sharedPool);
     const pools = [createOperationalPool({ connectionString: PG_URL }), createOperationalPool({ connectionString: PG_URL })];
     const results = await Promise.all([migrate(sharedPool), migrate(pools[0]), migrate(pools[1])]);
-    assert.equal(results.reduce((a, b) => a + b, 0), 8, 'exactly one runner applies the migrations');
+    assert.equal(results.reduce((a, b) => a + b, 0), 9, 'exactly one runner applies the migrations');
     await Promise.all(pools.map((p) => p.end()));
 
     const { rows } = await sharedPool.query('SELECT count(*)::int AS n FROM operational_schema_migrations');
-    assert.equal(rows[0].n, 8);
+    assert.equal(rows[0].n, 9);
   });
 
   // Contract suite against PostgreSQL. Each test gets a truncated table on
@@ -109,9 +110,9 @@ if (!PG_URL) {
 
   const { createPostgresBookingContextStore } = require('./booking-context-repository');
 
-  runBookingContextContractSuite('postgres', async ({ clock }) => {
+  runBookingContextContractSuite('postgres', async ({ clock, audit }) => {
     await sharedPool.query('TRUNCATE booking_contexts');
-    return createPostgresBookingContextStore({ pool: sharedPool, clock });
+    return createPostgresBookingContextStore({ pool: sharedPool, clock, audit });
   });
 
   test('[postgres] booking contexts: the DATABASE enforces route-kind consistency, not just the JS layer', async () => {
@@ -194,13 +195,112 @@ if (!PG_URL) {
     const { session } = makeSession();
     await legacyStore.create(session);
     // The new release boots: exactly 0008 applies; prior rows are intact.
-    assert.equal(await migrate(sharedPool), 1, 'only 0008 is pending');
+    assert.equal(await migrate(sharedPool), 2, 'exactly 0008 and 0009 are pending');
     assert.equal(await migrate(sharedPool), 0, 'second run applies nothing');
     assert.equal((await legacyStore.get(session.sessionId)).status, 'awaiting-transfer', 'existing data untouched');
     const { rows } = await sharedPool.query('SELECT count(*)::int AS n FROM booking_contexts');
     assert.equal(rows[0].n, 0, 'the new table exists and is empty');
     // Restore the fully-migrated shared database for later tests.
     fs.rmSync(stagedDir, { recursive: true, force: true });
+  });
+
+  test('[postgres] migration 0009 is ADDITIVE onto a live 0008 database: legacy rows intact, native rules enforced', async () => {
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const pathMod = require('node:path');
+    await resetDatabase(sharedPool);
+    // A database exactly as the 0008 release left it.
+    const stagedDir = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'gh-mig9-'));
+    for (const file of fs.readdirSync(pathMod.join(__dirname, 'migrations')).sort().slice(0, 8)) {
+      fs.copyFileSync(pathMod.join(__dirname, 'migrations', file), pathMod.join(stagedDir, file));
+    }
+    assert.equal(await migrate(sharedPool, { dir: stagedDir }), 8, 'the 0008-era schema applies');
+    // A row written by the 0008-era writer (raw SQL: the current
+    // repository code targets the 0009 column set).
+    const legacy = makeContext();
+    await sharedPool.query(
+      `INSERT INTO booking_contexts (
+         booking_context_id, context_token_hash, organization_key, route_kind,
+         attorney_id, consultation_type_id, event_type_id, duration_minutes,
+         offered_slots, status, created_at, updated_at, expires_at
+       ) VALUES ($1,$2,$3,'attorney','clay-martinson','initial-consultation',$4,30,$5,'offered',$6,$6,$7)`,
+      [legacy.bookingContextId, legacy.contextTokenHash, legacy.organizationKey,
+        legacy.eventTypeId, JSON.stringify(legacy.offeredSlots), new Date(T0), new Date(T0 + 10 * 60 * 1000)],
+    );
+    // The new release boots: exactly 0009 applies; the legacy row is intact
+    // and fully operable through the NEW repository.
+    assert.equal(await migrate(sharedPool), 1, 'only 0009 is pending');
+    const clock = fixedClock(T0);
+    const store = createPostgresBookingContextStore({ pool: sharedPool, clock });
+    const reloaded = await store.get(legacy.bookingContextId);
+    assert.equal(reloaded.status, 'offered');
+    assert.equal(reloaded.eventTypeId, legacy.eventTypeId);
+    assert.equal(reloaded.providerKey, null);
+    assert.equal(reloaded.providerEventId, null);
+    assert.ok(await store.claim({ bookingContextId: legacy.bookingContextId, startsAt: SLOT_A }),
+      'legacy rows keep working under the evolved schema');
+
+    // The DATABASE (not just JS) enforces target presence: a row with
+    // neither an event type nor a native provider is unwritable.
+    await assert.rejects(sharedPool.query(
+      `INSERT INTO booking_contexts (
+         booking_context_id, context_token_hash, organization_key, route_kind,
+         attorney_id, duration_minutes, offered_slots, status, created_at, updated_at, expires_at
+       ) VALUES ('bc_bad','hash_bad','org-a','attorney','clay-martinson',30,'[]','offered',now(),now(),now())`,
+    ), /target_presence/);
+
+    // The slot-guard partial unique index binds at the DATABASE level.
+    await sharedPool.query(
+      `UPDATE booking_contexts SET provider_key = 'reference', calendar_ref = 'cal-guard',
+              offered_targets = '{}'::jsonb WHERE booking_context_id = $1`,
+      [legacy.bookingContextId],
+    );
+    await assert.rejects(sharedPool.query(
+      `INSERT INTO booking_contexts (
+         booking_context_id, context_token_hash, organization_key, route_kind, attorney_id,
+         provider_key, calendar_ref, offered_targets, selected_starts_at,
+         duration_minutes, offered_slots, status, created_at, updated_at, expires_at
+       ) VALUES ('bc_dup','hash_dup',$1,'attorney','clay-martinson',
+         'reference','cal-guard','{}'::jsonb,$2,30,$3,'booking_in_progress',now(),now(),now())`,
+      [legacy.organizationKey, new Date(SLOT_A), JSON.stringify([SLOT_A])],
+    ), /slot_guard/);
+
+    fs.rmSync(stagedDir, { recursive: true, force: true });
+    // Restore the fully-migrated shared database for later tests.
+    await resetDatabase(sharedPool);
+    await migrate(sharedPool);
+  });
+
+  test('[postgres] scheduling_audit: the durable sink records and lists; a broken pool is telemetry, not a failure', async () => {
+    await sharedPool.query('TRUNCATE scheduling_audit');
+    const { createPostgresSchedulingAudit } = require('./scheduling-audit');
+    const audit = createPostgresSchedulingAudit({ pool: sharedPool });
+    await audit.record({
+      bookingContextId: 'bc_audit-1', organizationKey: 'org-a',
+      occurredAtMs: T0, actor: 'caller-flow', action: 'created', detail: { routeKind: 'attorney' },
+    });
+    await audit.record({
+      bookingContextId: 'bc_audit-1', organizationKey: 'org-a',
+      occurredAtMs: T0 + 1000, actor: 'reconciler', action: 'verification_required',
+      detail: { reason: 'stale_booking_in_progress' },
+    });
+    const trail = await audit.listByContext('bc_audit-1');
+    assert.deepEqual(trail.map((r) => [r.action, r.actor]), [
+      ['created', 'caller-flow'], ['verification_required', 'reconciler'],
+    ]);
+    assert.deepEqual(trail[1].detail, { reason: 'stale_booking_in_progress' });
+
+    // A sink over a broken pool NEVER throws — loud telemetry instead.
+    const events = [];
+    const broken = createPostgresSchedulingAudit({
+      pool: { query: async () => { throw new Error('pool down'); } },
+      telemetry: { event: (name, fields) => events.push({ name, fields }) },
+    });
+    await broken.record({
+      bookingContextId: 'bc_x', organizationKey: 'org-a', occurredAtMs: T0, actor: 'system', action: 'expired',
+    });
+    assert.equal(events[0].name, 'internal.unexpected_error');
+    assert.equal(events[0].fields.code, 'audit_write_failed');
   });
 
   test('[postgres] migration 0008 details: jsonb round-trips, bigint precision, unique hash, and the intended index predicates', async () => {

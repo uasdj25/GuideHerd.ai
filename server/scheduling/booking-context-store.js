@@ -66,16 +66,55 @@ function assertRouteConsistency(context) {
   if (routeKind === 'default' && (attorneyId || routingGroupKey)) {
     throw new TypeError('default route forbids attorneyId and routingGroupKey');
   }
-  if (!Number.isInteger(context.eventTypeId) || context.eventTypeId <= 0) {
-    throw new TypeError('eventTypeId must be a positive integer');
-  }
-  if (!Number.isInteger(context.durationMinutes) || context.durationMinutes <= 0) {
-    throw new TypeError('durationMinutes must be a positive integer');
-  }
   if (!Array.isArray(context.offeredSlots) || context.offeredSlots.length === 0
     || context.offeredSlots.some((s) => typeof s !== 'string' || Number.isNaN(Date.parse(s)))) {
     throw new TypeError('offeredSlots must be a non-empty array of ISO timestamps');
   }
+  // Target presence (mirrors booking_contexts_target_presence): a context
+  // books through EITHER a legacy provider event type OR a native
+  // calendar target set — never neither.
+  const isLegacy = context.eventTypeId !== null && context.eventTypeId !== undefined;
+  const isNative = typeof context.providerKey === 'string' && context.providerKey.trim() !== '';
+  if (isLegacy && (!Number.isInteger(context.eventTypeId) || context.eventTypeId <= 0)) {
+    throw new TypeError('eventTypeId must be a positive integer');
+  }
+  if (!isLegacy && !isNative) {
+    throw new TypeError('a context requires an eventTypeId or a native providerKey + offeredTargets');
+  }
+  if (isNative && !isLegacy) {
+    const targets = context.offeredTargets;
+    if (!targets || typeof targets !== 'object' || Array.isArray(targets)) {
+      throw new TypeError('native contexts require offeredTargets mapping each offered start to its target');
+    }
+    for (const startsAt of context.offeredSlots) {
+      const target = targets[startsAt];
+      if (!target || typeof target.calendarRef !== 'string' || target.calendarRef.trim() === '') {
+        throw new TypeError(`offeredTargets is missing a calendar target for ${startsAt}`);
+      }
+    }
+  }
+  if (!Number.isInteger(context.durationMinutes) || context.durationMinutes <= 0) {
+    throw new TypeError('durationMinutes must be a positive integer');
+  }
+}
+
+/**
+ * In-memory append-only audit log — the reference audit sink (the
+ * PostgreSQL sink lives in server/operational/scheduling-audit.js). A
+ * sink NEVER throws into a state transition: recording is best-effort by
+ * contract; failures are the sink's own telemetry concern.
+ */
+function createInMemoryAuditLog() {
+  const records = [];
+  return {
+    async record(entry) {
+      records.push({ ...entry });
+    },
+    async listByContext(bookingContextId) {
+      return records.filter((r) => r.bookingContextId === bookingContextId).map((r) => ({ ...r }));
+    },
+    records,
+  };
 }
 
 /** Public shape: everything except the token hash (nothing needs it back). */
@@ -85,19 +124,37 @@ function present(row) {
 }
 
 /**
- * @param {{ clock: { now(): number } }} deps
+ * @param {{ clock: { now(): number }, audit?: { record(entry): Promise<void>|void } }} deps
  */
-function createInMemoryBookingContextStore({ clock }) {
+function createInMemoryBookingContextStore({ clock, audit = null }) {
   /** @type {Map<string, object>} bookingContextId -> row */
   const byId = new Map();
   /** @type {Map<string, string>} contextTokenHash -> bookingContextId */
   const byHash = new Map();
+
+  /** Best-effort audit AFTER a committed transition — never a failure path. */
+  async function emitAudit(action, row, { actor = 'caller-flow', detail = null } = {}) {
+    if (!audit) return;
+    try {
+      await audit.record({
+        bookingContextId: row.bookingContextId,
+        organizationKey: row.organizationKey,
+        occurredAtMs: clock.now(),
+        actor,
+        action,
+        detail,
+      });
+    } catch {
+      // The sink owns its failure telemetry; a transition never fails on audit.
+    }
+  }
 
   /** Lazy expiry: an offered row past expires_at flips on observation. */
   function expireIfDue(row, nowMs) {
     if (row.status === BookingContextStatus.OFFERED && row.expiresAtMs <= nowMs) {
       row.status = BookingContextStatus.EXPIRED;
       row.updatedAtMs = nowMs;
+      emitAudit('expired', row, { actor: 'system' });
     }
   }
 
@@ -121,9 +178,13 @@ function createInMemoryBookingContextStore({ clock }) {
         routingGroupKey: context.routingGroupKey ?? null,
         practiceAreaId: context.practiceAreaId ?? null,
         consultationTypeId: context.consultationTypeId ?? null,
-        eventTypeId: context.eventTypeId,
+        eventTypeId: context.eventTypeId ?? null,
         durationMinutes: context.durationMinutes,
         offeredSlots: [...context.offeredSlots],
+        providerKey: context.providerKey ?? null,
+        calendarRef: context.calendarRef ?? null,
+        offeredTargets: context.offeredTargets ? { ...context.offeredTargets } : null,
+        providerEventId: null,
         status: BookingContextStatus.OFFERED,
         selectedStartsAt: null,
         calcomBookingUid: null,
@@ -135,6 +196,7 @@ function createInMemoryBookingContextStore({ clock }) {
       };
       byId.set(row.bookingContextId, row);
       byHash.set(row.contextTokenHash, row.bookingContextId);
+      await emitAudit('created', row, { detail: { routeKind: row.routeKind } });
       return present(row);
     },
 
@@ -163,7 +225,11 @@ function createInMemoryBookingContextStore({ clock }) {
     /**
      * Atomic single-use claim: offered → booking_in_progress. Returns the
      * claimed context, or null when the context is not claimable (already
-     * claimed, terminal, or expired) — callers re-read to classify.
+     * claimed, terminal, expired, OR — native rows — when the slot guard
+     * finds the same calendar+instant already claimed or booked by
+     * another context; callers re-read to classify, and a still-offered
+     * row after a null claim IS the guard case: slot_no_longer_available
+     * without consumption).
      */
     async claim({ bookingContextId, startsAt }) {
       const row = byId.get(bookingContextId);
@@ -171,10 +237,34 @@ function createInMemoryBookingContextStore({ clock }) {
       const nowMs = clock.now();
       expireIfDue(row, nowMs);
       if (row.status !== BookingContextStatus.OFFERED) return null;
-      row.status = BookingContextStatus.BOOKING_IN_PROGRESS;
       // Normalized ISO form, matching the PostgreSQL timestamptz round trip.
-      row.selectedStartsAt = new Date(startsAt).toISOString();
+      const selected = new Date(startsAt).toISOString();
+      // Native rows: the claim binds the exact offered target for the
+      // selected start (pool attribution becomes THE calendar), then the
+      // slot guard refuses a second live claim of the same calendar+instant
+      // (mirrors booking_contexts_slot_guard_idx).
+      let calendarRef = row.calendarRef;
+      if (row.offeredTargets) {
+        const target = row.offeredTargets[selected]
+          ?? row.offeredTargets[Object.keys(row.offeredTargets).find((k) => Date.parse(k) === Date.parse(selected))];
+        if (target) calendarRef = target.calendarRef;
+      }
+      if (calendarRef) {
+        for (const other of byId.values()) {
+          if (other !== row
+            && other.organizationKey === row.organizationKey
+            && other.calendarRef === calendarRef
+            && other.selectedStartsAt === selected
+            && [BookingContextStatus.BOOKING_IN_PROGRESS, BookingContextStatus.BOOKED].includes(other.status)) {
+            return null; // guard: the row stays OFFERED, unconsumed
+          }
+        }
+      }
+      row.status = BookingContextStatus.BOOKING_IN_PROGRESS;
+      row.selectedStartsAt = selected;
+      row.calendarRef = calendarRef;
       row.updatedAtMs = nowMs;
+      await emitAudit('claimed', row, { detail: { selectedStartsAt: selected } });
       return present(row);
     },
 
@@ -183,7 +273,7 @@ function createInMemoryBookingContextStore({ clock }) {
      * | verification_required. Conditional — returns null if the row is
      * not in booking_in_progress (nothing is ever overwritten).
      */
-    async complete({ bookingContextId, status, calcomBookingUid, bookingResult, rejectionReason }) {
+    async complete({ bookingContextId, status, calcomBookingUid, providerEventId, bookingResult, rejectionReason, actor = 'caller-flow' }) {
       if (![BookingContextStatus.BOOKED, BookingContextStatus.REJECTED,
         BookingContextStatus.VERIFICATION_REQUIRED].includes(status)) {
         throw new TypeError(`complete() cannot target status: ${status}`);
@@ -192,9 +282,11 @@ function createInMemoryBookingContextStore({ clock }) {
       if (!row || row.status !== BookingContextStatus.BOOKING_IN_PROGRESS) return null;
       row.status = status;
       row.calcomBookingUid = calcomBookingUid ?? null;
+      row.providerEventId = providerEventId ?? null;
       row.bookingResult = bookingResult ?? null;
       row.rejectionReason = rejectionReason ?? null;
       row.updatedAtMs = clock.now();
+      await emitAudit(status, row, { actor, detail: rejectionReason ? { reason: rejectionReason } : null });
       return present(row);
     },
 
@@ -213,6 +305,9 @@ function createInMemoryBookingContextStore({ clock }) {
           row.status = BookingContextStatus.VERIFICATION_REQUIRED;
           row.rejectionReason = 'stale_booking_in_progress';
           row.updatedAtMs = nowMs;
+          await emitAudit('verification_required', row, {
+            actor: 'reconciler', detail: { reason: 'stale_booking_in_progress' },
+          });
           flipped.push(present(row));
         }
       }
@@ -223,6 +318,7 @@ function createInMemoryBookingContextStore({ clock }) {
 
 module.exports = {
   createInMemoryBookingContextStore,
+  createInMemoryAuditLog,
   BookingContextStatus,
   ROUTE_KINDS,
   STALE_BOOKING_MS,

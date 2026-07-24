@@ -39,6 +39,7 @@ test('targets: dark by default — no document means provider null and nothing b
   assert.deepEqual(value, {
     provider: null, defaultCalendar: null, attorneyCalendars: {},
     routingGroupCalendars: {}, appointmentDurations: {}, defaultDurationMinutes: 30,
+    schedulableAttorneys: [], requireFullCoverage: false,
   });
   assert.deepEqual(issues, []);
 });

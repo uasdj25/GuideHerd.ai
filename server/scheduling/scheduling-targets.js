@@ -50,7 +50,7 @@ const { AvailabilityError, RoutingUnresolvedError } = require('./availability');
 
 const CONFIG_FIELDS = [
   'provider', 'defaultCalendar', 'attorneyCalendars', 'routingGroupCalendars',
-  'appointmentDurations', 'defaultDurationMinutes',
+  'appointmentDurations', 'defaultDurationMinutes', 'schedulableAttorneys', 'requireFullCoverage',
 ];
 const MAX_CALENDAR_REF = 512;
 
@@ -71,6 +71,8 @@ function normalizeSchedulingTargetsConfig(raw) {
     routingGroupCalendars: {},
     appointmentDurations: {},
     defaultDurationMinutes: 30,
+    schedulableAttorneys: [],
+    requireFullCoverage: false,
   };
   if (raw === null || raw === undefined) return { value: empty, issues: [] };
   if (!isPlainObject(raw)) {
@@ -140,13 +142,93 @@ function normalizeSchedulingTargetsConfig(raw) {
       issues.push('defaultDurationMinutes must be an integer between 1 and 480');
     }
   }
+  const schedulableAttorneys = [];
+  if (raw.schedulableAttorneys !== undefined) {
+    if (!Array.isArray(raw.schedulableAttorneys)) {
+      issues.push('schedulableAttorneys must be an array of attorney keys');
+    } else {
+      for (const key of raw.schedulableAttorneys) {
+        if (typeof key !== 'string' || key.trim() === '') {
+          issues.push('schedulableAttorneys entries must be nonblank attorney keys');
+        } else if (!schedulableAttorneys.includes(key.trim())) {
+          schedulableAttorneys.push(key.trim());
+        }
+      }
+    }
+  }
+  let requireFullCoverage = false;
+  if (raw.requireFullCoverage !== undefined) {
+    if (typeof raw.requireFullCoverage === 'boolean') requireFullCoverage = raw.requireFullCoverage;
+    else issues.push('requireFullCoverage must be a boolean');
+  }
   return {
     value: {
       provider, defaultCalendar, attorneyCalendars, routingGroupCalendars,
-      appointmentDurations, defaultDurationMinutes,
+      appointmentDurations, defaultDurationMinutes, schedulableAttorneys, requireFullCoverage,
     },
     issues,
   };
+}
+
+/**
+ * STRICT cross-entity rules for the producer gate and the seed-import /
+ * boot gate (GitLab #77). Runs whenever the producer supplies
+ * configService + organizationKey; consumers stay fail-safe — runtime
+ * resolution independently fails closed on anything unknown.
+ *
+ * Enforced:
+ *  - every bound or schedulable attorney is a REAL, ACTIVE catalog
+ *    attorney;
+ *  - every routing-group calendar names a real, active, UNAMBIGUOUS
+ *    group (exactly one active group per practice area);
+ *  - every appointment-duration key is a real, active consultation type;
+ *  - `provider` is a registered calendar provider when the deployment
+ *    registry is supplied (context.calendarProviderKeys);
+ *  - under the tenant-declared full-coverage rule, every schedulable
+ *    attorney holds a calendar binding — the Martinson & Beason
+ *    coverage-gap class becomes unwritable, not merely detectable.
+ */
+function validateSchedulingTargetsCrossEntity(value, context) {
+  const { configService, organizationKey, calendarProviderKeys } = context || {};
+  const issues = [];
+  if (value.provider && Array.isArray(calendarProviderKeys) && !calendarProviderKeys.includes(value.provider)) {
+    issues.push(`provider must be one of: ${calendarProviderKeys.join(', ') || 'none registered'}`);
+  }
+  if (!configService || !organizationKey) return issues;
+  const row = (catalog, key) => {
+    try { return catalog.get(organizationKey, key); } catch { return null; }
+  };
+  const checkAttorney = (field, key) => {
+    const attorney = row(configService.providers, key);
+    if (!attorney) issues.push(`${field}.${key}: unknown attorney`);
+    else if (attorney.active === false) issues.push(`${field}.${key}: attorney is not active`);
+  };
+  for (const key of Object.keys(value.attorneyCalendars)) checkAttorney('attorneyCalendars', key);
+  for (const key of value.schedulableAttorneys) checkAttorney('schedulableAttorneys', key);
+  let groups = [];
+  try { groups = configService.routingGroups.list(organizationKey); } catch { groups = []; }
+  for (const key of Object.keys(value.routingGroupCalendars)) {
+    const group = groups.find((g) => g.key === key);
+    if (!group) { issues.push(`routingGroupCalendars.${key}: unknown routing group`); continue; }
+    if (group.active === false) { issues.push(`routingGroupCalendars.${key}: routing group is not active`); continue; }
+    const sharing = groups.filter((g) => g.active !== false && g.serviceArea === group.serviceArea);
+    if (sharing.length > 1) {
+      issues.push(`routingGroupCalendars.${key}: practice area "${group.serviceArea}" has ${sharing.length} active routing groups — resolution would be ambiguous`);
+    }
+  }
+  for (const key of Object.keys(value.appointmentDurations)) {
+    const type = row(configService.consultationTypes, key);
+    if (!type) issues.push(`appointmentDurations.${key}: unknown consultation type`);
+    else if (type.active === false) issues.push(`appointmentDurations.${key}: consultation type is not active`);
+  }
+  if (value.requireFullCoverage) {
+    for (const key of value.schedulableAttorneys) {
+      if (!value.attorneyCalendars[key]) {
+        issues.push(`schedulableAttorneys.${key}: full coverage is required but this attorney has no calendar binding`);
+      }
+    }
+  }
+  return issues;
 }
 
 /** Appointment duration policy: the appointment type owns its duration. */
@@ -257,6 +339,7 @@ function resolveSchedulingTarget({ config, attorneyId = null, practiceAreaId = n
 
 module.exports = {
   normalizeSchedulingTargetsConfig,
+  validateSchedulingTargetsCrossEntity,
   resolveSchedulingTarget,
   resolveAppointmentDuration,
 };

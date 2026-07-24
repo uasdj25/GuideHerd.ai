@@ -19,7 +19,10 @@ const { normalizePolicy } = require('../scheduling/policy');
 const { normalizeBrandingDocument } = require('../notifications/branding');
 const { normalizeSchedulingPromptProfile } = require('../connect/prompt-renderer');
 const { normalizeCalcomAvailabilityConfig } = require('../scheduling/availability');
-const { normalizeSchedulingTargetsConfig } = require('../scheduling/scheduling-targets');
+const {
+  normalizeSchedulingTargetsConfig,
+  validateSchedulingTargetsCrossEntity,
+} = require('../scheduling/scheduling-targets');
 
 function isPlainObject(v) {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -170,6 +173,14 @@ function registerProductionDomains(framework) {
     schemaVersion: 1,
     normalize(raw) {
       return normalizeSchedulingTargetsConfig(raw);
+    },
+    // STRICT write/import-time cross-entity rules (#77): real active
+    // attorneys and consultation types, unambiguous routing groups, a
+    // registered provider when the registry context is supplied, and the
+    // tenant-declarable full-coverage rule (every schedulable attorney
+    // bound). Owned by the scheduling subsystem.
+    validate(value, context) {
+      return validateSchedulingTargetsCrossEntity(value, context);
     },
   });
 

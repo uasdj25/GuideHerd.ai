@@ -152,6 +152,16 @@ function createAlertingService({
      */
     observe(name, fields = {}) {
       try {
+        // A booking parked in verification_required needs an OPERATOR —
+        // the caller was told neither booked nor failed (#88 escalation
+        // riding the #68 machinery; the claim machine dedups per window).
+        if (name === 'scheduling.booking_verification_required' && fields.organizationKey) {
+          void raise('booking-verification-required', fields.organizationKey, {
+            count: 1,
+            sessionId: fields.sessionId || null,
+          }).catch(() => {});
+          return;
+        }
         if (name !== 'notification.delivery_failed') return;
         if (fields.notificationType === ALERT_TYPE) return; // no feedback loop
         if (fields.code === 'provider_not_configured') return; // capability condition owns this

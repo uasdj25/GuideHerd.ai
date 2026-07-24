@@ -16,6 +16,7 @@ const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => (
 ));
 
 const CONDITION_TEXT = {
+  'booking-verification-required': 'A booking outcome could not be confirmed with the calendar provider. The caller was told neither booked nor failed — an operator must resolve it from the Operations Center before anyone contacts the caller.',
   'handoff-outcomes-failing':
     'Multiple caller handoffs have failed in a short window. Each one is a caller who did not get booked.',
   'notification-delivery-failed':

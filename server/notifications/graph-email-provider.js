@@ -134,7 +134,7 @@ function createGraphEmailProvider({ env = process.env, fetchImpl = fetch, teleme
      *           notificationType?: string, notificationKey?: string }} [context]
      * @returns {Promise<{ status: 'sent'|'failed'|'not-configured', providerRequestId?: string }>}
      */
-    async deliver({ rendered, recipient }, context = {}) {
+    async deliver({ rendered, recipient, attachments }, context = {}) {
       if (!enabled) return { status: 'not-configured' };
       const eventFields = {
         component: 'email-provider',
@@ -173,6 +173,14 @@ function createGraphEmailProvider({ env = process.env, fetchImpl = fetch, teleme
                       ? { address: recipient.email, name: recipient.name }
                       : { address: recipient.email },
                   }],
+                  ...(Array.isArray(attachments) && attachments.length > 0 ? {
+                    attachments: attachments.map((a) => ({
+                      '@odata.type': '#microsoft.graph.fileAttachment',
+                      name: a.filename,
+                      contentType: a.contentType,
+                      contentBytes: Buffer.from(a.content, 'utf8').toString('base64'),
+                    })),
+                  } : {}),
                 },
               }),
               signal: AbortSignal.timeout(requestTimeoutMs),

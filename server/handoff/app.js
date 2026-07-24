@@ -603,6 +603,7 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
   outbox.register(alerting.outboxConsumer());
   alertObserver = (name, fields) => alerting.observe(name, fields);
   deps.alerting = alerting;
+  deps.notificationService = notificationService;
 
   // Data retention (ADR-0006 / #63): the automated purge, driven by the
   // liveness poller (server.js) — deterministic, idempotent, org-scoped.
@@ -740,7 +741,7 @@ function corsHeadersFor(req, allowedOrigins) {
 }
 
 /** Build the raw Node http request handler. */
-function makeHandler({ service, store, clock, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode, operations, administration, loginLimiter, trustForwardedFor, availabilityProvider, offeredSlotsSessions, bookingContexts, bookingProvider, calendarProviders }) {
+function makeHandler({ service, store, clock, allowedOrigins, mailer, configService, adapters, conversations, identityService, authz, telemetry, userSessions, userAuthProviders, activeUserAuthProviderKey, consoleAuthMode, operations, administration, loginLimiter, trustForwardedFor, availabilityProvider, offeredSlotsSessions, bookingContexts, bookingProvider, calendarProviders, notificationService }) {
   /**
    * Resolve the active Conversation Adapter for a firm. Provider selection
    * comes from the Configuration Store (connect/conversation-provider),
@@ -1422,11 +1423,42 @@ function makeHandler({ service, store, clock, allowedOrigins, mailer, configServ
           // A governed booking is bypass-detector evidence, same as a
           // governed offer (diagnostic bookkeeping only).
           if (sessionId) offeredSlotsSessions.set(sessionId, clock.now());
+          // GuideHerd-owned confirmation for NATIVE bookings (#88):
+          // exactly-once by notification key, per-organization
+          // enablement (default OFF), delivery failure never reverses
+          // the booking. Legacy bookings keep the conversation-outcome
+          // trigger; the shared session-based key dedupes the paths.
+          if (result.providerEventId && notificationService) {
+            try {
+              const { sendBookingLifecycleNotification } = require('../notifications/booking-lifecycle');
+              const bookedContext = await bookingContexts.get(result.bookingContextId);
+              if (bookedContext) {
+                await sendBookingLifecycleNotification({
+                  notifications: notificationService,
+                  configService,
+                  organizationKey: tenantKey,
+                  kind: 'booked',
+                  bookingContext: bookedContext,
+                  recipient: bookingRequest.attendee,
+                  attributedAttorneyId: result.attorneyId ?? null,
+                  correlationId,
+                });
+              }
+            } catch (err) {
+              telemetry.event('internal.unexpected_error', {
+                severity: 'error', component: 'scheduling',
+                operation: 'booking-notification', ...sanitizeError(err),
+              });
+            }
+          }
         } else if (result.outcome === 'verification_required') {
           telemetry.event('scheduling.booking_verification_required', {
             severity: 'error', component: 'scheduling', operation: 'book',
             ...bookingTelemetry, status: 'verification_required',
           });
+          // Operator escalation (#88): the telemetry event above flows
+          // through the observed-telemetry seam into the #68 alerting
+          // engine (observe -> raise), exactly-once per condition window.
         } else {
           telemetry.event('scheduling.booking_rejected', {
             severity: 'warn', component: 'scheduling', operation: 'book',

@@ -25,6 +25,7 @@
 const { validateNotificationRequest } = require('./contract');
 const { resolveBranding } = require('./branding');
 const { renderNotificationRequest } = require('./templates');
+const { buildAppointmentIcs } = require('./ics');
 
 const SETTINGS_NAMESPACE = 'notifications';
 const PROVIDER_KEY_SETTING = 'provider';
@@ -107,8 +108,29 @@ function createNotificationService({ registry, deliveryStore, configService = nu
       const branding = resolveBranding(configService, request.organizationKey);
       const rendered = renderNotificationRequest(request, branding);
 
+      // Appointment lifecycle notifications carry an ICS attachment so
+      // the caller's own calendar tracks the appointment (#88):
+      // confirmation/reschedule = METHOD:REQUEST (reschedule bumps
+      // SEQUENCE), cancellation = METHOD:CANCEL. The UID is the
+      // notification key's booking identity — stable across the
+      // lifecycle, never caller data.
+      let attachments;
+      if (['appointment-confirmation', 'appointment-rescheduled', 'appointment-cancellation'].includes(request.type)) {
+        const bookingIdentity = request.notificationKey.slice(request.notificationKey.indexOf(':') + 1);
+        attachments = [buildAppointmentIcs({
+          uid: `guideherd-${bookingIdentity}`,
+          startsAt: request.appointment.startsAt,
+          durationMinutes: request.appointment.durationMinutes ?? 30,
+          summary: request.appointment.consultationType
+            ? `${request.appointment.consultationType}${request.appointment.attorneyName ? ` with ${request.appointment.attorneyName}` : ''}`
+            : 'Consultation',
+          method: request.type === 'appointment-cancellation' ? 'CANCEL' : 'REQUEST',
+          sequence: request.type === 'appointment-rescheduled' ? 1 : 0,
+          nowMs: Date.now(),
+        })];
+      }
       const result = await provider.deliver(
-        { rendered, recipient: request.recipient, branding },
+        { rendered, recipient: request.recipient, branding, ...(attachments ? { attachments } : {}) },
         { ...context, organizationKey: request.organizationKey, notificationType: request.type, notificationKey: request.notificationKey },
       );
       const status = ['sent', 'failed', 'not-configured'].includes(result && result.status)

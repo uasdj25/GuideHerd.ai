@@ -47,7 +47,7 @@ test('framework: the production domain model registers every settings domain, al
   const ids = domainDescriptors().map((d) => d.id).sort();
   assert.deepEqual(ids, [
     'appointment-reminders', 'booking-window', 'calcom-availability', 'calendar-targets', 'conversation-provider', 'data-retention',
-    'default-consultation-type', 'identity-provider',
+    'default-consultation-type', 'graph-invitations', 'identity-provider',
     'integration-providers', 'notification-branding', 'notification-provider', 'notifications',
     'operational-alerts', 'scheduling-policy', 'scheduling-prompt',
     'workflows',
@@ -221,7 +221,7 @@ test('framework: a new domain is ONE registration — readable, strict-validated
       return { value: { text }, issues };
     },
   });
-  assert.equal(framework.descriptors().length, 17, 'sixteen production domains + the new one');
+  assert.equal(framework.descriptors().length, 18, 'seventeen production domains + the new one');
 
   // Consumer read and producer gate work immediately.
   assert.equal(framework.read(configService, 'voice-greeting', FIRM).value.text, 'Thank you for calling.');

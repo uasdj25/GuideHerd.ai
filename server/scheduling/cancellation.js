@@ -56,6 +56,7 @@ const {
 async function cancelAppointment({
   bookingContexts, calendarProviders = {}, configService, organizationKey,
   bookingContextId, clock, telemetry = null, correlationId, actor = 'operator',
+  notifications = null, recipient = null,
 }) {
   const emit = (name, fields) => {
     if (telemetry) {
@@ -146,6 +147,17 @@ async function cancelAppointment({
   }
   if (outcome.status === BookingContextStatus.CANCELLED) {
     emit('scheduling.booking_cancelled', { code: outcome.reason ?? undefined });
+    // GuideHerd-owned cancellation notice (#88): exactly-once by key,
+    // enablement-gated, never able to reverse the cancellation.
+    if (notifications && recipient) {
+      try {
+        const { sendBookingLifecycleNotification } = require('../notifications/booking-lifecycle');
+        await sendBookingLifecycleNotification({
+          notifications, configService, organizationKey,
+          kind: 'cancelled', bookingContext: recorded, recipient, correlationId,
+        });
+      } catch { /* delivery trouble is the notification layer's telemetry */ }
+    }
     return { outcome: 'cancelled', ...(outcome.reason ? { reason: outcome.reason } : {}), bookingContextId };
   }
   if (outcome.status === BookingContextStatus.BOOKED) {

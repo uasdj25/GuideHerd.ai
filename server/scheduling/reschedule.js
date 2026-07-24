@@ -166,8 +166,9 @@ async function offerReschedule({
  *   bookingContextId: string, originalBookingContextId?: string }>}
  */
 async function confirmReschedule({
-  bookingContexts, calendarProviders = {}, organizationKey,
+  bookingContexts, calendarProviders = {}, configService = null, organizationKey,
   rescheduleContextId, startsAt, clock, telemetry = null, correlationId, actor = 'caller-flow',
+  notifications = null, recipient = null,
 }) {
   const emit = (name, fields) => {
     if (telemetry) {
@@ -324,6 +325,18 @@ async function confirmReschedule({
     };
   }
   emit('scheduling.booking_rescheduled', {});
+  // GuideHerd-owned reschedule notice (#88): exactly-once by key,
+  // enablement-gated; failure never reverses the move.
+  if (notifications && recipient && configService) {
+    try {
+      const { sendBookingLifecycleNotification } = require('../notifications/booking-lifecycle');
+      const successorNow = await bookingContexts.get(successor.bookingContextId);
+      await sendBookingLifecycleNotification({
+        notifications, configService, organizationKey,
+        kind: 'rescheduled', bookingContext: successorNow, recipient, correlationId,
+      });
+    } catch { /* delivery trouble is the notification layer's telemetry */ }
+  }
   return {
     outcome: 'rescheduled',
     startsAt: canonicalStartsAt,

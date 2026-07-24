@@ -491,6 +491,12 @@ async function bookNativeAppointment({
   }
 
   const organization = configService.organizations.get(organizationKey);
+  // Whether the PROVIDER also invites the attendee (its own email
+  // channel) is tenant policy — DEFAULT OFF (#88): GuideHerd-owned
+  // notifications are the customer channel; with the toggle off the
+  // attendee is not attached to the provider event at all.
+  const { readDomain } = require('../configuration/framework');
+  const providerInvitations = readDomain(configService, 'graph-invitations', organizationKey).value.enabled === true;
   let confirmed;
   try {
     confirmed = await provider.createEvent({
@@ -498,11 +504,13 @@ async function bookNativeAppointment({
       startsAt: canonicalStartsAt,
       durationMinutes: claimed.durationMinutes,
       summary: `${organization.displayName || organization.name} — Consultation with ${request.attendee.name}`,
-      attendee: {
-        name: request.attendee.name,
-        email: request.attendee.email,
-        ...(request.attendee.phoneNumber ? { phoneNumber: request.attendee.phoneNumber } : {}),
-      },
+      ...(providerInvitations ? {
+        attendee: {
+          name: request.attendee.name,
+          email: request.attendee.email,
+          ...(request.attendee.phoneNumber ? { phoneNumber: request.attendee.phoneNumber } : {}),
+        },
+      } : {}),
       // Operator correlation, no PII: the booking-context internal id —
       // reconciliation finds the event by this, never by attendee identity.
       correlationId: context.bookingContextId,

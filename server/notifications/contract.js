@@ -64,7 +64,7 @@ const MODEL_TYPES = Object.freeze(['consultation-summary', 'operational-alert'])
 
 const REQUEST_KEYS = Object.freeze(['type', 'organizationKey', 'notificationKey', 'recipient', 'appointment', 'locale', 'model']);
 const RECIPIENT_KEYS = Object.freeze(['name', 'email']);
-const APPOINTMENT_KEYS = Object.freeze(['startsAt', 'timezone', 'attorneyName', 'consultationType', 'location']);
+const APPOINTMENT_KEYS = Object.freeze(['startsAt', 'timezone', 'attorneyName', 'consultationType', 'location', 'durationMinutes']);
 
 const LIMITS = Object.freeze({ key: 256, string: 254 });
 
@@ -126,7 +126,12 @@ function validateNotificationRequest(request) {
   }
   if (!isNonblank(appointment.startsAt, 64) || Number.isNaN(Date.parse(appointment.startsAt))) fail('appointment.startsAt must be an ISO-8601 datetime');
   if (!isNonblank(appointment.timezone, 64)) fail('appointment.timezone required');
+  if (appointment.durationMinutes !== undefined
+    && (!Number.isInteger(appointment.durationMinutes) || appointment.durationMinutes < 1 || appointment.durationMinutes > 480)) {
+    fail('appointment.durationMinutes must be an integer between 1 and 480 when present');
+  }
   for (const key of ['attorneyName', 'consultationType', 'location']) {
+    if (key === 'durationMinutes') continue;
     if (appointment[key] !== undefined && !isNonblank(appointment[key], 200)) fail(`appointment.${key} invalid`);
   }
   if (request.locale !== undefined && !isNonblank(request.locale, 35)) fail('locale invalid');
@@ -145,6 +150,7 @@ function validateNotificationRequest(request) {
       attorneyName: appointment.attorneyName === undefined ? null : appointment.attorneyName.trim(),
       consultationType: appointment.consultationType === undefined ? null : appointment.consultationType.trim(),
       location: appointment.location === undefined ? null : appointment.location.trim(),
+      durationMinutes: appointment.durationMinutes === undefined ? null : appointment.durationMinutes,
     },
     locale: request.locale === undefined ? 'en-US' : request.locale.trim(),
   };

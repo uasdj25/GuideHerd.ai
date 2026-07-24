@@ -265,6 +265,34 @@ function registerProductionDomains(framework) {
     },
   });
 
+  // Graph attendee invitations (GitLab #88 decision of record):
+  // GuideHerd-owned email (with ICS) is the DEFAULT customer
+  // communication channel; whether the calendar provider ALSO sends its
+  // own attendee invitations is tenant policy — DEFAULT OFF, so native
+  // bookings never double-notify a caller. When off, the attendee is not
+  // attached to the provider event at all.
+  framework.register({
+    id: 'graph-invitations',
+    title: 'Calendar provider attendee invitations',
+    owner: 'notifications',
+    namespace: 'notifications',
+    key: 'graph-invitations',
+    live: true,
+    schemaVersion: 1,
+    normalize(raw) {
+      if (raw === null || raw === undefined) return { value: { enabled: false }, issues: [] };
+      const issues = [];
+      if (!isPlainObject(raw)) {
+        return { value: { enabled: false }, issues: ['must be an object like { "enabled": true }'] };
+      }
+      for (const k of Object.keys(raw)) {
+        if (k !== 'enabled') issues.push(`unknown field: ${k}`);
+      }
+      if (typeof raw.enabled !== 'boolean') issues.push('enabled must be a boolean');
+      return { value: { enabled: raw.enabled === true }, issues };
+    },
+  });
+
   // Data retention (ADR-0006 / #63) — how long operational sessions live
   // before hard deletion. DEFAULTS are ADR-0006's PROPOSED windows
   // (sign-off pending); every field is organization-overridable. Bounded

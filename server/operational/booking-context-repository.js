@@ -211,6 +211,42 @@ function createPostgresBookingContextStore({ pool, clock, audit = null }) {
       return completed;
     },
 
+    async listByStatus({ status, organizationKey = null, limit = 100 } = {}) {
+      const { rows } = organizationKey === null
+        ? await pool.query(
+          `SELECT * FROM booking_contexts WHERE status = $1 ORDER BY updated_at ASC LIMIT $2`,
+          [status, limit],
+        )
+        : await pool.query(
+          `SELECT * FROM booking_contexts WHERE status = $1 AND organization_key = $2
+            ORDER BY updated_at ASC LIMIT $3`,
+          [status, organizationKey, limit],
+        );
+      return rows.map(toContext);
+    },
+
+    async resolveVerification({ bookingContextId, status, providerEventId, rejectionReason, actor = 'reconciler' }) {
+      if (![BookingContextStatus.BOOKED, BookingContextStatus.REJECTED,
+        BookingContextStatus.CANCELLED, BookingContextStatus.RESCHEDULED].includes(status)) {
+        throw new TypeError(`resolveVerification() cannot target status: ${status}`);
+      }
+      const { rows } = await pool.query(
+        `UPDATE booking_contexts
+            SET status = $2,
+                provider_event_id = COALESCE($3, provider_event_id),
+                rejection_reason = $4, updated_at = $5
+          WHERE booking_context_id = $1 AND status = 'verification_required'
+          RETURNING *`,
+        [bookingContextId, status, providerEventId ?? null, rejectionReason ?? null, nowDate()],
+      );
+      if (rows.length === 0) return null;
+      const resolved = toContext(rows[0]);
+      await emitAudit(`verification_resolved_${status}`, resolved, {
+        actor, detail: rejectionReason ? { reason: rejectionReason } : null,
+      });
+      return resolved;
+    },
+
     async beginCancellation({ bookingContextId, actor = 'operator' }) {
       const { rows } = await pool.query(
         `UPDATE booking_contexts

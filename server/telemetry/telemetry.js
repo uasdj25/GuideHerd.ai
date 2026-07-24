@@ -86,6 +86,7 @@ const EVENTS = Object.freeze([
   'scheduling.cancellation_rejected',
   'scheduling.booking_rescheduled',
   'scheduling.reschedule_rejected',
+  'scheduling.booking_reconciled',
   // Data retention (ADR-0006 / #63): one event per sweep, counts only.
   'retention.swept',
   // Failure alerting (#68): raised conditions are ALWAYS loud here,

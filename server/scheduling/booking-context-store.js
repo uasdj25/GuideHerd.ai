@@ -303,6 +303,42 @@ function createInMemoryBookingContextStore({ clock, audit = null }) {
     },
 
     /**
+     * Operational listing (reconciler #87, workqueue #93): contexts in
+     * one status, oldest first. Read-only.
+     */
+    async listByStatus({ status, organizationKey = null, limit = 100 } = {}) {
+      const rows = [...byId.values()]
+        .filter((row) => row.status === status
+          && (organizationKey === null || row.organizationKey === organizationKey))
+        .sort((a, b) => a.updatedAtMs - b.updatedAtMs)
+        .slice(0, limit);
+      return rows.map(present);
+    },
+
+    /**
+     * Evidence-based resolution of a verification_required context
+     * (reconciler with provider evidence, or an operator with recorded
+     * attestation — #87/#93): verification_required -> booked | rejected
+     * | cancelled | rescheduled. Conditional; never invents outcomes.
+     */
+    async resolveVerification({ bookingContextId, status, providerEventId, rejectionReason, actor = 'reconciler' }) {
+      if (![BookingContextStatus.BOOKED, BookingContextStatus.REJECTED,
+        BookingContextStatus.CANCELLED, BookingContextStatus.RESCHEDULED].includes(status)) {
+        throw new TypeError(`resolveVerification() cannot target status: ${status}`);
+      }
+      const row = byId.get(bookingContextId);
+      if (!row || row.status !== BookingContextStatus.VERIFICATION_REQUIRED) return null;
+      row.status = status;
+      if (providerEventId !== undefined) row.providerEventId = providerEventId;
+      row.rejectionReason = rejectionReason ?? null;
+      row.updatedAtMs = clock.now();
+      await emitAudit(`verification_resolved_${status}`, row, {
+        actor, detail: rejectionReason ? { reason: rejectionReason } : null,
+      });
+      return present(row);
+    },
+
+    /**
      * Atomic single-winner start of a cancellation: booked ->
      * cancellation_pending (mirrors the booking claim — two concurrent
      * cancel requests can never both drive the provider call). Returns

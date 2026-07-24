@@ -667,9 +667,21 @@ function createApp({ clock = systemClock(), ttlSeconds, corsAllowedOrigins, mail
     schedulingAudit: deps.schedulingAudit,
     reconcileBookingContexts: async () => {
       try {
-        return await reconcileStaleBookingContexts({
+        const flipped = await reconcileStaleBookingContexts({
           bookingContexts: deps.bookingContexts, telemetry: observedTelemetry,
         });
+        // Evidence-based resolution of the verification queue (#87):
+        // provider evidence only, no writes, never a guess. Runs only
+        // when native calendar providers exist on this deployment.
+        if (Object.keys(deps.calendarProviders).length > 0) {
+          const { reconcileVerificationRequired } = require('../scheduling/booking-reconciler');
+          await reconcileVerificationRequired({
+            bookingContexts: deps.bookingContexts,
+            calendarProviders: deps.calendarProviders,
+            telemetry: observedTelemetry,
+          });
+        }
+        return flipped;
       } catch (err) {
         // A reconciliation failure is NEVER silent: the store threw, so
         // stranded rows may still await an operator. Identifiers and the

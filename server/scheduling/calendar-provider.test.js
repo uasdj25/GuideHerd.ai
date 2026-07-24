@@ -44,6 +44,7 @@ const NATIVE_CORE_FILES = [
   'native-availability.js',
   'cancellation.js',
   'reschedule.js',
+  'booking-reconciler.js',
 ];
 const PROVIDER_IDENTIFIERS = [/calcom/i, /cal\.com/i, /graph\.microsoft/i, /msgraph/i, /googleapis/i, /workspace/i];
 

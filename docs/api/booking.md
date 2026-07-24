@@ -144,6 +144,25 @@ Durable booking correctness requires
 in-memory reference store exists for tests, development, and the
 contract suite — never for production booking.
 
+## Automated reconciliation (native bookings)
+
+For NATIVE bookings the manual procedure below is the FALLBACK: an
+automated reconciler (GitLab #87) runs at boot and on every liveness
+tick, resolving verification_required contexts from PROVIDER EVIDENCE —
+the event located by the GuideHerd correlation identifier, never by
+attendee identity or same-time inference. Creation ambiguity: event
+found -> booked (with the recovered event id); a positive
+nothing-found answer -> rejected. Cancellation ambiguity: event gone ->
+cancelled; event standing -> booked (the appointment stands).
+Reschedule pairs: resolved from the event's actual start time, both
+sides together. The reconciler performs no provider writes, never
+retries a booking, and on any provider read failure leaves the context
+queued with loud telemetry (`scheduling.booking_reconciled` on
+resolution; `reconciliation_evidence_unavailable` when evidence could
+not be read). What the reconciler cannot prove stays queued for the
+operator workqueue (#93) — resolution there requires provider evidence
+or an explicit recorded attestation, never guesswork.
+
 ## Native scheduling (provider-neutral) branch
 
 A tenant whose governed `scheduling/calendar-targets` configuration

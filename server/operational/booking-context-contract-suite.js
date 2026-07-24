@@ -490,6 +490,42 @@ function runBookingContextContractSuite(label, makeStore) {
     assert.equal(flipped[0].rejectionReason, 'stale_rescheduling');
   });
 
+  test(`booking-context contract [${label}]: listByStatus and resolveVerification serve the reconciler and workqueue`, async () => {
+    const clock = fixedClock(T0);
+    const audit = createInMemoryAuditLog();
+    const store = await makeStore({ clock, audit });
+    const vr = makeNativeContext();
+    await store.create(vr);
+    await store.claim({ bookingContextId: vr.bookingContextId, startsAt: SLOT_A });
+    await store.complete({
+      bookingContextId: vr.bookingContextId, status: BookingContextStatus.VERIFICATION_REQUIRED,
+      rejectionReason: 'provider_timeout',
+    });
+    const other = makeNativeContext({ organizationKey: 'org-b' });
+    await store.create(other);
+
+    const queued = await store.listByStatus({ status: BookingContextStatus.VERIFICATION_REQUIRED });
+    assert.deepEqual(queued.map((c) => c.bookingContextId), [vr.bookingContextId]);
+    assert.deepEqual(await store.listByStatus({
+      status: BookingContextStatus.VERIFICATION_REQUIRED, organizationKey: 'org-b',
+    }), [], 'tenant filter applies');
+
+    // Evidence-based resolution: verification_required -> booked, with
+    // the recovered provider event id and a reconciler audit record.
+    const resolvedContext = await store.resolveVerification({
+      bookingContextId: vr.bookingContextId, status: BookingContextStatus.BOOKED,
+      providerEventId: 'evt-recovered', rejectionReason: 'reconciled_event_found',
+    });
+    assert.equal(resolvedContext.status, BookingContextStatus.BOOKED);
+    assert.equal(resolvedContext.providerEventId, 'evt-recovered');
+    // Only verification_required rows resolve; a second call is a no-op.
+    assert.equal(await store.resolveVerification({
+      bookingContextId: vr.bookingContextId, status: BookingContextStatus.REJECTED,
+    }), null);
+    const trail = await audit.listByContext(vr.bookingContextId);
+    assert.deepEqual([trail.at(-1).action, trail.at(-1).actor], ['verification_resolved_booked', 'reconciler']);
+  });
+
   test(`booking-context contract [${label}]: a THROWING audit sink never fails a transition`, async () => {
     const clock = fixedClock(T0);
     const store = await makeStore({

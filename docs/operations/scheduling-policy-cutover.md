@@ -369,6 +369,33 @@ were left to language-model improvisation against a prose table.
 Extending coverage is tenant configuration (add mappings through the
 producer gate), not code.
 
+**Coverage finding (2026-07-23).** The production catalog lists seven
+active attorneys, but an exhaustive read-only enumeration of the
+Cal.com account (personal event types, team 348949 event types,
+memberships, per-username listings, direct by-ID reads) proved only
+three event types and only two Cal.com users exist. Mac Martinson,
+Morris Lilienthal, Caleb Ballew, Carter Montgomery, and Raina Baugher
+have no Cal.com user and no event type anywhere in the account — a
+provisioning gap, not a mapping omission. Git history and every prior
+prompt/tool configuration contain no other event type IDs; there is
+nothing authoritative to map. These five attorneys fail closed
+(`routing_unresolved` → escalation, zero provider calls), verified
+live: a prepared caller for Morris Lilienthal escalated correctly with
+no booking attempted.
+
+**Scope decision (2026-07-23).** Demo acceptance is re-scoped to the
+three provisioned routes (Clay, Doug, probate round-robin). Full
+seven-attorney coverage is deliberately NOT pursued under Cal.com:
+provisioning five per-attorney event types would be throwaway work,
+because the GuideHerd v1.0 native-scheduling milestone replaces
+per-attorney provider event types with calendar targets — under that
+model an attorney becomes schedulable through administrative calendar
+assignment, eliminating this class of gap structurally (see the v1.0
+milestone plan: configuration migration CUT-1 and the seven-attorney
+production acceptance gate CUT-3). Until then the five unmapped
+attorneys are a **known, documented limitation** of the Cal.com-backed
+demo, and every request for them escalates fail-closed.
+
 ## Notes
 
 - ADR-0018 (Scheduler Contract) governs background reminders/scheduled actions —

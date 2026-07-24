@@ -19,6 +19,7 @@ const { normalizePolicy } = require('../scheduling/policy');
 const { normalizeBrandingDocument } = require('../notifications/branding');
 const { normalizeSchedulingPromptProfile } = require('../connect/prompt-renderer');
 const { normalizeCalcomAvailabilityConfig } = require('../scheduling/availability');
+const { normalizeSchedulingTargetsConfig } = require('../scheduling/scheduling-targets');
 
 function isPlainObject(v) {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -148,6 +149,27 @@ function registerProductionDomains(framework) {
         }
       }
       return issues;
+    },
+  });
+
+  // Calendar targets — the PROVIDER-NEUTRAL scheduling target domain
+  // (GitLab #76): the tenant's native calendar provider selection and the
+  // attorney/routing-group calendar bindings native scheduling routes
+  // against. DARK BY DEFAULT (provider: null) — the deployed provider
+  // path keeps serving production until the controlled cutover (#96)
+  // selects otherwise per tenant. Cross-entity strictness and tenant
+  // readiness are #77. The legacy `calcom-availability` domain above is
+  // the TRANSITIONAL provider mapping, removed at decommission (#97).
+  framework.register({
+    id: 'calendar-targets',
+    title: 'Calendar targets',
+    owner: 'scheduling',
+    namespace: 'scheduling',
+    key: 'calendar-targets',
+    live: true,
+    schemaVersion: 1,
+    normalize(raw) {
+      return normalizeSchedulingTargetsConfig(raw);
     },
   });
 

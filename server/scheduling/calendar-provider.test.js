@@ -38,6 +38,7 @@ runCalendarProviderContractSuite('reference provider', () => {
 const NATIVE_CORE_FILES = [
   'calendar-provider.js',
   'calendar-provider-contract-suite.js',
+  'scheduling-targets.js',
 ];
 const PROVIDER_IDENTIFIERS = [/calcom/i, /cal\.com/i, /graph\.microsoft/i, /msgraph/i, /googleapis/i, /workspace/i];
 

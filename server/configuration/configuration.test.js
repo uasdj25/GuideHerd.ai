@@ -46,7 +46,7 @@ function fixture() {
 test('framework: the production domain model registers every settings domain, all LIVE', () => {
   const ids = domainDescriptors().map((d) => d.id).sort();
   assert.deepEqual(ids, [
-    'appointment-reminders', 'calcom-availability', 'conversation-provider', 'data-retention',
+    'appointment-reminders', 'calcom-availability', 'calendar-targets', 'conversation-provider', 'data-retention',
     'default-consultation-type', 'identity-provider',
     'integration-providers', 'notification-branding', 'notification-provider', 'notifications',
     'operational-alerts', 'scheduling-policy', 'scheduling-prompt',
@@ -221,7 +221,7 @@ test('framework: a new domain is ONE registration — readable, strict-validated
       return { value: { text }, issues };
     },
   });
-  assert.equal(framework.descriptors().length, 15, 'fourteen production domains + the new one');
+  assert.equal(framework.descriptors().length, 16, 'fifteen production domains + the new one');
 
   // Consumer read and producer gate work immediately.
   assert.equal(framework.read(configService, 'voice-greeting', FIRM).value.text, 'Thank you for calling.');

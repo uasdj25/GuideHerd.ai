@@ -41,6 +41,7 @@ const NATIVE_CORE_FILES = [
   'scheduling-targets.js',
   'readiness.js',
   'slot-generation.js',
+  'native-availability.js',
 ];
 const PROVIDER_IDENTIFIERS = [/calcom/i, /cal\.com/i, /graph\.microsoft/i, /msgraph/i, /googleapis/i, /workspace/i];
 

@@ -43,6 +43,7 @@ const NATIVE_CORE_FILES = [
   'slot-generation.js',
   'native-availability.js',
   'cancellation.js',
+  'reschedule.js',
 ];
 const PROVIDER_IDENTIFIERS = [/calcom/i, /cal\.com/i, /graph\.microsoft/i, /msgraph/i, /googleapis/i, /workspace/i];
 

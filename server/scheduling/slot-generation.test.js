@@ -195,7 +195,7 @@ test('booking-window: defaults are safe and hours-free — nothing here can open
   assert.deepEqual(value, {
     bufferBeforeMinutes: 0, bufferAfterMinutes: 0, minimumNoticeMinutes: 0,
     horizonDays: 60, slotGranularityMinutes: 30, cancellationCutoffMinutes: 0,
-    exceptions: [], attorneyHours: {},
+    rescheduleCutoffMinutes: 0, exceptions: [], attorneyHours: {},
   });
   assert.deepEqual(issues, []);
 });

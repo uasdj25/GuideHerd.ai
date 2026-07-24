@@ -53,6 +53,7 @@ function toContext(row) {
     calendarRef: row.calendar_ref,
     offeredTargets: row.offered_targets,
     providerEventId: row.provider_event_id,
+    rescheduleOf: row.reschedule_of,
     status: row.status,
     selectedStartsAt: row.selected_starts_at === null ? null : new Date(row.selected_starts_at).toISOString(),
     calcomBookingUid: row.calcom_booking_uid,
@@ -106,9 +107,9 @@ function createPostgresBookingContextStore({ pool, clock, audit = null }) {
            booking_context_id, context_token_hash, organization_key, session_id,
            route_kind, attorney_id, routing_group_key, practice_area_id,
            consultation_type_id, event_type_id, duration_minutes, offered_slots,
-           provider_key, calendar_ref, offered_targets,
+           provider_key, calendar_ref, offered_targets, reschedule_of,
            status, created_at, updated_at, expires_at
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'offered',$16,$16,$17)
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'offered',$17,$17,$18)
          RETURNING *`,
         [
           context.bookingContextId, context.contextTokenHash, context.organizationKey,
@@ -119,6 +120,7 @@ function createPostgresBookingContextStore({ pool, clock, audit = null }) {
           context.providerKey ?? null, context.calendarRef ?? null,
           context.offeredTargets === undefined || context.offeredTargets === null
             ? null : JSON.stringify(context.offeredTargets),
+          context.rescheduleOf ?? null,
           createdAt, new Date(context.expiresAtMs),
         ],
       );
@@ -243,15 +245,51 @@ function createPostgresBookingContextStore({ pool, clock, audit = null }) {
       return done;
     },
 
+    async beginReschedule({ bookingContextId, actor = 'caller-flow' }) {
+      const { rows } = await pool.query(
+        `UPDATE booking_contexts
+            SET status = 'rescheduling', updated_at = $2
+          WHERE booking_context_id = $1 AND status = 'booked'
+          RETURNING *`,
+        [bookingContextId, nowDate()],
+      );
+      if (rows.length === 0) return null;
+      const pending = toContext(rows[0]);
+      await emitAudit('rescheduling', pending, { actor });
+      return pending;
+    },
+
+    async completeReschedule({ bookingContextId, status, rejectionReason, actor = 'caller-flow' }) {
+      if (![BookingContextStatus.RESCHEDULED, BookingContextStatus.VERIFICATION_REQUIRED,
+        BookingContextStatus.BOOKED].includes(status)) {
+        throw new TypeError(`completeReschedule() cannot target status: ${status}`);
+      }
+      const { rows } = await pool.query(
+        `UPDATE booking_contexts
+            SET status = $2, rejection_reason = $3, updated_at = $4
+          WHERE booking_context_id = $1 AND status = 'rescheduling'
+          RETURNING *`,
+        [bookingContextId, status, rejectionReason ?? null, nowDate()],
+      );
+      if (rows.length === 0) return null;
+      const done = toContext(rows[0]);
+      await emitAudit(status === BookingContextStatus.BOOKED ? 'reschedule_reverted' : status, done, {
+        actor, detail: rejectionReason ? { reason: rejectionReason } : null,
+      });
+      return done;
+    },
+
     async reconcileStale({ staleMs = STALE_BOOKING_MS } = {}) {
       const now = nowDate();
       const { rows } = await pool.query(
         `UPDATE booking_contexts
             SET status = 'verification_required',
-                rejection_reason = CASE status WHEN 'booking_in_progress'
-                  THEN 'stale_booking_in_progress' ELSE 'stale_cancellation_pending' END,
+                rejection_reason = CASE status
+                  WHEN 'booking_in_progress' THEN 'stale_booking_in_progress'
+                  WHEN 'cancellation_pending' THEN 'stale_cancellation_pending'
+                  ELSE 'stale_rescheduling' END,
                 updated_at = $1
-          WHERE status IN ('booking_in_progress', 'cancellation_pending') AND updated_at <= $2
+          WHERE status IN ('booking_in_progress', 'cancellation_pending', 'rescheduling') AND updated_at <= $2
           RETURNING *`,
         [now, new Date(clock.now() - staleMs)],
       );

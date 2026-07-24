@@ -41,13 +41,15 @@ const BookingContextStatus = Object.freeze({
   VERIFICATION_REQUIRED: 'verification_required',
   CANCELLATION_PENDING: 'cancellation_pending',
   CANCELLED: 'cancelled',
+  RESCHEDULING: 'rescheduling',
+  RESCHEDULED: 'rescheduled',
 });
 
 /** Statuses that OCCUPY a calendar instant (the slot-guard predicate):
  *  a cancellation still in flight keeps its event until the provider
  *  confirms, so it keeps its slot too. */
 const SLOT_OCCUPYING_STATUSES = Object.freeze([
-  'booking_in_progress', 'booked', 'cancellation_pending',
+  'booking_in_progress', 'booked', 'cancellation_pending', 'rescheduling',
 ]);
 
 const ROUTE_KINDS = Object.freeze(['attorney', 'routing-group', 'default']);
@@ -194,6 +196,7 @@ function createInMemoryBookingContextStore({ clock, audit = null }) {
         calendarRef: context.calendarRef ?? null,
         offeredTargets: context.offeredTargets ? { ...context.offeredTargets } : null,
         providerEventId: null,
+        rescheduleOf: context.rescheduleOf ?? null,
         status: BookingContextStatus.OFFERED,
         selectedStartsAt: null,
         calcomBookingUid: null,
@@ -339,6 +342,44 @@ function createInMemoryBookingContextStore({ clock, audit = null }) {
     },
 
     /**
+     * Atomic single-winner start of a reschedule: booked -> rescheduling.
+     * The original keeps occupying its OLD instant (guard) while the
+     * provider update is in flight.
+     */
+    async beginReschedule({ bookingContextId, actor = 'caller-flow' }) {
+      const row = byId.get(bookingContextId);
+      if (!row || row.status !== BookingContextStatus.BOOKED) return null;
+      row.status = BookingContextStatus.RESCHEDULING;
+      row.updatedAtMs = clock.now();
+      await emitAudit('rescheduling', row, { actor });
+      return present(row);
+    },
+
+    /**
+     * Record the reschedule outcome on the ORIGINAL context:
+     * rescheduling -> rescheduled (terminal; the successor context holds
+     * the live appointment) | booked (REVERTED — the update was
+     * definitively refused; the original appointment stands) |
+     * verification_required (ambiguous — the event may be at either
+     * time; reconciliation resolves from the event's actual start).
+     */
+    async completeReschedule({ bookingContextId, status, rejectionReason, actor = 'caller-flow' }) {
+      if (![BookingContextStatus.RESCHEDULED, BookingContextStatus.VERIFICATION_REQUIRED,
+        BookingContextStatus.BOOKED].includes(status)) {
+        throw new TypeError(`completeReschedule() cannot target status: ${status}`);
+      }
+      const row = byId.get(bookingContextId);
+      if (!row || row.status !== BookingContextStatus.RESCHEDULING) return null;
+      row.status = status;
+      row.rejectionReason = rejectionReason ?? null;
+      row.updatedAtMs = clock.now();
+      await emitAudit(status === BookingContextStatus.BOOKED ? 'reschedule_reverted' : status, row, {
+        actor, detail: rejectionReason ? { reason: rejectionReason } : null,
+      });
+      return present(row);
+    },
+
+    /**
      * Startup/periodic reconciliation: booking_in_progress rows stranded
      * longer than `staleMs` (crash mid-booking — the provider call may or
      * may not have succeeded) flip to verification_required so an operator
@@ -348,9 +389,11 @@ function createInMemoryBookingContextStore({ clock, audit = null }) {
       const nowMs = clock.now();
       const flipped = [];
       for (const row of byId.values()) {
-        const staleKind = row.status === BookingContextStatus.BOOKING_IN_PROGRESS
-          ? 'stale_booking_in_progress'
-          : (row.status === BookingContextStatus.CANCELLATION_PENDING ? 'stale_cancellation_pending' : null);
+        const staleKind = {
+          [BookingContextStatus.BOOKING_IN_PROGRESS]: 'stale_booking_in_progress',
+          [BookingContextStatus.CANCELLATION_PENDING]: 'stale_cancellation_pending',
+          [BookingContextStatus.RESCHEDULING]: 'stale_rescheduling',
+        }[row.status] ?? null;
         if (staleKind && row.updatedAtMs <= nowMs - staleMs) {
           row.status = BookingContextStatus.VERIFICATION_REQUIRED;
           row.rejectionReason = staleKind;

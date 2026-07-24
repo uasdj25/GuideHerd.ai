@@ -434,6 +434,62 @@ function runBookingContextContractSuite(label, makeStore) {
     assert.equal(flipped[0].rejectionReason, 'stale_cancellation_pending');
   });
 
+  test(`booking-context contract [${label}]: reschedule lifecycle — old slot held during the move, lineage recorded, revert works`, async () => {
+    const clock = fixedClock(T0);
+    const audit = createInMemoryAuditLog();
+    const store = await makeStore({ clock, audit });
+    const original = makeNativeContext();
+    await store.create(original);
+    await store.claim({ bookingContextId: original.bookingContextId, startsAt: SLOT_A });
+    await store.complete({ bookingContextId: original.bookingContextId, status: BookingContextStatus.BOOKED, providerEventId: 'evt-r1' });
+
+    // The successor context records its lineage.
+    const successor = makeNativeContext({ rescheduleOf: original.bookingContextId });
+    const createdSuccessor = await store.create(successor);
+    assert.equal(createdSuccessor.rescheduleOf, original.bookingContextId);
+
+    // Only booked rows can begin a reschedule.
+    assert.equal(await store.beginReschedule({ bookingContextId: successor.bookingContextId }), null);
+    const begun = await store.beginReschedule({ bookingContextId: original.bookingContextId });
+    assert.equal(begun.status, BookingContextStatus.RESCHEDULING);
+
+    // 'rescheduling' still occupies the OLD instant.
+    const contender = makeNativeContext();
+    await store.create(contender);
+    assert.equal(await store.claim({ bookingContextId: contender.bookingContextId, startsAt: SLOT_A }), null,
+      'rescheduling still guards the original instant');
+
+    // A definitive refusal REVERTS to booked…
+    const reverted = await store.completeReschedule({
+      bookingContextId: original.bookingContextId, status: BookingContextStatus.BOOKED,
+      rejectionReason: 'reschedule_rejected_provider_rejected_400',
+    });
+    assert.equal(reverted.status, BookingContextStatus.BOOKED);
+    // …and a later successful move terminates the original as rescheduled,
+    // releasing the old instant.
+    await store.beginReschedule({ bookingContextId: original.bookingContextId });
+    const done = await store.completeReschedule({
+      bookingContextId: original.bookingContextId, status: BookingContextStatus.RESCHEDULED,
+    });
+    assert.equal(done.status, BookingContextStatus.RESCHEDULED);
+    assert.ok(await store.claim({ bookingContextId: contender.bookingContextId, startsAt: SLOT_A }),
+      'a rescheduled original releases its old instant');
+  });
+
+  test(`booking-context contract [${label}]: a stranded rescheduling row reconciles to verification_required`, async () => {
+    const clock = fixedClock(T0);
+    const store = await makeStore({ clock });
+    const original = makeNativeContext();
+    await store.create(original);
+    await store.claim({ bookingContextId: original.bookingContextId, startsAt: SLOT_A });
+    await store.complete({ bookingContextId: original.bookingContextId, status: BookingContextStatus.BOOKED, providerEventId: 'evt-r2' });
+    await store.beginReschedule({ bookingContextId: original.bookingContextId });
+    clock.advance(STALE_BOOKING_MS + 1);
+    const flipped = await store.reconcileStale({});
+    assert.equal(flipped.length, 1);
+    assert.equal(flipped[0].rejectionReason, 'stale_rescheduling');
+  });
+
   test(`booking-context contract [${label}]: a THROWING audit sink never fails a transition`, async () => {
     const clock = fixedClock(T0);
     const store = await makeStore({

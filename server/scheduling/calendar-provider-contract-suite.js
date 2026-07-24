@@ -59,7 +59,11 @@ function runCalendarProviderContractSuite(label, makeHarness) {
     assert.deepEqual(byRef['cal-rw'], {
       calendarRef: 'cal-rw', displayName: 'Read-write', capabilities: { read: true, write: true },
     });
-    assert.deepEqual(byRef['cal-ro'].capabilities, { read: true, write: false });
+    // Providers may model write restriction differently (a split
+    // capability, or an all-or-nothing access policy) — the contract rule
+    // is NEVER OVERCLAIM: a restricted calendar must not report write.
+    assert.equal(byRef['cal-ro'].capabilities.write, false,
+      'a write-restricted calendar never claims write capability');
     for (const entry of found) {
       assert.deepEqual(Object.keys(entry).sort(), ['calendarRef', 'capabilities', 'displayName']);
     }

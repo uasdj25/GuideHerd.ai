@@ -23,6 +23,10 @@ const {
   normalizeSchedulingTargetsConfig,
   validateSchedulingTargetsCrossEntity,
 } = require('../scheduling/scheduling-targets');
+const {
+  normalizeBookingWindowConfig,
+  validateBookingWindowCrossEntity,
+} = require('../scheduling/slot-generation');
 
 function isPlainObject(v) {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -181,6 +185,28 @@ function registerProductionDomains(framework) {
     // bound). Owned by the scheduling subsystem.
     validate(value, context) {
       return validateSchedulingTargetsCrossEntity(value, context);
+    },
+  });
+
+  // Booking window — the tenant's native booking-shape policy (GitLab
+  // #78): buffers, minimum notice, booking horizon, slot granularity,
+  // holiday closures, and per-attorney weekly-hours overrides. HOURS
+  // themselves stay in location officeHours (the three-hours model the
+  // customer documentation teaches) — no default here can open a
+  // calendar; absent hours mean NO native availability, fail closed.
+  framework.register({
+    id: 'booking-window',
+    title: 'Booking window',
+    owner: 'scheduling',
+    namespace: 'scheduling',
+    key: 'booking-window',
+    live: true,
+    schemaVersion: 1,
+    normalize(raw) {
+      return normalizeBookingWindowConfig(raw);
+    },
+    validate(value, context) {
+      return validateBookingWindowCrossEntity(value, context);
     },
   });
 

@@ -40,6 +40,7 @@ const NATIVE_CORE_FILES = [
   'calendar-provider-contract-suite.js',
   'scheduling-targets.js',
   'readiness.js',
+  'slot-generation.js',
 ];
 const PROVIDER_IDENTIFIERS = [/calcom/i, /cal\.com/i, /graph\.microsoft/i, /msgraph/i, /googleapis/i, /workspace/i];
 
